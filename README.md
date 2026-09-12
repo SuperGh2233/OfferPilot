@@ -8,9 +8,9 @@ OfferPilot 是一个可每天使用的个人秋招训练系统，围绕两条闭
 
 - Phase 0–7 已完成：算法与八股规则、每日 Planner、训练闭环、Dashboard、Progress、Settings 和可选 AI 代码复盘均可在本地使用。
 - Phase 8 的导航、深色模式、响应式基础、状态语义、Loading/Error/404 和可访问性已完成。
-- 当前默认使用服务器端 SQLite 单文件持久化，重启服务或更换浏览器不会丢失进度。
-- 真实 Supabase Migration、Seed、Auth/RLS 联调和 Vercel 部署需要项目凭据，仍是 Phase 8 的外部执行项。
-- Supabase 训练适配层、受认证 Route Handler 与事务 Migration 已在本地实现；尚未在真实项目执行 Migration/Seed/RLS/Auth 验收，因此当前版本仍不能视为云端生产完成版。
+- 本地 Demo 可使用服务器端 SQLite 单文件持久化；生产环境使用真实 Supabase Auth、PostgreSQL 与 RLS。
+- Supabase Migration、两次 Seed、精确题库校验和双用户 RLS 隔离已通过；真实注册账号已创建并确认。
+- Vercel 生产站点已发布到 [offerpilot-dun.vercel.app](https://offerpilot-dun.vercel.app)，生产登录与训练闭环仍需最终人工验收。
 
 详细执行进度以 [PLAN.md](PLAN.md) 为准。
 
@@ -18,11 +18,11 @@ OfferPilot 是一个可每天使用的个人秋招训练系统，围绕两条闭
 
 - Next.js 16 App Router、React 19、TypeScript strict
 - Tailwind CSS 4、shadcn/ui
-- Node.js 内置 SQLite（当前本地数据库）
-- Supabase Auth、PostgreSQL、RLS（后续部署）
+- Node.js 内置 SQLite（本地 Demo 数据库）
+- Supabase Auth、PostgreSQL、RLS（生产数据库）
 - OpenAI Responses API（可选代码复盘）
 - Vitest
-- Vercel 目标部署平台
+- Vercel 生产部署平台
 
 需要 Node.js 22.13 或更高版本。
 

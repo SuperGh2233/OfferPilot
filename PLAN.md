@@ -6,10 +6,10 @@
 
 - 最后更新：2026-09-12
 - 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
-- 当前任务：Phase 8.5 完成真实账号登录、退出和训练闭环验收
+- 当前任务：Phase 8.5 完成生产登录、退出、训练闭环与 Smoke Test 验收
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
-- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；真实注册已创建账号，登录与训练联调进行中
+- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；Vercel 生产站点已发布，真实登录与训练验收进行中
 - 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；25 个测试文件、229 项测试通过，生成 237 个页面
 
 | 阶段 | 状态 | 核心结果 |
@@ -236,7 +236,7 @@ npm run build
 - [x] 执行 Migration、Seed，验证 100 / 165 / 904 / 120 数据。
 - [x] 连续执行两次 Seed 并验证幂等，使用两个用户验证 RLS 隔离。
 - [ ] 关闭 `LOCAL_DEMO_MODE`，联调真实注册、邮箱确认、登录、退出和 RLS 隔离。
-- [ ] 在 Vercel 配置生产环境变量并部署 Next.js 前端。
+- [x] 在 Vercel 配置生产环境变量并部署 Next.js 前端。
 - [ ] 完成生产 Smoke Test、README 和恢复/排错说明。（脚本与文档已完成，待真实生产执行）
 - [ ] 运行完整质量门并完成 V1 最终验收。
 
@@ -407,3 +407,4 @@ npm run build
 | 2026-09-12 | Phase 8.5 | 登录并连接真实 OfferPilot Supabase 项目，Dry Run 精确确认后应用两份 Migration；保留云端邮箱确认/MFA 等安全默认，不整份覆盖本地 `config.toml` | 本地/远端 Migration 历史完全一致；Seed 连续两次成功；100 / 165 / 904 / 120 数量和四组精确 ID 集合全部通过 |
 | 2026-09-12 | Phase 8.5 | 增加可重复执行的远端双用户 RLS 验证命令，覆盖 6 张私有表的本人可见/他人隔离、跨用户写入和删除拒绝、题库认证读取边界，并自动清理临时账号 | 真实 Supabase 执行通过；临时账号及数据已清理 |
 | 2026-09-12 | Phase 8.5 | 修复注册成功后的中文 Server Action 跳转触发非法响应头并表现为无响应；统一编码登录反馈，并将常见登录与邮件限流错误转换为中文 | 已确认真实账号创建且完成确认；浏览器反馈验收通过；Node 24 下 lint/typecheck/test/build 全通过，25 个测试文件、229 项测试、237 个页面 |
+| 2026-09-12 | Phase 8.5 | 创建 Vercel 项目并配置真实 Supabase 生产变量，发布稳定域名；Supabase Site URL 与本地/生产 Auth 回调白名单同步完成，生产域名公开且 Preview 保持保护 | Vercel Node 24 构建成功并生成 237 个页面；部署状态 READY；本机到 `vercel.app:443` 超时，远端 Smoke 待换网络验收；GitHub 自动部署待授权 Vercel GitHub App |
