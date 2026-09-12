@@ -1,0 +1,1590 @@
+{
+  "schema_version": "1.0",
+  "source_name": "LeetCode 热题 100",
+  "source_url": "https://leetcode.cn/studyplan/top-100-liked/",
+  "snapshot_date": "2026-09-08",
+  "source_description": "力扣最受刷题发烧友欢迎的 100 道题",
+  "problem_count": 100,
+  "problems": [
+    {
+      "leetcode_id": 1,
+      "title": "两数之和",
+      "title_en": "Two Sum",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/two-sum/",
+      "tags": [
+        "哈希",
+        "数组",
+        "哈希表"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 1
+    },
+    {
+      "leetcode_id": 49,
+      "title": "字母异位词分组",
+      "title_en": "Group Anagrams",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/group-anagrams/",
+      "tags": [
+        "哈希",
+        "数组",
+        "哈希表",
+        "字符串",
+        "排序"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 2
+    },
+    {
+      "leetcode_id": 128,
+      "title": "最长连续序列",
+      "title_en": "Longest Consecutive Sequence",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/longest-consecutive-sequence/",
+      "tags": [
+        "哈希",
+        "并查集",
+        "数组",
+        "哈希表"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 3
+    },
+    {
+      "leetcode_id": 283,
+      "title": "移动零",
+      "title_en": "Move Zeroes",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/move-zeroes/",
+      "tags": [
+        "双指针",
+        "数组"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 4
+    },
+    {
+      "leetcode_id": 11,
+      "title": "盛最多水的容器",
+      "title_en": "Container With Most Water",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/container-with-most-water/",
+      "tags": [
+        "双指针",
+        "贪心",
+        "数组"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 5
+    },
+    {
+      "leetcode_id": 15,
+      "title": "三数之和",
+      "title_en": "3Sum",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/3sum/",
+      "tags": [
+        "双指针",
+        "数组",
+        "排序"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 6
+    },
+    {
+      "leetcode_id": 42,
+      "title": "接雨水",
+      "title_en": "Trapping Rain Water",
+      "difficulty": "hard",
+      "url": "https://leetcode.cn/problems/trapping-rain-water/",
+      "tags": [
+        "双指针",
+        "栈",
+        "数组",
+        "动态规划",
+        "单调栈"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 7
+    },
+    {
+      "leetcode_id": 3,
+      "title": "无重复字符的最长子串",
+      "title_en": "Longest Substring Without Repeating Characters",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/longest-substring-without-repeating-characters/",
+      "tags": [
+        "滑动窗口",
+        "哈希表",
+        "字符串"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 8
+    },
+    {
+      "leetcode_id": 438,
+      "title": "找到字符串中所有字母异位词",
+      "title_en": "Find All Anagrams in a String",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/find-all-anagrams-in-a-string/",
+      "tags": [
+        "滑动窗口",
+        "哈希表",
+        "字符串"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 9
+    },
+    {
+      "leetcode_id": 560,
+      "title": "和为 K 的子数组",
+      "title_en": "Subarray Sum Equals K",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/subarray-sum-equals-k/",
+      "tags": [
+        "子串",
+        "数组",
+        "哈希表",
+        "前缀和"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 10
+    },
+    {
+      "leetcode_id": 239,
+      "title": "滑动窗口最大值",
+      "title_en": "Sliding Window Maximum",
+      "difficulty": "hard",
+      "url": "https://leetcode.cn/problems/sliding-window-maximum/",
+      "tags": [
+        "子串",
+        "队列",
+        "数组",
+        "滑动窗口",
+        "单调队列",
+        "堆（优先队列）",
+        "区间最值查询"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 11
+    },
+    {
+      "leetcode_id": 76,
+      "title": "最小覆盖子串",
+      "title_en": "Minimum Window Substring",
+      "difficulty": "hard",
+      "url": "https://leetcode.cn/problems/minimum-window-substring/",
+      "tags": [
+        "子串",
+        "哈希表",
+        "字符串",
+        "滑动窗口"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 12
+    },
+    {
+      "leetcode_id": 53,
+      "title": "最大子数组和",
+      "title_en": "Maximum Subarray",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/maximum-subarray/",
+      "tags": [
+        "普通数组",
+        "数组",
+        "分治",
+        "动态规划"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 13
+    },
+    {
+      "leetcode_id": 56,
+      "title": "合并区间",
+      "title_en": "Merge Intervals",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/merge-intervals/",
+      "tags": [
+        "普通数组",
+        "数组",
+        "排序",
+        "快速排序"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 14
+    },
+    {
+      "leetcode_id": 189,
+      "title": "轮转数组",
+      "title_en": "Rotate Array",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/rotate-array/",
+      "tags": [
+        "普通数组",
+        "数组",
+        "数学",
+        "双指针"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 15
+    },
+    {
+      "leetcode_id": 238,
+      "title": "除了自身以外数组的乘积",
+      "title_en": "Product of Array Except Self",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/product-of-array-except-self/",
+      "tags": [
+        "普通数组",
+        "数组",
+        "前缀和"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 16
+    },
+    {
+      "leetcode_id": 41,
+      "title": "缺失的第一个正数",
+      "title_en": "First Missing Positive",
+      "difficulty": "hard",
+      "url": "https://leetcode.cn/problems/first-missing-positive/",
+      "tags": [
+        "普通数组",
+        "数组",
+        "哈希表"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 17
+    },
+    {
+      "leetcode_id": 73,
+      "title": "矩阵置零",
+      "title_en": "Set Matrix Zeroes",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/set-matrix-zeroes/",
+      "tags": [
+        "矩阵",
+        "数组",
+        "哈希表"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 18
+    },
+    {
+      "leetcode_id": 54,
+      "title": "螺旋矩阵",
+      "title_en": "Spiral Matrix",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/spiral-matrix/",
+      "tags": [
+        "矩阵",
+        "数组",
+        "模拟"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 19
+    },
+    {
+      "leetcode_id": 48,
+      "title": "旋转图像",
+      "title_en": "Rotate Image",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/rotate-image/",
+      "tags": [
+        "矩阵",
+        "数组",
+        "数学"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 20
+    },
+    {
+      "leetcode_id": 240,
+      "title": "搜索二维矩阵 II",
+      "title_en": "Search a 2D Matrix II",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/search-a-2d-matrix-ii/",
+      "tags": [
+        "矩阵",
+        "数组",
+        "二分查找",
+        "分治"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 21
+    },
+    {
+      "leetcode_id": 160,
+      "title": "相交链表",
+      "title_en": "Intersection of Two Linked Lists",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/intersection-of-two-linked-lists/",
+      "tags": [
+        "链表",
+        "哈希表",
+        "双指针"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 22
+    },
+    {
+      "leetcode_id": 206,
+      "title": "反转链表",
+      "title_en": "Reverse Linked List",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/reverse-linked-list/",
+      "tags": [
+        "链表",
+        "递归"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 23
+    },
+    {
+      "leetcode_id": 234,
+      "title": "回文链表",
+      "title_en": "Palindrome Linked List",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/palindrome-linked-list/",
+      "tags": [
+        "链表",
+        "栈",
+        "递归",
+        "双指针"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 24
+    },
+    {
+      "leetcode_id": 141,
+      "title": "环形链表",
+      "title_en": "Linked List Cycle",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/linked-list-cycle/",
+      "tags": [
+        "链表",
+        "哈希表",
+        "双指针",
+        "Floyd 判圈算法"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 25
+    },
+    {
+      "leetcode_id": 142,
+      "title": "环形链表 II",
+      "title_en": "Linked List Cycle II",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/linked-list-cycle-ii/",
+      "tags": [
+        "链表",
+        "哈希表",
+        "双指针",
+        "Floyd 判圈算法"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 26
+    },
+    {
+      "leetcode_id": 21,
+      "title": "合并两个有序链表",
+      "title_en": "Merge Two Sorted Lists",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/merge-two-sorted-lists/",
+      "tags": [
+        "链表",
+        "递归"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 27
+    },
+    {
+      "leetcode_id": 2,
+      "title": "两数相加",
+      "title_en": "Add Two Numbers",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/add-two-numbers/",
+      "tags": [
+        "链表",
+        "递归",
+        "数学"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 28
+    },
+    {
+      "leetcode_id": 19,
+      "title": "删除链表的倒数第 N 个结点",
+      "title_en": "Remove Nth Node From End of List",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/remove-nth-node-from-end-of-list/",
+      "tags": [
+        "链表",
+        "双指针"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 29
+    },
+    {
+      "leetcode_id": 24,
+      "title": "两两交换链表中的节点",
+      "title_en": "Swap Nodes in Pairs",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/swap-nodes-in-pairs/",
+      "tags": [
+        "链表",
+        "递归"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 30
+    },
+    {
+      "leetcode_id": 25,
+      "title": "K 个一组翻转链表",
+      "title_en": "Reverse Nodes in k-Group",
+      "difficulty": "hard",
+      "url": "https://leetcode.cn/problems/reverse-nodes-in-k-group/",
+      "tags": [
+        "链表",
+        "递归"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 31
+    },
+    {
+      "leetcode_id": 138,
+      "title": "随机链表的复制",
+      "title_en": "Copy List with Random Pointer",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/copy-list-with-random-pointer/",
+      "tags": [
+        "链表",
+        "哈希表"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 32
+    },
+    {
+      "leetcode_id": 148,
+      "title": "排序链表",
+      "title_en": "Sort List",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/sort-list/",
+      "tags": [
+        "链表",
+        "双指针",
+        "分治",
+        "排序",
+        "归并排序"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 33
+    },
+    {
+      "leetcode_id": 23,
+      "title": "合并 K 个升序链表",
+      "title_en": "Merge k Sorted Lists",
+      "difficulty": "hard",
+      "url": "https://leetcode.cn/problems/merge-k-sorted-lists/",
+      "tags": [
+        "链表",
+        "分治",
+        "堆（优先队列）",
+        "归并排序",
+        "锦标赛排序"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 34
+    },
+    {
+      "leetcode_id": 146,
+      "title": "LRU 缓存",
+      "title_en": "LRU Cache",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/lru-cache/",
+      "tags": [
+        "链表",
+        "设计",
+        "哈希表",
+        "双向链表"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 35
+    },
+    {
+      "leetcode_id": 94,
+      "title": "二叉树的中序遍历",
+      "title_en": "Binary Tree Inorder Traversal",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/binary-tree-inorder-traversal/",
+      "tags": [
+        "二叉树",
+        "栈",
+        "树",
+        "深度优先搜索"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 36
+    },
+    {
+      "leetcode_id": 104,
+      "title": "二叉树的最大深度",
+      "title_en": "Maximum Depth of Binary Tree",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/maximum-depth-of-binary-tree/",
+      "tags": [
+        "二叉树",
+        "树",
+        "深度优先搜索",
+        "广度优先搜索"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 37
+    },
+    {
+      "leetcode_id": 226,
+      "title": "翻转二叉树",
+      "title_en": "Invert Binary Tree",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/invert-binary-tree/",
+      "tags": [
+        "二叉树",
+        "树",
+        "深度优先搜索",
+        "广度优先搜索"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 38
+    },
+    {
+      "leetcode_id": 101,
+      "title": "对称二叉树",
+      "title_en": "Symmetric Tree",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/symmetric-tree/",
+      "tags": [
+        "二叉树",
+        "树",
+        "深度优先搜索",
+        "广度优先搜索"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 39
+    },
+    {
+      "leetcode_id": 543,
+      "title": "二叉树的直径",
+      "title_en": "Diameter of Binary Tree",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/diameter-of-binary-tree/",
+      "tags": [
+        "二叉树",
+        "树",
+        "深度优先搜索",
+        "树形 DP"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 40
+    },
+    {
+      "leetcode_id": 102,
+      "title": "二叉树的层序遍历",
+      "title_en": "Binary Tree Level Order Traversal",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/binary-tree-level-order-traversal/",
+      "tags": [
+        "二叉树",
+        "树",
+        "广度优先搜索"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 41
+    },
+    {
+      "leetcode_id": 108,
+      "title": "将有序数组转换为二叉搜索树",
+      "title_en": "Convert Sorted Array to Binary Search Tree",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/convert-sorted-array-to-binary-search-tree/",
+      "tags": [
+        "二叉树",
+        "树",
+        "二叉搜索树",
+        "数组",
+        "分治"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 42
+    },
+    {
+      "leetcode_id": 98,
+      "title": "验证二叉搜索树",
+      "title_en": "Validate Binary Search Tree",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/validate-binary-search-tree/",
+      "tags": [
+        "二叉树",
+        "树",
+        "深度优先搜索",
+        "二叉搜索树"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 43
+    },
+    {
+      "leetcode_id": 230,
+      "title": "二叉搜索树中第 K 小的元素",
+      "title_en": "Kth Smallest Element in a BST",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/kth-smallest-element-in-a-bst/",
+      "tags": [
+        "二叉树",
+        "树",
+        "深度优先搜索",
+        "二叉搜索树"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 44
+    },
+    {
+      "leetcode_id": 199,
+      "title": "二叉树的右视图",
+      "title_en": "Binary Tree Right Side View",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/binary-tree-right-side-view/",
+      "tags": [
+        "二叉树",
+        "树",
+        "深度优先搜索",
+        "广度优先搜索"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 45
+    },
+    {
+      "leetcode_id": 114,
+      "title": "二叉树展开为链表",
+      "title_en": "Flatten Binary Tree to Linked List",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/flatten-binary-tree-to-linked-list/",
+      "tags": [
+        "二叉树",
+        "栈",
+        "树",
+        "深度优先搜索",
+        "链表"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 46
+    },
+    {
+      "leetcode_id": 105,
+      "title": "从前序与中序遍历序列构造二叉树",
+      "title_en": "Construct Binary Tree from Preorder and Inorder Traversal",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/construct-binary-tree-from-preorder-and-inorder-traversal/",
+      "tags": [
+        "二叉树",
+        "树",
+        "数组",
+        "哈希表",
+        "分治"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 47
+    },
+    {
+      "leetcode_id": 437,
+      "title": "路径总和 III",
+      "title_en": "Path Sum III",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/path-sum-iii/",
+      "tags": [
+        "二叉树",
+        "树",
+        "深度优先搜索"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 48
+    },
+    {
+      "leetcode_id": 236,
+      "title": "二叉树的最近公共祖先",
+      "title_en": "Lowest Common Ancestor of a Binary Tree",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/lowest-common-ancestor-of-a-binary-tree/",
+      "tags": [
+        "二叉树",
+        "树",
+        "深度优先搜索",
+        "最近公共祖先",
+        "Binary Lifting"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 49
+    },
+    {
+      "leetcode_id": 124,
+      "title": "二叉树中的最大路径和",
+      "title_en": "Binary Tree Maximum Path Sum",
+      "difficulty": "hard",
+      "url": "https://leetcode.cn/problems/binary-tree-maximum-path-sum/",
+      "tags": [
+        "二叉树",
+        "树",
+        "深度优先搜索",
+        "动态规划",
+        "树形 DP"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 50
+    },
+    {
+      "leetcode_id": 200,
+      "title": "岛屿数量",
+      "title_en": "Number of Islands",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/number-of-islands/",
+      "tags": [
+        "图论",
+        "深度优先搜索",
+        "广度优先搜索",
+        "并查集",
+        "数组",
+        "矩阵"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 51
+    },
+    {
+      "leetcode_id": 994,
+      "title": "腐烂的橘子",
+      "title_en": "Rotting Oranges",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/rotting-oranges/",
+      "tags": [
+        "图论",
+        "广度优先搜索",
+        "数组",
+        "矩阵"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 52
+    },
+    {
+      "leetcode_id": 207,
+      "title": "课程表",
+      "title_en": "Course Schedule",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/course-schedule/",
+      "tags": [
+        "图论",
+        "深度优先搜索",
+        "广度优先搜索",
+        "图",
+        "拓扑排序",
+        "有向无环图"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 53
+    },
+    {
+      "leetcode_id": 208,
+      "title": "实现 Trie (前缀树)",
+      "title_en": "Implement Trie (Prefix Tree)",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/implement-trie-prefix-tree/",
+      "tags": [
+        "图论",
+        "设计",
+        "字典树",
+        "哈希表",
+        "字符串"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 54
+    },
+    {
+      "leetcode_id": 46,
+      "title": "全排列",
+      "title_en": "Permutations",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/permutations/",
+      "tags": [
+        "回溯",
+        "数组"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 55
+    },
+    {
+      "leetcode_id": 78,
+      "title": "子集",
+      "title_en": "Subsets",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/subsets/",
+      "tags": [
+        "回溯",
+        "位运算",
+        "数组"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 56
+    },
+    {
+      "leetcode_id": 17,
+      "title": "电话号码的字母组合",
+      "title_en": "Letter Combinations of a Phone Number",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/letter-combinations-of-a-phone-number/",
+      "tags": [
+        "回溯",
+        "哈希表",
+        "字符串"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 57
+    },
+    {
+      "leetcode_id": 39,
+      "title": "组合总和",
+      "title_en": "Combination Sum",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/combination-sum/",
+      "tags": [
+        "回溯",
+        "数组"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 58
+    },
+    {
+      "leetcode_id": 22,
+      "title": "括号生成",
+      "title_en": "Generate Parentheses",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/generate-parentheses/",
+      "tags": [
+        "回溯",
+        "字符串",
+        "动态规划",
+        "括号序列"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 59
+    },
+    {
+      "leetcode_id": 79,
+      "title": "单词搜索",
+      "title_en": "Word Search",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/word-search/",
+      "tags": [
+        "回溯",
+        "深度优先搜索",
+        "数组",
+        "字符串",
+        "矩阵"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 60
+    },
+    {
+      "leetcode_id": 131,
+      "title": "分割回文串",
+      "title_en": "Palindrome Partitioning",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/palindrome-partitioning/",
+      "tags": [
+        "回溯",
+        "字符串",
+        "动态规划"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 61
+    },
+    {
+      "leetcode_id": 51,
+      "title": "N 皇后",
+      "title_en": "N-Queens",
+      "difficulty": "hard",
+      "url": "https://leetcode.cn/problems/n-queens/",
+      "tags": [
+        "回溯",
+        "数组",
+        "X 算法"
+      ],
+      "recommended_week": 2,
+      "importance": 3,
+      "order_index": 62
+    },
+    {
+      "leetcode_id": 35,
+      "title": "搜索插入位置",
+      "title_en": "Search Insert Position",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/search-insert-position/",
+      "tags": [
+        "二分查找",
+        "数组"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 63
+    },
+    {
+      "leetcode_id": 74,
+      "title": "搜索二维矩阵",
+      "title_en": "Search a 2D Matrix",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/search-a-2d-matrix/",
+      "tags": [
+        "二分查找",
+        "数组",
+        "矩阵"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 64
+    },
+    {
+      "leetcode_id": 34,
+      "title": "在排序数组中查找元素的第一个和最后一个位置",
+      "title_en": "Find First and Last Position of Element in Sorted Array",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/find-first-and-last-position-of-element-in-sorted-array/",
+      "tags": [
+        "二分查找",
+        "数组"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 65
+    },
+    {
+      "leetcode_id": 33,
+      "title": "搜索旋转排序数组",
+      "title_en": "Search in Rotated Sorted Array",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/search-in-rotated-sorted-array/",
+      "tags": [
+        "二分查找",
+        "数组"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 66
+    },
+    {
+      "leetcode_id": 153,
+      "title": "寻找旋转排序数组中的最小值",
+      "title_en": "Find Minimum in Rotated Sorted Array",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/find-minimum-in-rotated-sorted-array/",
+      "tags": [
+        "二分查找",
+        "数组"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 67
+    },
+    {
+      "leetcode_id": 4,
+      "title": "寻找两个正序数组的中位数",
+      "title_en": "Median of Two Sorted Arrays",
+      "difficulty": "hard",
+      "url": "https://leetcode.cn/problems/median-of-two-sorted-arrays/",
+      "tags": [
+        "二分查找",
+        "数组",
+        "分治"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 68
+    },
+    {
+      "leetcode_id": 20,
+      "title": "有效的括号",
+      "title_en": "Valid Parentheses",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/valid-parentheses/",
+      "tags": [
+        "栈",
+        "字符串",
+        "括号序列"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 69
+    },
+    {
+      "leetcode_id": 155,
+      "title": "最小栈",
+      "title_en": "Min Stack",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/min-stack/",
+      "tags": [
+        "栈",
+        "设计"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 70
+    },
+    {
+      "leetcode_id": 394,
+      "title": "字符串解码",
+      "title_en": "Decode String",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/decode-string/",
+      "tags": [
+        "栈",
+        "递归",
+        "字符串"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 71
+    },
+    {
+      "leetcode_id": 739,
+      "title": "每日温度",
+      "title_en": "Daily Temperatures",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/daily-temperatures/",
+      "tags": [
+        "栈",
+        "数组",
+        "单调栈"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 72
+    },
+    {
+      "leetcode_id": 84,
+      "title": "柱状图中最大的矩形",
+      "title_en": "Largest Rectangle in Histogram",
+      "difficulty": "hard",
+      "url": "https://leetcode.cn/problems/largest-rectangle-in-histogram/",
+      "tags": [
+        "栈",
+        "数组",
+        "单调栈",
+        "区间最值查询"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 73
+    },
+    {
+      "leetcode_id": 215,
+      "title": "数组中的第K个最大元素",
+      "title_en": "Kth Largest Element in an Array",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/kth-largest-element-in-an-array/",
+      "tags": [
+        "堆",
+        "数组",
+        "分治",
+        "快速选择",
+        "排序",
+        "堆（优先队列）"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 74
+    },
+    {
+      "leetcode_id": 347,
+      "title": "前 K 个高频元素",
+      "title_en": "Top K Frequent Elements",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/top-k-frequent-elements/",
+      "tags": [
+        "堆",
+        "数组",
+        "哈希表",
+        "分治",
+        "桶排序",
+        "计数",
+        "快速选择",
+        "排序",
+        "堆（优先队列）"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 75
+    },
+    {
+      "leetcode_id": 295,
+      "title": "数据流的中位数",
+      "title_en": "Find Median from Data Stream",
+      "difficulty": "hard",
+      "url": "https://leetcode.cn/problems/find-median-from-data-stream/",
+      "tags": [
+        "堆",
+        "设计",
+        "双指针",
+        "数据流",
+        "排序",
+        "堆（优先队列）"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 76
+    },
+    {
+      "leetcode_id": 121,
+      "title": "买卖股票的最佳时机",
+      "title_en": "Best Time to Buy and Sell Stock",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/best-time-to-buy-and-sell-stock/",
+      "tags": [
+        "贪心算法",
+        "数组",
+        "动态规划"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 77
+    },
+    {
+      "leetcode_id": 55,
+      "title": "跳跃游戏",
+      "title_en": "Jump Game",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/jump-game/",
+      "tags": [
+        "贪心算法",
+        "贪心",
+        "数组",
+        "动态规划"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 78
+    },
+    {
+      "leetcode_id": 45,
+      "title": "跳跃游戏 II",
+      "title_en": "Jump Game II",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/jump-game-ii/",
+      "tags": [
+        "贪心算法",
+        "贪心",
+        "数组",
+        "动态规划"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 79
+    },
+    {
+      "leetcode_id": 763,
+      "title": "划分字母区间",
+      "title_en": "Partition Labels",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/partition-labels/",
+      "tags": [
+        "贪心算法",
+        "贪心",
+        "哈希表",
+        "双指针",
+        "字符串"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 80
+    },
+    {
+      "leetcode_id": 70,
+      "title": "爬楼梯",
+      "title_en": "Climbing Stairs",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/climbing-stairs/",
+      "tags": [
+        "动态规划",
+        "记忆化",
+        "数学"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 81
+    },
+    {
+      "leetcode_id": 118,
+      "title": "杨辉三角",
+      "title_en": "Pascal's Triangle",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/pascals-triangle/",
+      "tags": [
+        "动态规划",
+        "数组"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 82
+    },
+    {
+      "leetcode_id": 198,
+      "title": "打家劫舍",
+      "title_en": "House Robber",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/house-robber/",
+      "tags": [
+        "动态规划",
+        "数组"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 83
+    },
+    {
+      "leetcode_id": 279,
+      "title": "完全平方数",
+      "title_en": "Perfect Squares",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/perfect-squares/",
+      "tags": [
+        "动态规划",
+        "广度优先搜索",
+        "数学",
+        "背包问题",
+        "完全背包"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 84
+    },
+    {
+      "leetcode_id": 322,
+      "title": "零钱兑换",
+      "title_en": "Coin Change",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/coin-change/",
+      "tags": [
+        "动态规划",
+        "广度优先搜索",
+        "数组",
+        "背包问题",
+        "完全背包"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 85
+    },
+    {
+      "leetcode_id": 139,
+      "title": "单词拆分",
+      "title_en": "Word Break",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/word-break/",
+      "tags": [
+        "动态规划",
+        "字典树",
+        "记忆化",
+        "数组",
+        "哈希表",
+        "字符串",
+        "Brute-Force Search"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 86
+    },
+    {
+      "leetcode_id": 300,
+      "title": "最长递增子序列",
+      "title_en": "Longest Increasing Subsequence",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/longest-increasing-subsequence/",
+      "tags": [
+        "动态规划",
+        "数组",
+        "二分查找",
+        "最长上升子序列"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 87
+    },
+    {
+      "leetcode_id": 152,
+      "title": "乘积最大子数组",
+      "title_en": "Maximum Product Subarray",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/maximum-product-subarray/",
+      "tags": [
+        "动态规划",
+        "数组"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 88
+    },
+    {
+      "leetcode_id": 416,
+      "title": "分割等和子集",
+      "title_en": "Partition Equal Subset Sum",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/partition-equal-subset-sum/",
+      "tags": [
+        "动态规划",
+        "数组",
+        "背包问题",
+        "0-1 背包"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 89
+    },
+    {
+      "leetcode_id": 32,
+      "title": "最长有效括号",
+      "title_en": "Longest Valid Parentheses",
+      "difficulty": "hard",
+      "url": "https://leetcode.cn/problems/longest-valid-parentheses/",
+      "tags": [
+        "动态规划",
+        "栈",
+        "字符串",
+        "括号序列"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 90
+    },
+    {
+      "leetcode_id": 62,
+      "title": "不同路径",
+      "title_en": "Unique Paths",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/unique-paths/",
+      "tags": [
+        "多维动态规划",
+        "数学",
+        "动态规划",
+        "组合数学"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 91
+    },
+    {
+      "leetcode_id": 64,
+      "title": "最小路径和",
+      "title_en": "Minimum Path Sum",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/minimum-path-sum/",
+      "tags": [
+        "多维动态规划",
+        "数组",
+        "动态规划",
+        "矩阵"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 92
+    },
+    {
+      "leetcode_id": 5,
+      "title": "最长回文子串",
+      "title_en": "Longest Palindromic Substring",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/longest-palindromic-substring/",
+      "tags": [
+        "多维动态规划",
+        "双指针",
+        "字符串",
+        "动态规划",
+        "Manacher 算法"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 93
+    },
+    {
+      "leetcode_id": 1143,
+      "title": "最长公共子序列",
+      "title_en": "Longest Common Subsequence",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/longest-common-subsequence/",
+      "tags": [
+        "多维动态规划",
+        "字符串",
+        "动态规划",
+        "最长公共子序列"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 94
+    },
+    {
+      "leetcode_id": 72,
+      "title": "编辑距离",
+      "title_en": "Edit Distance",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/edit-distance/",
+      "tags": [
+        "多维动态规划",
+        "字符串",
+        "动态规划"
+      ],
+      "recommended_week": 3,
+      "importance": 3,
+      "order_index": 95
+    },
+    {
+      "leetcode_id": 136,
+      "title": "只出现一次的数字",
+      "title_en": "Single Number",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/single-number/",
+      "tags": [
+        "技巧",
+        "位运算",
+        "数组"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 96
+    },
+    {
+      "leetcode_id": 169,
+      "title": "多数元素",
+      "title_en": "Majority Element",
+      "difficulty": "easy",
+      "url": "https://leetcode.cn/problems/majority-element/",
+      "tags": [
+        "技巧",
+        "数组",
+        "哈希表",
+        "分治",
+        "计数",
+        "排序",
+        "摩尔投票算法"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 97
+    },
+    {
+      "leetcode_id": 75,
+      "title": "颜色分类",
+      "title_en": "Sort Colors",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/sort-colors/",
+      "tags": [
+        "技巧",
+        "数组",
+        "双指针",
+        "冒泡排序",
+        "排序",
+        "快速排序"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 98
+    },
+    {
+      "leetcode_id": 31,
+      "title": "下一个排列",
+      "title_en": "Next Permutation",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/next-permutation/",
+      "tags": [
+        "技巧",
+        "数组",
+        "双指针"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 99
+    },
+    {
+      "leetcode_id": 287,
+      "title": "寻找重复数",
+      "title_en": "Find the Duplicate Number",
+      "difficulty": "medium",
+      "url": "https://leetcode.cn/problems/find-the-duplicate-number/",
+      "tags": [
+        "技巧",
+        "位运算",
+        "数组",
+        "双指针",
+        "二分查找",
+        "Floyd 判圈算法",
+        "抽屉原理"
+      ],
+      "recommended_week": 1,
+      "importance": 3,
+      "order_index": 100
+    }
+  ]
+}

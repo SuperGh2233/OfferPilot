@@ -1,0 +1,70 @@
+import { NextResponse } from "next/server";
+
+import { getLocalTrainingDatabase } from "../../../../lib/local-database";
+import type { KnowledgeSelfRating } from "../../../../lib/mastery/knowledge";
+import { isLocalDatabaseMode } from "../../../../lib/supabase/env";
+import {
+  loadCloudTrainingSnapshot,
+  recordCloudKnowledgeAttempt,
+} from "../../../../lib/supabase/training";
+import {
+  authenticatedTrainingContext,
+  requestObject,
+  requestUuid,
+  trainingError,
+  unauthorized,
+} from "../_shared";
+
+export async function POST(request: Request) {
+  try {
+    const localMode = isLocalDatabaseMode();
+    const context = localMode ? null : await authenticatedTrainingContext();
+    if (!localMode && !context) return unauthorized();
+    const body = await requestObject(request);
+    const attemptId = requestUuid(body.attemptId, "attemptId");
+    const questionId = requestUuid(body.questionId, "questionId");
+    const attemptedAt = new Date().toISOString();
+
+    if (
+      body.mode === "learn" &&
+      (typeof body.selfRating !== "number" ||
+        ![1, 2, 3, 4].includes(body.selfRating))
+    ) {
+      throw new RangeError("selfRating 必须是 1 到 4。");
+    }
+    if (
+      body.mode === "recall" &&
+      (typeof body.answerText !== "string" || body.answerText.length > 20_000)
+    ) {
+      throw new RangeError("answerText 必须是长度不超过 20000 的字符串。");
+    }
+
+    const input = body.mode === "learn"
+      ? {
+          attemptId,
+          mode: "learn" as const,
+          questionId,
+          attemptedAt,
+          selfRating: body.selfRating as KnowledgeSelfRating,
+        }
+      : body.mode === "recall"
+        ? {
+            attemptId,
+            mode: "recall" as const,
+            questionId,
+            attemptedAt,
+            answerText: body.answerText as string,
+          }
+        : null;
+    if (!input) throw new RangeError("mode 必须是 learn 或 recall。");
+    const result = localMode
+      ? getLocalTrainingDatabase().recordKnowledge(input)
+      : await recordCloudKnowledgeAttempt(context!.client, context!.userId, input);
+    const snapshot = localMode
+      ? getLocalTrainingDatabase().loadSnapshot()
+      : await loadCloudTrainingSnapshot(context!.client, context!.userId);
+    return NextResponse.json({ result, snapshot });
+  } catch (error) {
+    return trainingError(error);
+  }
+}

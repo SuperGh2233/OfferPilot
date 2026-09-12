@@ -1,0 +1,31 @@
+import { redirect } from "next/navigation";
+
+import AlgorithmList from "@/components/algorithm/algorithm-list";
+import {
+  algorithmCatalog,
+  algorithmTags,
+} from "@/lib/algorithm/catalog";
+import { isBrowserDemoMode, isLocalDemoMode } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
+
+export default async function AlgorithmPage() {
+  const localMode = isLocalDemoMode();
+  const demoMode = isBrowserDemoMode();
+
+  if (!localMode) {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getClaims();
+
+    if (!data?.claims) {
+      redirect("/login");
+    }
+  }
+
+  return (
+    <AlgorithmList
+      demoMode={demoMode}
+      problems={algorithmCatalog}
+      tags={algorithmTags}
+    />
+  );
+}

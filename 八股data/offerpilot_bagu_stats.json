@@ -1,0 +1,74 @@
+{
+  "raw_total": 904,
+  "canonical_total": 904,
+  "duplicates_merged": 0,
+  "main_total": 394,
+  "follow_up_total": 510,
+  "starred_main_total": 82,
+  "topics_total": 165,
+  "core_main_total": 120,
+  "by_book": {
+    "JVM": {
+      "source_book": "面渣逆袭 JVM篇 V2.1",
+      "main_questions": 55,
+      "follow_up_questions": 69,
+      "starred_main_questions": 12,
+      "all_questions": 124
+    },
+    "Java基础": {
+      "source_book": "面渣逆袭Java基础篇V2.1",
+      "main_questions": 56,
+      "follow_up_questions": 70,
+      "starred_main_questions": 9,
+      "all_questions": 126
+    },
+    "Redis": {
+      "source_book": "面渣逆袭Redis篇V2.0",
+      "main_questions": 57,
+      "follow_up_questions": 78,
+      "starred_main_questions": 13,
+      "all_questions": 135
+    },
+    "Spring": {
+      "source_book": "面渣逆袭Spring篇V2.0",
+      "main_questions": 41,
+      "follow_up_questions": 39,
+      "starred_main_questions": 15,
+      "all_questions": 80
+    },
+    "Java并发": {
+      "source_book": "面渣逆袭并发编程篇V2.1",
+      "main_questions": 71,
+      "follow_up_questions": 86,
+      "starred_main_questions": 11,
+      "all_questions": 157
+    },
+    "Java集合": {
+      "source_book": "面渣逆袭集合框架篇V2.1",
+      "main_questions": 30,
+      "follow_up_questions": 34,
+      "starred_main_questions": 7,
+      "all_questions": 64
+    },
+    "MySQL": {
+      "source_book": "面渣逆袭MySQL篇 V2.0",
+      "main_questions": 84,
+      "follow_up_questions": 134,
+      "starred_main_questions": 15,
+      "all_questions": 218
+    }
+  },
+  "importance_distribution": {
+    "4": 142,
+    "3": 478,
+    "5": 82,
+    "2": 190,
+    "1": 12
+  },
+  "difficulty_distribution": {
+    "medium": 331,
+    "easy": 516,
+    "unknown": 2,
+    "hard": 55
+  }
+}
