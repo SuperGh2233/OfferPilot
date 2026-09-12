@@ -1,11 +1,13 @@
 import { signIn, signUp } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
+import { authErrorMessage } from "@/lib/supabase/auth-feedback";
 
 export default async function LoginPage({
   searchParams,
 }: PageProps<"/login">) {
   const params = await searchParams;
-  const error = typeof params.error === "string" ? params.error : null;
+  const error =
+    typeof params.error === "string" ? authErrorMessage(params.error) : null;
   const message = typeof params.message === "string" ? params.message : null;
 
   return (

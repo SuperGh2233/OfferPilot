@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 
+import { loginFeedbackUrl } from "@/lib/supabase/auth-feedback";
 import { isLocalDemoMode } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -10,7 +11,7 @@ function credentials(formData: FormData) {
   const password = String(formData.get("password") ?? "");
 
   if (!email.includes("@") || password.length < 8) {
-    redirect("/login?error=请输入有效邮箱和至少八位密码");
+    redirect(loginFeedbackUrl("error", "请输入有效邮箱和至少八位密码"));
   }
 
   return { email, password };
@@ -23,7 +24,7 @@ export async function signIn(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword(credentials(formData));
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    redirect(loginFeedbackUrl("error", error.message));
   }
 
   redirect("/dashboard");
@@ -40,12 +41,12 @@ export async function signUp(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    redirect(loginFeedbackUrl("error", error.message));
   }
 
   if (data.session) {
     redirect("/dashboard");
   }
 
-  redirect("/login?message=注册成功，请检查邮箱完成验证");
+  redirect(loginFeedbackUrl("message", "注册成功，请检查邮箱完成验证"));
 }

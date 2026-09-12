@@ -6,11 +6,11 @@
 
 - 最后更新：2026-09-12
 - 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
-- 当前任务：Phase 8.5 完成 Supabase Auth 回调与真实训练闭环验收
+- 当前任务：Phase 8.5 完成真实账号登录、退出和训练闭环验收
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
-- 本地运行：`http://localhost:3000`；服务器 SQLite 已启用，原浏览器 Demo 进度已导入且经过进程重启验证
-- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；Auth 回调与真实训练联调进行中
-- 最近质量门：`lint`、`typecheck`、`test`、`build` 全部通过；24 个测试文件、227 项测试通过，生成 237 个页面；`seed:check` 和本地 SQLite Smoke 通过
+- 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
+- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；真实注册已创建账号，登录与训练联调进行中
+- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；25 个测试文件、229 项测试通过，生成 237 个页面
 
 | 阶段 | 状态 | 核心结果 |
 | --- | --- | --- |
@@ -406,3 +406,4 @@ npm run build
 | 2026-09-11 | Phase 8.5 | 新增 Node 24 内置 SQLite 本地训练数据库：单文件持久化 Profile/Algorithm/Knowledge 状态，复用现有 Planner/Attempt/Mastery，支持浏览器 Demo 首次导入、算法与八股幂等写入及进程重启恢复 | 24 个测试文件、227 项测试全部通过；lint/typecheck/build、seed:check、重启后 SQLite API/页面和 Smoke 通过，构建 237 页且无路径追踪警告 |
 | 2026-09-12 | Phase 8.5 | 登录并连接真实 OfferPilot Supabase 项目，Dry Run 精确确认后应用两份 Migration；保留云端邮箱确认/MFA 等安全默认，不整份覆盖本地 `config.toml` | 本地/远端 Migration 历史完全一致；Seed 连续两次成功；100 / 165 / 904 / 120 数量和四组精确 ID 集合全部通过 |
 | 2026-09-12 | Phase 8.5 | 增加可重复执行的远端双用户 RLS 验证命令，覆盖 6 张私有表的本人可见/他人隔离、跨用户写入和删除拒绝、题库认证读取边界，并自动清理临时账号 | 真实 Supabase 执行通过；临时账号及数据已清理 |
+| 2026-09-12 | Phase 8.5 | 修复注册成功后的中文 Server Action 跳转触发非法响应头并表现为无响应；统一编码登录反馈，并将常见登录与邮件限流错误转换为中文 | 已确认真实账号创建且完成确认；浏览器反馈验收通过；Node 24 下 lint/typecheck/test/build 全通过，25 个测试文件、229 项测试、237 个页面 |
