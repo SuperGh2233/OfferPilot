@@ -4,12 +4,12 @@
 
 ## 当前状态
 
-- 最后更新：2026-09-11
+- 最后更新：2026-09-12
 - 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
-- 当前任务：Phase 8.5 本地 SQLite 日常使用已就绪；后续待用户启动 Supabase/Vercel 部署
+- 当前任务：Phase 8.5 完成 Supabase Auth 回调与真实训练闭环验收
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；服务器 SQLite 已启用，原浏览器 Demo 进度已导入且经过进程重启验证
-- 云端状态：Supabase 适配、事务、API、CLI/配置与部署文档保留，待本地数据库阶段完成后再部署
+- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；Auth 回调与真实训练联调进行中
 - 最近质量门：`lint`、`typecheck`、`test`、`build` 全部通过；24 个测试文件、227 项测试通过，生成 237 个页面；`seed:check` 和本地 SQLite Smoke 通过
 
 | 阶段 | 状态 | 核心结果 |
@@ -232,9 +232,9 @@ npm run build
 - [x] 补齐 loading、empty、error、not found、表单反馈和可访问性。
 - [x] 完成真实 Supabase 训练适配、认证 Route Handler、事务写入、并发/跨午夜保护和历史分页，并通过本地质量门。
 - [x] 接入本地 SQLite 持久数据库，迁移现有浏览器 Demo 数据并跑通训练闭环。
-- [ ] 创建真实 Supabase 项目并填写本地安全环境变量。
-- [ ] 执行 Migration、Seed，验证 100 / 165 / 904 / 120 数据。
-- [ ] 连续执行两次 Seed 并验证幂等，使用两个用户验证 RLS 隔离。
+- [x] 创建真实 Supabase 项目并填写本地安全环境变量。
+- [x] 执行 Migration、Seed，验证 100 / 165 / 904 / 120 数据。
+- [x] 连续执行两次 Seed 并验证幂等，使用两个用户验证 RLS 隔离。
 - [ ] 关闭 `LOCAL_DEMO_MODE`，联调真实注册、邮箱确认、登录、退出和 RLS 隔离。
 - [ ] 在 Vercel 配置生产环境变量并部署 Next.js 前端。
 - [ ] 完成生产 Smoke Test、README 和恢复/排错说明。（脚本与文档已完成，待真实生产执行）
@@ -246,8 +246,8 @@ npm run build
 - [x] Knowledge 完整闭环：Learn → 初始 mastery → 到期 → Recall → matched/missing → mastery → next review。（本地 Demo 已验收）
 - [x] 连续模拟 7 天，能够区分已掌握、假会、薄弱类型和到期任务。（确定性测试已验收）
 - [x] 同日重复生成 Daily Tasks 不重复。（本地存储与云端唯一约束/事务契约已验收）
-- [ ] 每个用户只能访问自己的 profile、attempt、state 和 task。
-- [ ] 公共题库只允许 authenticated read。
+- [x] 每个用户只能访问自己的 profile、attempt、state 和 task。（真实双用户远端验证通过）
+- [x] 公共题库只允许 authenticated read。（真实匿名/认证远端验证通过）
 - [ ] 本地和生产均通过完整质量门。
 
 ## 明确不做
@@ -404,3 +404,5 @@ npm run build
 | 2026-09-11 | Phase 8.5 | 采纳 Luna 终审：本地算法仅把 pending 任务置为进行中，保留已完成历史；Knowledge Snapshot/本地存储兼容 in_progress 并在提交后完成；适配器测试增加二次加载幂等与字段映射 | Luna 复核无遗留高/中优先级问题；lint/typecheck/test/build 全通过，23 个测试文件、226 项测试、237 个页面；seed:check 与重启后 Demo Smoke 通过 |
 | 2026-09-11 | Phase 8.5 | 本地 Demo 的 Dashboard、Progress、Algorithm/Knowledge 总览与训练详情增加每分钟、窗口聚焦和恢复可见刷新；Algorithm 详情刷新时同时生成新日期任务并同步跨标签页计时状态 | 浏览器刷新后任务保持 2+3 且控制台无错误；lint/typecheck/test/build 全通过，23 个测试文件、226 项测试、237 个页面；seed:check 与重启后 Demo Smoke 通过 |
 | 2026-09-11 | Phase 8.5 | 新增 Node 24 内置 SQLite 本地训练数据库：单文件持久化 Profile/Algorithm/Knowledge 状态，复用现有 Planner/Attempt/Mastery，支持浏览器 Demo 首次导入、算法与八股幂等写入及进程重启恢复 | 24 个测试文件、227 项测试全部通过；lint/typecheck/build、seed:check、重启后 SQLite API/页面和 Smoke 通过，构建 237 页且无路径追踪警告 |
+| 2026-09-12 | Phase 8.5 | 登录并连接真实 OfferPilot Supabase 项目，Dry Run 精确确认后应用两份 Migration；保留云端邮箱确认/MFA 等安全默认，不整份覆盖本地 `config.toml` | 本地/远端 Migration 历史完全一致；Seed 连续两次成功；100 / 165 / 904 / 120 数量和四组精确 ID 集合全部通过 |
+| 2026-09-12 | Phase 8.5 | 增加可重复执行的远端双用户 RLS 验证命令，覆盖 6 张私有表的本人可见/他人隔离、跨用户写入和删除拒绝、题库认证读取边界，并自动清理临时账号 | 真实 Supabase 执行通过；临时账号及数据已清理 |

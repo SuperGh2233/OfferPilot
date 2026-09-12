@@ -96,11 +96,12 @@ Migration 位于 `supabase/migrations/`，包含 9 张表、训练事务、索�
 npm run seed
 npm run seed
 npm run supabase:verify
+npm run supabase:verify-rls
 ```
 
 预期为 100 道算法、165 个 Topic、904 道八股、120 道六周核心主问题；904 道中包含 394 道主问题和 510 道追问。两次 Seed 后计数不变即证明目录导入幂等。
 
-`SUPABASE_SERVICE_ROLE_KEY` 会绕过 RLS，因此数量校验不能证明用户隔离。RLS 必须另用两个普通账号验证：账号 A/B 各写一条 attempt，然后确认 A 无法读取、更新或删除 B 的 profile、attempt、state 和 daily task；两个账号都只能读取公共题库。
+`SUPABASE_SERVICE_ROLE_KEY` 会绕过 RLS，因此数量校验不能证明用户隔离。`npm run supabase:verify-rls` 会创建两个临时已确认账号，验证本人数据可见、另一用户不可读写删除、匿名用户不可读题库且登录用户可读，最后自动删除临时账号及其数据。
 
 V1 的安全边界是“个人训练数据彼此隔离”，不是防作弊系统：普通登录用户只能通过 RLS 读写自己的记录，但拥有自己的浏览器 token，技术上可以改写自己的分数。OfferPilot 不信任任何用户去访问他人数据，却信任用户维护自己的训练记录。若未来改造成面向互不信任用户的排行榜或认证平台，应把 mastery 计算与写入迁移到受信服务器，并撤销普通用户对训练写接口的直接权限；当前个人版不需要在 Vercel 配置 service-role key。
 
