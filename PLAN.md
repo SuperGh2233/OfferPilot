@@ -6,11 +6,11 @@
 
 - 最后更新：2026-09-13
 - 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
-- 当前任务：Phase 8.5 在稳定域名完成注册、登录、退出、算法训练、八股回忆与持久化生产 Smoke
+- 当前任务：Phase 8.5 提交并部署 Hot 100 静态题面与 Java 初始代码，然后继续稳定域名生产 Smoke
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置；算法计时页 Java 编辑区已由 Git 集成自动部署为 READY，真实登录与训练验收进行中
-- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；28 个测试文件、258 项测试通过，生成 238 个页面
+- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；28 个测试文件、259 项测试通过，生成 238 个页面
 
 | 阶段 | 状态 | 核心结果 |
 | --- | --- | --- |
@@ -55,6 +55,7 @@ npm run build
 - mastery 只由确定性 TypeScript 规则更新；AI 分析不得直接修改 mastery。
 - 八股 Recall 保留确定性关键词分数，并允许用户提交后主动请求 AI 语义复核；AI 结果只用于解释，不回写 mastery。
 - 算法 AI 代码复盘同时提取本题代码实际涉及的 Java 基础方法，展示用途、语法、示例和易错点；复用现有复盘请求与持久化，不建立独立课程模块。
+- 算法训练页使用随 Hot 100 快照保存的静态题面与 Java 初始代码；已有草稿优先且不得被模板覆盖，不引入运行时抓取或在线判题。
 - Hard 时间修正采用 `<=40/+5`、`<=60/0`、`<=90/-5`、`>90/-10`，避免过度惩罚。
 - 算法失败时取“平滑 mastery”和“旧 mastery−15”的较低值，确保失败至少下降 15。
 - V1 不建独立 weakness 表；从 `mistake_tags` 和可选 `ai_analysis` 聚合。
@@ -247,6 +248,7 @@ npm run build
 - [x] 优化算法写题流程：未提交代码草稿自动恢复，训练记录先保存，AI 复盘后执行并独立持久化。
 - [x] 支持取消尚未完成的算法训练，不改变历史成绩与 Mastery，并恢复对应待办状态。
 - [x] 支持计时期间在训练页直接编写 Java 代码，刷新恢复并自动带入反馈。
+- [x] 为全部 Hot 100 训练页展示静态题面并在新 Attempt 自动填入 Java 初始代码，支持确认后恢复模板且保护已有草稿。
 - [ ] 完成生产 Smoke Test、README 和恢复/排错说明。（脚本与文档已完成，待真实生产执行）
 - [ ] 运行完整质量门并完成 V1 最终验收。
 
@@ -431,3 +433,4 @@ npm run build
 | 2026-09-13 | Phase 8.5 | 将算法训练取消功能提交并推送到 `main`，由 Vercel Git 集成自动部署 | Commit `68054f3` 已推送且远端 `main` 一致；部署 `dpl_7ZfxUw49swrvp7TfdFTPvYAymPuw` 状态 READY，稳定域名已切换到新版本 |
 | 2026-09-13 | Phase 8.5 | 把算法训练页从纯计时器改为可直接写题：计时状态展示大尺寸 Java 编辑区，关闭拼写/自动修正，复用现有按 Attempt 保存的浏览器草稿，结束训练后同一代码自动进入反馈 | Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、258 项测试、238 个页面；在线编译与判题按安全边界延后 |
 | 2026-09-13 | Phase 8.5 | 将算法计时页 Java 编辑区提交并推送到 `main`，由 Vercel Git 集成自动部署 | Commit `33d11b3` 已推送且远端 `main` 一致；部署 `dpl_CWDuY5fpuZTJ8citZ3hF7xuYiWLb` 状态 READY，稳定域名已切换到新版本 |
+| 2026-09-13 | Phase 8.5 | 为 Hot 100 增加独立静态内容快照：从 LeetCode 官方接口采集 100 道纯文本题面与 Java 初始代码，训练详情按题号合并；新 Attempt 无草稿时填入模板，已有草稿（包括主动清空）优先，支持确认后恢复模板，未修改模板不作为代码提交；内容不进入 Supabase Seed，也不在运行时抓取 | 快照 100/100、唯一 ID、非空题面/模板和无 HTML 校验通过；`seed:check` 保持 100 / 165 / 904 / 120；本地 `/algorithm/49` 题面只读检查通过；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、259 项测试、238 个页面 |

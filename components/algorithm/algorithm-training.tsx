@@ -30,7 +30,7 @@ import type {
   AlgorithmMistakeTag,
   AlgorithmResult,
 } from "@/lib/mastery/algorithm";
-import type { AlgorithmCatalogProblem } from "@/lib/algorithm/catalog";
+import type { AlgorithmTrainingProblem } from "@/lib/algorithm/catalog";
 import {
   parseAlgorithmCodeAnalysis,
   type AlgorithmCodeAnalysis,
@@ -119,6 +119,15 @@ function clearCodeDraft(attemptId: string) {
   }
 }
 
+function saveCodeDraft(attemptId: string, code: string) {
+  try {
+    window.localStorage.setItem(codeDraftKey(attemptId), code);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function formatDuration(totalSeconds: number) {
   const seconds = Math.max(0, Math.floor(totalSeconds));
   const minutes = Math.floor(seconds / 60);
@@ -165,7 +174,7 @@ export function AlgorithmTraining({
 }: {
   demoMode: boolean;
   plannerProblems: readonly AlgorithmPlannerProblem[];
-  problem: AlgorithmCatalogProblem;
+  problem: AlgorithmTrainingProblem;
 }) {
   const [data, setData] = useState<AlgorithmDemoData | null>(null);
   const [timeZone, setTimeZone] = useState<string>(ALGORITHM_DEMO_TIME_ZONE);
@@ -303,24 +312,30 @@ export function AlgorithmTraining({
   }, [activeAttempt, mode]);
 
   useEffect(() => {
-    if (!activeAttempt) return;
+    const activeAttemptId = activeAttempt?.id;
+    if (!activeAttemptId) return;
 
-    let timer: number | undefined;
+    const timers: number[] = [];
     try {
-      const draft = window.localStorage.getItem(codeDraftKey(activeAttempt.id));
-      if (draft !== null) {
-        timer = window.setTimeout(() => setCode((current) => current || draft), 0);
+      const draft = window.localStorage.getItem(codeDraftKey(activeAttemptId));
+      const initialCode = draft ?? problem.javaStarterCode;
+      timers.push(window.setTimeout(() => setCode(initialCode), 0));
+      if (draft === null && problem.javaStarterCode && !saveCodeDraft(activeAttemptId, problem.javaStarterCode)) {
+        timers.push(window.setTimeout(
+          () => setError("初始代码已载入，但无法自动保存草稿。"),
+          0,
+        ));
       }
     } catch {
-      timer = window.setTimeout(
+      timers.push(window.setTimeout(
         () => setError("无法读取代码草稿；本次页面内输入仍可正常提交。"),
         0,
-      );
+      ));
     }
     return () => {
-      if (timer !== undefined) window.clearTimeout(timer);
+      timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [activeAttempt]);
+  }, [activeAttempt?.id, problem.javaStarterCode]);
 
   function persist(nextData: AlgorithmDemoData) {
     if (!saveAlgorithmDemoData(window.localStorage, nextData)) {
@@ -413,6 +428,22 @@ export function AlgorithmTraining({
     );
   }
 
+  function handleRestoreStarterCode() {
+    if (!activeAttempt) return;
+
+    if (code.length > 0 && code !== problem.javaStarterCode && !window.confirm("恢复初始代码会替换当前编辑内容，确定继续吗？")) {
+      return;
+    }
+
+    setCode(problem.javaStarterCode);
+    setAiError(null);
+    if (!saveCodeDraft(activeAttempt.id, problem.javaStarterCode)) {
+      setError("初始代码已恢复，但无法自动保存草稿。");
+      return;
+    }
+    setError(null);
+  }
+
   async function handleAiAnalysis() {
     const completed = completion;
     const savedCode = completed?.attempt.code?.trim();
@@ -474,6 +505,7 @@ export function AlgorithmTraining({
     if (!data || !activeAttempt || saving) return;
 
     const parsedWaCount = Number(waCount);
+    const submittedCode = code.trim() && code !== problem.javaStarterCode ? code : null;
     if (!Number.isSafeInteger(parsedWaCount) || parsedWaCount < 0 || parsedWaCount > 3) {
       setError("WA 次数必须是 0、1、2 或 3+。");
       return;
@@ -491,7 +523,7 @@ export function AlgorithmTraining({
           independence,
           waCount: parsedWaCount,
           mistakeTags,
-          code: code.trim() ? code : null,
+          code: submittedCode,
           aiAnalysis: null,
         });
         cloud.setSnapshot(completed.snapshot);
@@ -510,7 +542,7 @@ export function AlgorithmTraining({
         independence,
         waCount: parsedWaCount,
         mistakeTags,
-        code: code.trim() ? code : null,
+        code: submittedCode,
         aiAnalysis: null,
         timeZone,
       });
@@ -551,8 +583,18 @@ export function AlgorithmTraining({
             ? "本次已完成"
             : "准备开始";
   const codeEditor = activeAttempt ? (
-    <label className="grid gap-2 text-sm font-medium" htmlFor="java-code">
-      Java 代码（可选）
+    <div className="grid gap-2 text-sm font-medium">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <label htmlFor="java-code">Java 代码（可选）</label>
+        <Button
+          className="h-auto px-2 py-1 text-xs"
+          onClick={handleRestoreStarterCode}
+          type="button"
+          variant="ghost"
+        >
+          恢复初始代码
+        </Button>
+      </div>
       <textarea
         autoCapitalize="off"
         autoCorrect="off"
@@ -563,12 +605,7 @@ export function AlgorithmTraining({
           const nextCode = event.target.value;
           setCode(nextCode);
           setAiError(null);
-          try {
-            window.localStorage.setItem(
-              codeDraftKey(activeAttempt.id),
-              nextCode,
-            );
-          } catch {
+          if (!saveCodeDraft(activeAttempt.id, nextCode)) {
             setError("代码已保留在当前页面，但无法自动保存草稿。");
           }
         }}
@@ -577,9 +614,9 @@ export function AlgorithmTraining({
         value={code}
       />
       <span className="text-xs font-normal text-muted-foreground">
-        草稿自动保存在当前浏览器；结束训练后会原样带入反馈。
+        初始代码来自静态题库快照；草稿自动保存，未修改的模板不会作为代码提交。
       </span>
-    </label>
+    </div>
   ) : null;
 
   return (
@@ -629,6 +666,23 @@ export function AlgorithmTraining({
             {problem.title}
           </h1>
           <p className="mt-2 text-base text-muted-foreground">{problem.titleEn}</p>
+
+          <section
+            aria-labelledby="problem-statement-heading"
+            className="mt-7 rounded-2xl border bg-muted/20 p-5 sm:p-6"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold" id="problem-statement-heading">
+                题目说明
+              </h2>
+              <span className="rounded-full bg-background px-2.5 py-1 text-xs text-muted-foreground">
+                静态快照
+              </span>
+            </div>
+            <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-muted-foreground">
+              {problem.statement}
+            </p>
+          </section>
 
           <div className="mt-7 rounded-2xl border bg-card p-5 shadow-sm sm:p-7">
             <div className="flex flex-wrap items-start justify-between gap-4">
