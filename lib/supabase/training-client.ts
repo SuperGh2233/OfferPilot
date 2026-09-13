@@ -12,6 +12,7 @@ import type {
   CloudTrainingSnapshot,
   CompleteCloudAlgorithmInput,
   RecordCloudKnowledgeInput,
+  SaveCloudAlgorithmAnalysisInput,
 } from "./training";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -75,6 +76,17 @@ export async function completeCloudAttempt(input: CompleteCloudAlgorithmInput) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "complete", ...input }),
+  });
+}
+
+export async function saveCloudAlgorithmAnalysis(input: SaveCloudAlgorithmAnalysisInput) {
+  return request<{
+    attempt: CloudTrainingSnapshot["algorithm"]["attempts"][number];
+    snapshot: CloudTrainingSnapshot;
+  }>("/api/training/algorithm", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "save_ai_analysis", ...input }),
   });
 }
 

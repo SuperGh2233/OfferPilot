@@ -6,11 +6,11 @@
 
 - 最后更新：2026-09-13
 - 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
-- 当前任务：Phase 8.5 发布并生产验收算法 AI 复盘的本题 Java 基础语法卡片
+- 当前任务：Phase 8.5 验证算法写题流程优化的 Vercel 自动部署，然后继续生产 Smoke
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置，含 AI Recall 的 Vercel 生产部署为 READY，真实登录与训练验收进行中
-- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；28 个测试文件、252 项测试通过，生成 238 个页面
+- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；28 个测试文件、255 项测试通过，生成 238 个页面
 
 | 阶段 | 状态 | 核心结果 |
 | --- | --- | --- |
@@ -244,6 +244,7 @@ npm run build
 - [x] 在 Vercel 配置生产环境变量并部署 Next.js 前端。
 - [x] 支持批量导入外部已完成的 Hot 100 题目，并在本地数据库与 Supabase 共用同一语义。
 - [x] 接入 OpenAI 兼容的八股 Recall AI 语义复核，服务端读取题库、严格校验结构化结果且不修改 mastery。
+- [x] 优化算法写题流程：未提交代码草稿自动恢复，训练记录先保存，AI 复盘后执行并独立持久化。
 - [ ] 完成生产 Smoke Test、README 和恢复/排错说明。（脚本与文档已完成，待真实生产执行）
 - [ ] 运行完整质量门并完成 V1 最终验收。
 
@@ -422,3 +423,5 @@ npm run build
 | 2026-09-13 | Phase 8.5 | 将 AI Recall 提交并推送到 `main`，在 Vercel Production 配置 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL` 三项服务端变量并重新发布稳定域名 | Commit `861496f` 已推送；部署 `dpl_EBBFhk7fM3rDPB82yaZwpHsp9tZo` 状态 READY、构建 238 个页面；本机访问 `vercel.app:443` 持续超时，生产匿名与登录后 Smoke 保持待验收 |
 | 2026-09-13 | Phase 8.5 | 修复生产算法 AI 代码复盘超时：将不受当前阿里百炼兼容端点支持的 Responses API 改为已验证的 Chat Completions，保持严格 JSON Schema、非思考模式、20 秒超时和服务端密钥边界 | Vercel 日志确认旧接口返回 504；同配置探测为 Responses 400、Chat 成功；真实代码复盘 Route 返回 200（约 5.2 秒）；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、250 项测试、238 个页面 |
 | 2026-09-13 | Phase 8.5 | 在现有算法 AI 代码复盘中增加“本题 Java 基础语法”：最多 4 张卡片，展示代码实际涉及方法的用途、标准写法、最小示例和易错点；复用现有 AI 请求与 Attempt JSON 持久化，并兼容无该字段的旧复盘 | 真实 `qwen3.7-flash` 复盘返回 `String.toCharArray()`、`Arrays.sort(char[])` 等 3 项语法知识；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、252 项测试、238 个页面 |
+| 2026-09-13 | Phase 8.5 | 优化算法写题流程：未提交 Java 代码按 Attempt 自动保存在当前浏览器并可刷新恢复；训练反馈先独立保存，完成后再请求 AI，分析结果追加到同一 Attempt，覆盖浏览器 Demo、本地 SQLite 与 Supabase，且不重复计算 mastery | 浏览器验证草稿刷新恢复、先保存后出现 AI 按钮且控制台无错误；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、255 项测试、238 个页面 |
+| 2026-09-13 | Phase 8.5 | 将算法写题流程优化提交并推送到 `main`，交由已连接的 Vercel Git 集成自动部署 | 推送后检查 GitHub 与 Vercel 状态 |

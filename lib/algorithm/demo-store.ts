@@ -577,3 +577,33 @@ export function completeDemoAlgorithmAttempt({
 
   return { ...completed, data: nextData };
 }
+
+export function attachDemoAlgorithmAnalysis({
+  data,
+  attemptId,
+  problemId,
+  aiAnalysis,
+}: {
+  data: AlgorithmDemoData;
+  attemptId: string;
+  problemId: string;
+  aiAnalysis: AlgorithmCodeAnalysis;
+}): { data: AlgorithmDemoData; attempt: AlgorithmAttemptPayload } {
+  assertAlgorithmDemoData(data);
+  if (!isAlgorithmCodeAnalysis(aiAnalysis)) {
+    throw new RangeError("aiAnalysis must be valid");
+  }
+
+  const index = data.attempts.findIndex(
+    (attempt) => attempt.id === attemptId && attempt.problemId === problemId,
+  );
+  const existing = data.attempts[index];
+  if (!existing || !existing.finishedAt || !existing.code) {
+    throw new RangeError("completed attempt with code was not found");
+  }
+
+  const attempt = { ...existing, aiAnalysis };
+  const nextData = cloneData(data);
+  nextData.attempts[index] = attempt;
+  return { data: nextData, attempt };
+}

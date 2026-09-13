@@ -12,6 +12,7 @@ import {
   importCloudAlgorithms,
   loadCloudTrainingSnapshot,
   profileFromRow,
+  saveCloudAlgorithmAnalysis,
   updateCloudProfile,
 } from "../lib/supabase/training";
 import { algorithmCatalog } from "../lib/algorithm/catalog";
@@ -346,6 +347,76 @@ describe("Supabase training adapter", () => {
     });
     expect(() => algorithmStateFromRow({ ...state, next_review_at: null }, "1"))
       .toThrow(/next_review_at/);
+  });
+
+  it("persists post-completion AI analysis on the matching attempt", async () => {
+    const aiAnalysis = {
+      solutionType: "other" as const,
+      complexity: { time: "O(n)", space: "O(1)" },
+      summary: "遍历并处理输入。",
+      mistakes: [],
+      weaknessTags: ["java_api" as const],
+      goodPoints: ["代码结构清晰。"],
+      minimalChanges: [],
+    };
+    const attempt: AlgorithmAttempt = {
+      id: "attempt-1",
+      user_id: "user-1",
+      problem_id: "db-1",
+      started_at: "2026-09-09T01:00:00.000Z",
+      finished_at: "2026-09-09T01:20:00.000Z",
+      duration_seconds: 1200,
+      result: "first_ac",
+      independence: "independent",
+      wa_count: 0,
+      mistake_tags: [],
+      code: "class Solution {}",
+      ai_analysis: null,
+      attempt_score: 88,
+      mastery_before: null,
+      mastery_after: 88,
+      created_at: "2026-09-09T01:00:00.000Z",
+      updated_at: "2026-09-09T01:20:00.000Z",
+    };
+    let updatePayload: unknown;
+    const mutation = {
+      eq: () => mutation,
+      not: () => mutation,
+      select: () => mutation,
+      single: async () => ({
+        data: { ...attempt, ai_analysis: updatePayload },
+        error: null,
+      }),
+    };
+    const client = {
+      from: (table: string) => table === "algorithm_problems"
+        ? {
+            select: () => ({
+              eq: () => ({
+                single: async () => ({
+                  data: { id: "db-1", leetcode_id: 1 },
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        : {
+            update: (value: unknown) => {
+              updatePayload = (value as { ai_analysis: unknown }).ai_analysis;
+              return mutation;
+            },
+          },
+    };
+
+    const saved = await saveCloudAlgorithmAnalysis(client as never, "user-1", {
+      attemptId: attempt.id,
+      problemId: "1",
+      aiAnalysis,
+    });
+
+    expect(updatePayload).toEqual(aiAnalysis);
+    expect(saved.aiAnalysis).toEqual(aiAnalysis);
+    expect(saved.attemptScore).toBe(88);
   });
 
   it("maps knowledge evidence and keeps structured matched points", () => {

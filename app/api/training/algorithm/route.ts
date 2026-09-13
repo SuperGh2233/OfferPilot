@@ -15,6 +15,7 @@ import {
   completeCloudAlgorithmAttempt,
   importCloudAlgorithms,
   loadCloudTrainingSnapshot,
+  saveCloudAlgorithmAnalysis,
   startCloudAlgorithmAttempt,
 } from "../../../../lib/supabase/training";
 import {
@@ -81,6 +82,28 @@ export async function POST(request: Request) {
 
     const problemId = nonEmpty(body.problemId, "problemId");
 
+    if (action === "save_ai_analysis") {
+      const attemptId = requestUuid(body.attemptId, "attemptId");
+      if (!isAlgorithmCodeAnalysis(body.aiAnalysis)) {
+        throw new RangeError("aiAnalysis 无效。");
+      }
+      const attempt = localMode
+        ? getLocalTrainingDatabase().saveAlgorithmAnalysis({
+            attemptId,
+            problemId,
+            aiAnalysis: body.aiAnalysis,
+          })
+        : await saveCloudAlgorithmAnalysis(context!.client, context!.userId, {
+            attemptId,
+            problemId,
+            aiAnalysis: body.aiAnalysis,
+          });
+      const snapshot = localMode
+        ? getLocalTrainingDatabase().loadSnapshot()
+        : await loadCloudTrainingSnapshot(context!.client, context!.userId);
+      return NextResponse.json({ attempt, snapshot });
+    }
+
     if (action === "start") {
       const attempt = localMode
         ? getLocalTrainingDatabase().startAlgorithm(problemId)
@@ -91,7 +114,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ attempt, snapshot });
     }
     if (action !== "complete") {
-      throw new RangeError("action 必须是 start、complete 或 import_completed。");
+      throw new RangeError("action 必须是 start、complete、save_ai_analysis 或 import_completed。");
     }
 
     const attemptId = requestUuid(body.attemptId, "attemptId");

@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { getAlgorithmProblem, algorithmCatalog, toAlgorithmPlannerProblem } from "./algorithm/catalog";
 import { importCompletedAlgorithmProblems } from "./algorithm/import-progress";
 import {
+  attachDemoAlgorithmAnalysis,
   completeDemoAlgorithmAttempt,
   createAlgorithmDemoData,
   ensureTodayAlgorithmTasks,
@@ -13,6 +14,7 @@ import {
   type AlgorithmDemoData,
   type StorageLike,
 } from "./algorithm/demo-store";
+import type { AlgorithmCodeAnalysis } from "./ai/code-analysis";
 import {
   getKnowledgeQuestion,
   knowledgeQuestions,
@@ -242,6 +244,19 @@ export class LocalTrainingDatabase {
     state.algorithm = data;
     this.writeState(state);
     return completion;
+  }
+
+  saveAlgorithmAnalysis(input: {
+    attemptId: string;
+    problemId: string;
+    aiAnalysis: AlgorithmCodeAnalysis;
+  }) {
+    const state = this.readState();
+    if (!state) throw new LocalTrainingConflictError("本地训练记录不存在。");
+    const result = attachDemoAlgorithmAnalysis({ data: state.algorithm, ...input });
+    state.algorithm = result.data;
+    this.writeState(state);
+    return result.attempt;
   }
 
   recordKnowledge(input: RecordCloudKnowledgeInput) {

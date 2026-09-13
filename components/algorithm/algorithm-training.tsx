@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   ALGORITHM_DEMO_CHANGED_EVENT,
   ALGORITHM_DEMO_TIME_ZONE,
+  attachDemoAlgorithmAnalysis,
   completeDemoAlgorithmAttempt,
   ensureTodayAlgorithmTasks,
   loadAlgorithmDemoData,
@@ -35,6 +36,7 @@ import {
 } from "@/lib/ai/code-analysis";
 import {
   completeCloudAttempt,
+  saveCloudAlgorithmAnalysis,
   startCloudAttempt,
 } from "@/lib/supabase/training-client";
 import type { CloudTrainingSnapshot } from "@/lib/supabase/training";
@@ -101,6 +103,20 @@ const solutionTypeLabels: Record<AlgorithmCodeAnalysis["solutionType"], string> 
   other: "其他",
 };
 
+const CODE_DRAFT_PREFIX = "offerpilot:algorithm-code-draft:";
+
+function codeDraftKey(attemptId: string) {
+  return `${CODE_DRAFT_PREFIX}${attemptId}`;
+}
+
+function clearCodeDraft(attemptId: string) {
+  try {
+    window.localStorage.removeItem(codeDraftKey(attemptId));
+  } catch {
+    // The completed attempt is already durable; stale local drafts are harmless.
+  }
+}
+
 function formatDuration(totalSeconds: number) {
   const seconds = Math.max(0, Math.floor(totalSeconds));
   const minutes = Math.floor(seconds / 60);
@@ -162,7 +178,6 @@ export function AlgorithmTraining({
   const [waCount, setWaCount] = useState("0");
   const [mistakeTags, setMistakeTags] = useState<AlgorithmMistakeTag[]>([]);
   const [code, setCode] = useState("");
-  const [aiAnalysis, setAiAnalysis] = useState<AlgorithmCodeAnalysis | null>(null);
   const [aiStatus, setAiStatus] = useState<"idle" | "loading">("idle");
   const [aiError, setAiError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -285,6 +300,26 @@ export function AlgorithmTraining({
     return () => window.clearInterval(timer);
   }, [activeAttempt, mode]);
 
+  useEffect(() => {
+    if (!activeAttempt) return;
+
+    let timer: number | undefined;
+    try {
+      const draft = window.localStorage.getItem(codeDraftKey(activeAttempt.id));
+      if (draft !== null) {
+        timer = window.setTimeout(() => setCode((current) => current || draft), 0);
+      }
+    } catch {
+      timer = window.setTimeout(
+        () => setError("无法读取代码草稿；本次页面内输入仍可正常提交。"),
+        0,
+      );
+    }
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [activeAttempt]);
+
   function persist(nextData: AlgorithmDemoData) {
     if (!saveAlgorithmDemoData(window.localStorage, nextData)) {
       setError("无法保存本地训练数据，请检查浏览器存储空间。");
@@ -343,7 +378,9 @@ export function AlgorithmTraining({
   }
 
   async function handleAiAnalysis() {
-    if (!code.trim() || aiStatus === "loading") return;
+    const completed = completion;
+    const savedCode = completed?.attempt.code?.trim();
+    if (!completed || !savedCode || !data || aiStatus === "loading") return;
 
     setAiError(null);
     setAiStatus("loading");
@@ -351,7 +388,7 @@ export function AlgorithmTraining({
       const response = await fetch("/api/ai/analyze-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ problemId: problem.id, code }),
+        body: JSON.stringify({ problemId: problem.id, code: savedCode }),
       });
       const payload: unknown = await response.json();
       if (!response.ok) {
@@ -363,9 +400,33 @@ export function AlgorithmTraining({
       const value = payload && typeof payload === "object" && "analysis" in payload
         ? payload.analysis
         : null;
-      setAiAnalysis(parseAlgorithmCodeAnalysis(value));
+      const analysis = parseAlgorithmCodeAnalysis(value);
+      if (!demoMode) {
+        const saved = await saveCloudAlgorithmAnalysis({
+          attemptId: completed.attempt.id,
+          problemId: problem.id,
+          aiAnalysis: analysis,
+        });
+        cloud.setSnapshot(saved.snapshot);
+        setCompletion((current) => current?.attempt.id === saved.attempt.id
+          ? { ...current, attempt: saved.attempt }
+          : current);
+        return;
+      }
+
+      const saved = attachDemoAlgorithmAnalysis({
+        data,
+        attemptId: completed.attempt.id,
+        problemId: problem.id,
+        aiAnalysis: analysis,
+      });
+      if (!persist(saved.data)) {
+        throw new Error("AI 复盘已生成，但未能保存，请重试。");
+      }
+      setCompletion((current) => current?.attempt.id === saved.attempt.id
+        ? { ...current, attempt: saved.attempt }
+        : current);
     } catch (analysisError) {
-      setAiAnalysis(null);
       setAiError(errorMessage(analysisError));
     } finally {
       setAiStatus("idle");
@@ -395,12 +456,13 @@ export function AlgorithmTraining({
           waCount: parsedWaCount,
           mistakeTags,
           code: code.trim() ? code : null,
-          aiAnalysis,
+          aiAnalysis: null,
         });
         cloud.setSnapshot(completed.snapshot);
         setCompletion(completed.completion);
         setMode("complete");
         setFeedbackEndedAt(null);
+        clearCodeDraft(activeAttempt.id);
         return;
       }
       const completed = completeDemoAlgorithmAttempt({
@@ -413,13 +475,14 @@ export function AlgorithmTraining({
         waCount: parsedWaCount,
         mistakeTags,
         code: code.trim() ? code : null,
-        aiAnalysis,
+        aiAnalysis: null,
         timeZone,
       });
       if (persist(completed.data)) {
         setCompletion(completed);
         setMode("complete");
         setFeedbackEndedAt(null);
+        clearCodeDraft(activeAttempt.id);
       }
     } catch (completionError) {
       setError(errorMessage(completionError));
@@ -435,7 +498,6 @@ export function AlgorithmTraining({
     setWaCount("0");
     setMistakeTags([]);
     setCode("");
-    setAiAnalysis(null);
     setAiStatus("idle");
     setAiError(null);
     setError(null);
@@ -596,31 +658,28 @@ export function AlgorithmTraining({
                     id="java-code"
                     maxLength={20_000}
                     onChange={(event) => {
-                      setCode(event.target.value);
-                      setAiAnalysis(null);
+                      const nextCode = event.target.value;
+                      setCode(nextCode);
                       setAiError(null);
+                      try {
+                        window.localStorage.setItem(
+                          codeDraftKey(activeAttempt.id),
+                          nextCode,
+                        );
+                      } catch {
+                        setError("代码已保留在当前页面，但无法自动保存草稿。");
+                      }
                     }}
-                    placeholder="可留空；粘贴代码后可主动请求 AI 复盘。"
+                    placeholder="可留空；保存训练后可单独请求 AI 复盘。"
                     value={code}
                   />
+                  <span className="text-xs font-normal text-muted-foreground">
+                    未提交代码会保存在当前浏览器；训练记录保存后再进行 AI 复盘。
+                  </span>
                 </label>
 
-                <div className="rounded-xl border bg-muted/30 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium">AI 代码复盘（可选）</p>
-                      <p className="mt-1 text-xs text-muted-foreground">只有点击按钮才会发送非空代码；结果仅用于复盘和弱项统计。</p>
-                    </div>
-                    <Button disabled={!code.trim() || aiStatus === "loading"} onClick={handleAiAnalysis} type="button" variant="outline">
-                      {aiStatus === "loading" ? "分析中…" : "AI 分析代码"}
-                    </Button>
-                  </div>
-                  {aiError ? <p aria-live="assertive" className="mt-3 text-sm text-destructive">{aiError}</p> : null}
-                  {aiAnalysis ? <AnalysisPanel analysis={aiAnalysis} /> : null}
-                </div>
-
                 <div className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs text-muted-foreground">提交后按确定性规则计算分数、mastery 和复习间隔。</p>
+                  <p className="text-xs text-muted-foreground">先按确定性规则保存分数、mastery 和复习间隔；AI 复盘不会阻塞保存。</p>
                   <Button disabled={saving} type="submit">{saving ? "保存中…" : "保存本次反馈"}</Button>
                 </div>
               </form>
@@ -635,7 +694,25 @@ export function AlgorithmTraining({
                   <Metric label="Mastery" value={`${completion.state.mastery}`} />
                   <Metric label="下次复习" value={formatDate(completion.state.nextReviewAt, timeZone)} />
                 </div>
-                {completion.attempt.aiAnalysis ? <AnalysisPanel analysis={completion.attempt.aiAnalysis} /> : null}
+                {completion.attempt.code ? (
+                  <div className="rounded-xl border bg-muted/30 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium">AI 代码复盘（可选）</p>
+                        <p className="mt-1 text-xs text-muted-foreground">训练已保存。AI 仅分析本次代码并记录复盘，不会修改 mastery。</p>
+                      </div>
+                      <Button disabled={aiStatus === "loading"} onClick={handleAiAnalysis} type="button" variant="outline">
+                        {aiStatus === "loading"
+                          ? "分析并保存中…"
+                          : completion.attempt.aiAnalysis
+                            ? "重新分析"
+                            : "AI 分析代码"}
+                      </Button>
+                    </div>
+                    {aiError ? <p aria-live="assertive" className="mt-3 text-sm text-destructive">{aiError}</p> : null}
+                    {completion.attempt.aiAnalysis ? <AnalysisPanel analysis={completion.attempt.aiAnalysis} /> : null}
+                  </div>
+                ) : null}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <Button onClick={handleTrainAgain} type="button">再刷一次</Button>
                   <Link className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" href="/algorithm">

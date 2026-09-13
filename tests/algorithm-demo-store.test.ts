@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ALGORITHM_DEMO_STORAGE_KEY,
+  attachDemoAlgorithmAnalysis,
   calculateAlgorithmCurrentWeek,
   completeDemoAlgorithmAttempt,
   createAlgorithmDemoData,
@@ -13,6 +14,7 @@ import {
   type AlgorithmDemoData,
   type StorageLike,
 } from "../lib/algorithm/demo-store";
+import type { AlgorithmCodeAnalysis } from "../lib/ai/code-analysis";
 
 class MemoryStorage implements StorageLike {
   private readonly values = new Map<string, string>();
@@ -57,6 +59,15 @@ const problems = [
 const day = (dayNumber: number) => new Date(`2026-09-${String(dayNumber).padStart(2, "0")}T10:00:00+08:00`);
 const daysAfterStart = (days: number) =>
   new Date(day(9).getTime() + days * 24 * 60 * 60 * 1000);
+const analysis: AlgorithmCodeAnalysis = {
+  solutionType: "other",
+  complexity: { time: "O(n)", space: "O(1)" },
+  summary: "遍历并处理输入。",
+  mistakes: [],
+  weaknessTags: ["java_api"],
+  goodPoints: ["代码结构清晰。"],
+  minimalChanges: [],
+};
 
 describe("algorithm demo local storage adapter", () => {
   it("falls back safely when storage is missing or malformed", () => {
@@ -285,6 +296,42 @@ describe("algorithm demo local storage adapter", () => {
       status: "completed",
       completedAt: finishedAt.toISOString(),
     });
+  });
+
+  it("attaches AI analysis after completion without changing mastery", () => {
+    const started = startDemoAlgorithmAttempt({
+      data: createAlgorithmDemoData("2026-09-09"),
+      problemId: "1",
+      startedAt: day(9),
+      attemptId: "attempt-with-code",
+    });
+    const completed = completeDemoAlgorithmAttempt({
+      data: started.data,
+      problemId: "1",
+      difficulty: "easy",
+      finishedAt: new Date(day(9).getTime() + 10 * 60 * 1000),
+      result: "first_ac",
+      independence: "independent",
+      waCount: 0,
+      mistakeTags: [],
+      code: "class Solution {}",
+    });
+    const saved = attachDemoAlgorithmAnalysis({
+      data: completed.data,
+      attemptId: completed.attempt.id,
+      problemId: "1",
+      aiAnalysis: analysis,
+    });
+
+    expect(saved.attempt.aiAnalysis).toEqual(analysis);
+    expect(saved.data.states).toEqual(completed.data.states);
+    expect(completed.data.attempts[0].aiAnalysis).toBeNull();
+    expect(() => attachDemoAlgorithmAnalysis({
+      data: completed.data,
+      attemptId: "missing",
+      problemId: "1",
+      aiAnalysis: analysis,
+    })).toThrow(/completed attempt with code/);
   });
 
   it("round-trips valid data through JSON and rejects invalid saves", () => {

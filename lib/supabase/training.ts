@@ -99,6 +99,12 @@ export type CompleteCloudAlgorithmInput = {
   aiAnalysis?: AlgorithmCodeAnalysis | null;
 };
 
+export type SaveCloudAlgorithmAnalysisInput = {
+  attemptId: string;
+  problemId: string;
+  aiAnalysis: AlgorithmCodeAnalysis;
+};
+
 export type RecordCloudKnowledgeInput =
   | {
       attemptId: string;
@@ -729,6 +735,33 @@ export async function completeCloudAlgorithmAttempt(
   });
   fail("Complete algorithm attempt failed", rpc.error);
   return completed;
+}
+
+export async function saveCloudAlgorithmAnalysis(
+  client: Client,
+  userId: string,
+  input: SaveCloudAlgorithmAnalysisInput,
+): Promise<AlgorithmAttemptPayload> {
+  if (!isAlgorithmCodeAnalysis(input.aiAnalysis)) {
+    throw new RangeError("aiAnalysis is invalid");
+  }
+
+  const { row: problem } = await resolveProblem(client, input.problemId);
+  const updated = await client
+    .from("algorithm_attempts")
+    .update({ ai_analysis: input.aiAnalysis as unknown as Json })
+    .eq("id", input.attemptId)
+    .eq("user_id", userId)
+    .eq("problem_id", problem.id)
+    .not("finished_at", "is", null)
+    .not("code", "is", null)
+    .select("*")
+    .single();
+  fail("Save algorithm AI analysis failed", updated.error);
+  return algorithmAttemptFromRow(
+    required(updated.data, "algorithm attempt with AI analysis"),
+    input.problemId,
+  );
 }
 
 export async function recordCloudKnowledgeAttempt(

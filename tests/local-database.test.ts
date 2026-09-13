@@ -10,6 +10,17 @@ import { knowledgeQuestions } from "../lib/knowledge/catalog";
 import { createKnowledgeDemoData } from "../lib/knowledge/demo-store";
 import { LocalTrainingDatabase } from "../lib/local-database";
 import { createDemoProfile } from "../lib/profile/demo-store";
+import type { AlgorithmCodeAnalysis } from "../lib/ai/code-analysis";
+
+const analysis: AlgorithmCodeAnalysis = {
+  solutionType: "other",
+  complexity: { time: "O(n)", space: "O(1)" },
+  summary: "遍历并处理输入。",
+  mistakes: [],
+  weaknessTags: ["java_api"],
+  goodPoints: ["代码结构清晰。"],
+  minimalChanges: [],
+};
 
 describe("local SQLite training database", () => {
   it("imports browser data and keeps idempotent training state across restarts", async () => {
@@ -43,6 +54,7 @@ describe("local SQLite training database", () => {
         independence: "independent",
         waCount: 0,
         mistakeTags: [],
+        code: "class Solution {}",
       });
       expect(completion.state.mastery).toBeGreaterThan(0);
       expect(database.completeAlgorithm({
@@ -54,11 +66,17 @@ describe("local SQLite training database", () => {
         waCount: 0,
         mistakeTags: [],
       })).toEqual(completion);
+      expect(database.saveAlgorithmAnalysis({
+        attemptId: started.id,
+        problemId: problem.id,
+        aiAnalysis: analysis,
+      }).aiAnalysis).toEqual(analysis);
 
       database.close();
       database = new LocalTrainingDatabase(path);
       const reopened = database.peekSnapshot(now)!;
       expect(reopened.algorithm.attempts).toHaveLength(1);
+      expect(reopened.algorithm.attempts[0].aiAnalysis).toEqual(analysis);
       expect(reopened.algorithm.states[problem.id].mastery).toBe(completion.state.mastery);
 
       const question = knowledgeQuestions.find((candidate) =>

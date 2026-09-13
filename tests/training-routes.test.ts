@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   importCloudAlgorithms: vi.fn(),
   loadCloudTrainingSnapshot: vi.fn(),
   recordCloudKnowledgeAttempt: vi.fn(),
+  saveCloudAlgorithmAnalysis: vi.fn(),
   startCloudAlgorithmAttempt: vi.fn(),
   updateCloudProfile: vi.fn(),
 }));
@@ -28,6 +29,7 @@ vi.mock("../lib/supabase/training", async (importOriginal) => {
     importCloudAlgorithms: mocks.importCloudAlgorithms,
     loadCloudTrainingSnapshot: mocks.loadCloudTrainingSnapshot,
     recordCloudKnowledgeAttempt: mocks.recordCloudKnowledgeAttempt,
+    saveCloudAlgorithmAnalysis: mocks.saveCloudAlgorithmAnalysis,
     startCloudAlgorithmAttempt: mocks.startCloudAlgorithmAttempt,
     updateCloudProfile: mocks.updateCloudProfile,
   };
@@ -135,6 +137,35 @@ describe("cloud training routes", () => {
     );
     expect(response.status).toBe(400);
     expect(mocks.completeCloudAlgorithmAttempt).not.toHaveBeenCalled();
+  });
+
+  it("saves validated AI analysis on the authenticated completed attempt", async () => {
+    const aiAnalysis = {
+      solutionType: "other",
+      complexity: { time: "O(n)", space: "O(1)" },
+      summary: "遍历并处理输入。",
+      mistakes: [],
+      weaknessTags: ["java_api"],
+      goodPoints: ["代码结构清晰。"],
+      minimalChanges: [],
+    };
+    mocks.saveCloudAlgorithmAnalysis.mockResolvedValue({ id: attemptId });
+    const response = await algorithmPost(
+      jsonRequest("http://localhost/api/training/algorithm", {
+        action: "save_ai_analysis",
+        attemptId,
+        problemId: "1",
+        aiAnalysis,
+        userId: "attacker-controlled",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.saveCloudAlgorithmAnalysis).toHaveBeenCalledWith(
+      context.client,
+      "user-1",
+      { attemptId, problemId: "1", aiAnalysis },
+    );
   });
 
   it("rejects an invalid Learn rating before persistence", async () => {
