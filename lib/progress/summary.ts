@@ -128,13 +128,15 @@ export type TrainingBacklog = {
 /**
  * Summarizes catch-up workload that daily quotas alone do not surface:
  * overdue reviews (next review at or before now) plus tasks from earlier
- * dates that were never completed. Today's own tasks are never "leftover".
+ * dates in the current plan that were never completed. Tasks before the plan
+ * start and today's own tasks are never "leftover".
  */
 export function calculateTrainingBacklog({
   algorithmStates,
   knowledgeStates,
   algorithmDailyTasks,
   knowledgeDailyTasks,
+  planStartDate,
   today,
   timeZone,
 }: {
@@ -142,12 +144,14 @@ export function calculateTrainingBacklog({
   knowledgeStates: readonly BacklogReviewState[];
   algorithmDailyTasks: Record<string, readonly SummaryTask[]>;
   knowledgeDailyTasks: Record<string, readonly SummaryTask[]>;
+  planStartDate: AlgorithmDateInput;
   today: AlgorithmDateInput;
   timeZone?: string;
 }): TrainingBacklog {
   const now = today instanceof Date ? today.getTime() : new Date(today).getTime();
   if (!Number.isFinite(now)) throw new RangeError("today must be a valid date");
   const todayKey = getAlgorithmDemoDateKey(today, timeZone);
+  const planStartKey = getAlgorithmDemoDateKey(planStartDate, timeZone);
 
   const countOverdue = (states: readonly BacklogReviewState[]) =>
     states.filter(
@@ -159,7 +163,10 @@ export function calculateTrainingBacklog({
 
   const countLeftover = (dailyTasks: Record<string, readonly SummaryTask[]>) =>
     flattenDailyTasks(dailyTasks).filter(
-      (task) => task.date < todayKey && task.status !== "completed",
+      (task) =>
+        task.date >= planStartKey
+        && task.date < todayKey
+        && task.status !== "completed",
     ).length;
 
   return {

@@ -244,6 +244,7 @@ export function DashboardOverview({
     knowledgeStates: Object.values(snapshot.knowledgeData.states),
     algorithmDailyTasks: snapshot.algorithmData.dailyTasks,
     knowledgeDailyTasks: snapshot.knowledgeData.dailyTasks,
+    planStartDate: snapshot.profile.planStartDate,
     today: snapshot.now,
     timeZone: snapshot.profile.timeZone,
   });

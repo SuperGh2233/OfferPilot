@@ -144,6 +144,7 @@ describe("calculateTrainingBacklog", () => {
           { date: "2026-09-12", status: "completed" },
         ],
       },
+      planStartDate: "2026-09-01",
       today: now,
     })).toEqual({
       algorithmOverdueReviews: 1,
@@ -165,6 +166,7 @@ describe("calculateTrainingBacklog", () => {
         ],
       },
       knowledgeDailyTasks: {},
+      planStartDate: "2026-09-01",
       today: now,
     })).toEqual({
       algorithmOverdueReviews: 0,
@@ -182,6 +184,27 @@ describe("calculateTrainingBacklog", () => {
         "2026-09-12": [{ date: "2026-09-12", status: "completed" }],
       },
       knowledgeDailyTasks: {},
+      planStartDate: "2026-09-01",
+      today: now,
+    })).toEqual({
+      algorithmOverdueReviews: 0,
+      knowledgeOverdueReviews: 0,
+      algorithmLeftoverTasks: 0,
+      knowledgeLeftoverTasks: 0,
+    });
+  });
+
+  it("ignores unfinished tasks before a reset plan start date", () => {
+    expect(calculateTrainingBacklog({
+      algorithmStates: [],
+      knowledgeStates: [],
+      algorithmDailyTasks: {
+        "2026-09-12": [{ date: "2026-09-12", status: "pending" }],
+      },
+      knowledgeDailyTasks: {
+        "2026-09-12": [{ date: "2026-09-12", status: "pending" }],
+      },
+      planStartDate: "2026-09-13",
       today: now,
     })).toEqual({
       algorithmOverdueReviews: 0,
@@ -198,6 +221,7 @@ describe("calculateTrainingBacklog", () => {
         knowledgeStates: [],
         algorithmDailyTasks: {},
         knowledgeDailyTasks: {},
+        planStartDate: "2026-09-01",
         today: "not-a-date",
       }),
     ).toThrowError(RangeError);
