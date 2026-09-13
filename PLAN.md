@@ -5,11 +5,11 @@
 ## 当前状态
 
 - 最后更新：2026-09-14
-- 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
-- 当前任务：Phase 8.5 生产 Smoke 发现 Supabase 网关间歇 504，已部署弹性重试修复，继续登录态闭环验收
-- 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
+- 当前阶段：Phase 8 已完成，V1 最终验收通过；进入 AGENTS.md 优化路线图优先级 2
+- 当前任务：下一任务——优先级 2：120 道核心题 Knowledge 回忆匹配质量（原子关键点、别名与口语等价、期望/误报小型回归集）
+- 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7、Phase 8
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
-- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置；Hot 100 静态题面与 Java 初始代码已部署为 READY；生产匿名 Smoke 通过，真实登录成功、Dashboard/算法列表/训练详情渲染通过
+- 云端状态：Supabase 与 Vercel 生产部署 READY；生产 Smoke 全部通过——匿名边界（脚本）、真实登录/登出/重登、Dashboard 刷新、算法开始/取消/完成/草稿恢复/AI 代码复盘、知识 Learn/Recall/AI 语义复核、刷新与重登后持久化均验收通过；期间发现并修复 Supabase 网关间歇 504（弹性重试已部署，修复后探测 12/12 成功）
 - 最近质量门：便携版 Node 24.21 下 `lint`、`typecheck`、`test`、`build` 全部通过；29 个测试文件、266 项测试通过（系统 PATH 曾退化为 Node 20，Node 24 便携版恢复于 `%USERPROFILE%\.local\node24`）
 
 | 阶段 | 状态 | 核心结果 |
@@ -22,7 +22,7 @@
 | Phase 5 | 已完成 | 八股学习、主动回忆、反馈与复习状态闭环 |
 | Phase 6 | 已完成 | Dashboard、Progress、Settings 与周期边界闭环 |
 | Phase 7 | 已完成 | 可选 AI Java 代码分析、严格响应与失败降级闭环 |
-| Phase 8 | 进行中 | 本地 SQLite 日常使用已就绪；Supabase 与 Vercel 已部署，生产登录、训练和 AI Recall Smoke 待最终验收 |
+| Phase 8 | 已完成 | 本地与云端训练闭环就绪；生产 Smoke 全部通过，V1 最终验收完成 |
 
 ## 计划维护规则
 
@@ -241,7 +241,7 @@ npm run build
 - [x] 创建真实 Supabase 项目并填写本地安全环境变量。
 - [x] 执行 Migration、Seed，验证 100 / 165 / 904 / 120 数据。
 - [x] 连续执行两次 Seed 并验证幂等，使用两个用户验证 RLS 隔离。
-- [ ] 关闭 `LOCAL_DEMO_MODE`，联调真实注册、邮箱确认、登录、退出和 RLS 隔离。
+- [x] 关闭 `LOCAL_DEMO_MODE`，联调真实注册、邮箱确认、登录、退出和 RLS 隔离。
 - [x] 在 Vercel 配置生产环境变量并部署 Next.js 前端。
 - [x] 支持批量导入外部已完成的 Hot 100 题目，并在本地数据库与 Supabase 共用同一语义。
 - [x] 接入 OpenAI 兼容的八股 Recall AI 语义复核，服务端读取题库、严格校验结构化结果且不修改 mastery。
@@ -250,8 +250,18 @@ npm run build
 - [x] 支持计时期间在训练页直接编写 Java 代码，刷新恢复并自动带入反馈。
 - [x] 为全部 Hot 100 训练页展示静态题面并在新 Attempt 自动填入 Java 初始代码，支持确认后恢复模板且保护已有草稿。
 - [x] 将算法训练详情优化为桌面题面/编辑器双栏工作台，移动端训练优先且题面可折叠，计时、反馈与状态信息保持紧凑可见。
-- [ ] 完成生产 Smoke Test、README 和恢复/排错说明。（脚本与文档已完成，待真实生产执行）
-- [ ] 运行完整质量门并完成 V1 最终验收。
+- [x] 完成生产 Smoke Test、README 和恢复/排错说明。（2026-09-14 真实生产执行通过）
+- [x] 运行完整质量门并完成 V1 最终验收。
+
+## Phase 8 验收记录
+
+2026-09-14 生产 Smoke（稳定域名 offerpilot-dun.vercel.app，经本机代理绕过 DNS 污染）：
+
+- 匿名边界：`scripts/smoke.mjs` 全部通过（登录页 200、受保护页 307 跳登录、5 个训练 API JSON 401、未知页边界）。
+- 登录态闭环（临时验收账号）：登录跳转、Dashboard 渲染（Day 2/42、今日任务 2+3）、刷新后会话保持、算法开始计时/断线恢复（刷新续接计时）/二次确认取消（服务端 Attempt 撤销、任务恢复 pending）/草稿自动保存与刷新恢复（404 字符 HashMap 解法）/保存反馈（Mastery 0→93，下次复习 2026-09-28）/AI 代码复盘（哈希解法、O(n) 复杂度、思路小结、3 张 Java 基础语法卡片）；知识 Learn（自评 45，下次复习 2026-09-17）/Recall（答案默认隐藏、确定性覆盖 14%、Mastery 33、下次复习 2026-09-16）/AI 语义复核（语义覆盖 100% 且不修改确定性 mastery）。
+- 持久化：登出→重登后 Dashboard 完成数、算法 Mastery/累计/复习日、知识 Mastery/Learn/Recall 次数与复习日全部保留。
+- 发现的阻塞：Vercel→Supabase 网关间歇 504（实测失败率约 10%），导致训练 API 500 与页面渲染挂起；已通过 `resilient-fetch` 修复并部署，修复后 12/12 探测成功。
+- 临时验收账号与临时诊断脚本已在验收后删除。
 
 ## V1 最终验收
 
@@ -261,7 +271,7 @@ npm run build
 - [x] 同日重复生成 Daily Tasks 不重复。（本地存储与云端唯一约束/事务契约已验收）
 - [x] 每个用户只能访问自己的 profile、attempt、state 和 task。（真实双用户远端验证通过）
 - [x] 公共题库只允许 authenticated read。（真实匿名/认证远端验证通过）
-- [ ] 本地和生产均通过完整质量门。
+- [x] 本地和生产均通过完整质量门。（本地 Node 24 全部通过；生产 Smoke 于 2026-09-14 通过）
 
 ## 明确不做
 
@@ -440,3 +450,4 @@ npm run build
 | 2026-09-13 | Phase 8.5 | 将算法训练双栏工作台优化提交并推送到 `main`，由 Vercel Git 集成自动部署 | Commit `f7f7b59` 已推送且远端 `main` 一致；部署 `dpl_G9N7SC556NyEScdwxzf5TTuH7f4S` 状态 READY |
 | 2026-09-14 | Phase 8.5 | 生产 Smoke 突破本机网络阻塞（vercel.app 遭 DNS 污染，经本机代理 127.0.0.1:7897 验证）：匿名 Smoke 全部通过，真实登录、Dashboard、算法列表/详情静态题面渲染通过；发现算法 Start 返回 500，Vercel 日志定位为 Vercel→Supabase 网关间歇 504（实测失败率约 10%），训练读/写与页面渲染均受影响 | 匿名 Smoke 通过；临时验收账号登录与页面渲染通过；新增 `node_modules` 内临时诊断脚本（不入库） |
 | 2026-09-14 | Phase 8.5 | 新增 `lib/supabase/resilient-fetch.ts`：服务端 Supabase 请求统一 8 秒超时，对 408/429/502/503/504 与网络错误做两次退避重试（读操作与按合同幂等的训练写安全）；接入 `lib/supabase/server.ts` 与 `proxy.ts` 客户端；`loadProfile` 对并发首载唯一冲突改为复用既有行 | 新增 7 项回归测试；便携版 Node 24.21 下 lint/typecheck/test/build 全通过，29 个测试文件、266 项测试 |
+| 2026-09-14 | Phase 8.5 | 弹性重试修复部署 READY（`7f69316`），修复后 12/12 端到端探测成功；随后完成登录态生产闭环验收：算法开始/恢复/取消/草稿恢复/反馈（Mastery 93）/AI 复盘、知识 Learn（45）/Recall（14%）/AI 语义复核（100%）、登出重登后全部数据持久化；Phase 8 与 V1 最终验收完成，临时账号与诊断脚本清理 | 生产 Smoke 全部通过；Node 24 下 29 个测试文件、266 项测试通过 |
