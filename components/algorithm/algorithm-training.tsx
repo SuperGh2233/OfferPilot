@@ -712,6 +712,23 @@ function AnalysisPanel({ analysis }: { analysis: AlgorithmCodeAnalysis }) {
       <AnalysisList items={analysis.goodPoints} title="做得好的地方" />
       <AnalysisList items={analysis.mistakes} title="需要留意" />
       <AnalysisList items={analysis.minimalChanges} title="最小修改建议" />
+      {analysis.javaBasics?.length ? (
+        <section>
+          <p className="font-medium">本题 Java 基础语法</p>
+          <p className="mt-1 text-xs text-muted-foreground">只整理这次代码实际涉及的方法，方便针对性复习。</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {analysis.javaBasics.map((item) => (
+              <article className="rounded-xl border bg-muted/30 p-4" key={`${item.name}-${item.syntax}`}>
+                <code className="font-semibold text-foreground">{item.name}</code>
+                <p className="mt-2 text-muted-foreground">{item.purpose}</p>
+                <pre className="mt-3 overflow-x-auto rounded-lg bg-background p-3 text-xs"><code>{item.syntax}</code></pre>
+                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg bg-background p-3 text-xs"><code>{item.example}</code></pre>
+                <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">易错点：{item.pitfall}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -22,6 +22,13 @@ const validAnalysis = {
   weaknessTags: ["boundary"],
   goodPoints: ["整体思路正确。"],
   minimalChanges: ["交换返回数组中的两个下标。"],
+  javaBasics: [{
+    name: "Arrays.sort()",
+    purpose: "将数组按升序原地排序。",
+    syntax: "Arrays.sort(nums);",
+    example: "int[] nums = {3, 1};\nArrays.sort(nums);",
+    pitfall: "类名是 Arrays，不是 Array；还需要导入 java.util.Arrays。",
+  }],
 } satisfies AlgorithmCodeAnalysis;
 
 const input = {
@@ -37,12 +44,19 @@ describe("algorithm code analysis schema", () => {
     expect(parseAlgorithmCodeAnalysis(JSON.stringify(validAnalysis))).toEqual(validAnalysis);
   });
 
+  it("keeps previously stored analyses without Java basics readable", () => {
+    const legacyAnalysis: AlgorithmCodeAnalysis = { ...validAnalysis };
+    delete legacyAnalysis.javaBasics;
+    expect(parseAlgorithmCodeAnalysis(legacyAnalysis)).toEqual(legacyAnalysis);
+  });
+
   it.each([
     { ...validAnalysis, extra: true },
     { ...validAnalysis, complexity: { time: "O(n)", space: "O(n)", average: "O(n)" } },
     { ...validAnalysis, weaknessTags: ["unknown"] },
     { ...validAnalysis, summary: "" },
     { ...validAnalysis, mistakes: Array.from({ length: 9 }, () => "too many") },
+    { ...validAnalysis, javaBasics: [{ ...validAnalysis.javaBasics[0], extra: true }] },
   ])("rejects invalid or extra response fields", (value) => {
     expect(() => parseAlgorithmCodeAnalysis(value)).toThrow(TypeError);
   });
@@ -51,6 +65,7 @@ describe("algorithm code analysis schema", () => {
     expect(algorithmCodeAnalysisJsonSchema.additionalProperties).toBe(false);
     expect(algorithmCodeAnalysisJsonSchema.properties.complexity.additionalProperties).toBe(false);
     expect(algorithmCodeAnalysisJsonSchema.required).toContain("minimalChanges");
+    expect(algorithmCodeAnalysisJsonSchema.required).toContain("javaBasics");
   });
 });
 

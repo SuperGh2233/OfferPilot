@@ -6,11 +6,11 @@
 
 - 最后更新：2026-09-13
 - 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
-- 当前任务：Phase 8.5 发布算法 AI 代码复盘兼容修复，并继续生产登录、训练与 AI Smoke Test 验收
+- 当前任务：Phase 8.5 发布并生产验收算法 AI 复盘的本题 Java 基础语法卡片
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置，含 AI Recall 的 Vercel 生产部署为 READY，真实登录与训练验收进行中
-- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；28 个测试文件、250 项测试通过，生成 238 个页面
+- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；28 个测试文件、252 项测试通过，生成 238 个页面
 
 | 阶段 | 状态 | 核心结果 |
 | --- | --- | --- |
@@ -54,6 +54,7 @@ npm run build
 - follow-up 只挂在主问题下，默认不占每日新题额度。
 - mastery 只由确定性 TypeScript 规则更新；AI 分析不得直接修改 mastery。
 - 八股 Recall 保留确定性关键词分数，并允许用户提交后主动请求 AI 语义复核；AI 结果只用于解释，不回写 mastery。
+- 算法 AI 代码复盘同时提取本题代码实际涉及的 Java 基础方法，展示用途、语法、示例和易错点；复用现有复盘请求与持久化，不建立独立课程模块。
 - Hard 时间修正采用 `<=40/+5`、`<=60/0`、`<=90/-5`、`>90/-10`，避免过度惩罚。
 - 算法失败时取“平滑 mastery”和“旧 mastery−15”的较低值，确保失败至少下降 15。
 - V1 不建独立 weakness 表；从 `mistake_tags` 和可选 `ai_analysis` 聚合。
@@ -420,3 +421,4 @@ npm run build
 | 2026-09-13 | Phase 8.5 | 增加八股 Recall 的用户主动 AI 语义复核：服务端通过 OpenAI 兼容 Chat API 调用阿里百炼，使用非思考模式和严格 JSON Schema 返回语义覆盖、遗漏、误区及改进表达；API Key 不下发浏览器，AI 不修改确定性 mastery；本地已配置用户提供的北京 Base URL、`qwen3.7-flash` 和私密 Key | Node 24 下 lint/typecheck/test/build 全通过；28 个测试文件、250 项测试、238 个页面；真实百炼调用返回 `structured_ok=true` |
 | 2026-09-13 | Phase 8.5 | 将 AI Recall 提交并推送到 `main`，在 Vercel Production 配置 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL` 三项服务端变量并重新发布稳定域名 | Commit `861496f` 已推送；部署 `dpl_EBBFhk7fM3rDPB82yaZwpHsp9tZo` 状态 READY、构建 238 个页面；本机访问 `vercel.app:443` 持续超时，生产匿名与登录后 Smoke 保持待验收 |
 | 2026-09-13 | Phase 8.5 | 修复生产算法 AI 代码复盘超时：将不受当前阿里百炼兼容端点支持的 Responses API 改为已验证的 Chat Completions，保持严格 JSON Schema、非思考模式、20 秒超时和服务端密钥边界 | Vercel 日志确认旧接口返回 504；同配置探测为 Responses 400、Chat 成功；真实代码复盘 Route 返回 200（约 5.2 秒）；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、250 项测试、238 个页面 |
+| 2026-09-13 | Phase 8.5 | 在现有算法 AI 代码复盘中增加“本题 Java 基础语法”：最多 4 张卡片，展示代码实际涉及方法的用途、标准写法、最小示例和易错点；复用现有 AI 请求与 Attempt JSON 持久化，并兼容无该字段的旧复盘 | 真实 `qwen3.7-flash` 复盘返回 `String.toCharArray()`、`Arrays.sort(char[])` 等 3 项语法知识；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、252 项测试、238 个页面 |

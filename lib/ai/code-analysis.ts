@@ -37,6 +37,13 @@ export type AlgorithmCodeAnalysis = {
   weaknessTags: AlgorithmMistakeTag[];
   goodPoints: string[];
   minimalChanges: string[];
+  javaBasics?: {
+    name: string;
+    purpose: string;
+    syntax: string;
+    example: string;
+    pitfall: string;
+  }[];
 };
 
 export const algorithmCodeAnalysisJsonSchema = {
@@ -50,6 +57,7 @@ export const algorithmCodeAnalysisJsonSchema = {
     "weaknessTags",
     "goodPoints",
     "minimalChanges",
+    "javaBasics",
   ],
   properties: {
     solutionType: { type: "string", enum: [...ALGORITHM_SOLUTION_TYPES] },
@@ -70,10 +78,26 @@ export const algorithmCodeAnalysisJsonSchema = {
     },
     goodPoints: { type: "array", items: { type: "string" } },
     minimalChanges: { type: "array", items: { type: "string" } },
+    javaBasics: {
+      type: "array",
+      maxItems: 4,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "purpose", "syntax", "example", "pitfall"],
+        properties: {
+          name: { type: "string" },
+          purpose: { type: "string" },
+          syntax: { type: "string" },
+          example: { type: "string" },
+          pitfall: { type: "string" },
+        },
+      },
+    },
   },
 } as const;
 
-const ANALYSIS_KEYS = [
+const LEGACY_ANALYSIS_KEYS = [
   "solutionType",
   "complexity",
   "summary",
@@ -82,6 +106,7 @@ const ANALYSIS_KEYS = [
   "goodPoints",
   "minimalChanges",
 ] as const;
+const ANALYSIS_KEYS = [...LEGACY_ANALYSIS_KEYS, "javaBasics"] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -103,8 +128,19 @@ function isStringArray(value: unknown): value is string[] {
   );
 }
 
+function isJavaBasics(value: unknown): value is NonNullable<AlgorithmCodeAnalysis["javaBasics"]> {
+  return Array.isArray(value) && value.length <= 4 && value.every((item) =>
+    isRecord(item) &&
+    hasExactKeys(item, ["name", "purpose", "syntax", "example", "pitfall"]) &&
+    [item.name, item.purpose, item.syntax, item.example, item.pitfall].every(
+      (field) => typeof field === "string" && field.trim().length > 0 && field.length <= 500,
+    ),
+  );
+}
+
 export function isAlgorithmCodeAnalysis(value: unknown): value is AlgorithmCodeAnalysis {
-  if (!isRecord(value) || !hasExactKeys(value, ANALYSIS_KEYS)) return false;
+  if (!isRecord(value) ||
+      (!hasExactKeys(value, ANALYSIS_KEYS) && !hasExactKeys(value, LEGACY_ANALYSIS_KEYS))) return false;
   if (!ALGORITHM_SOLUTION_TYPES.includes(value.solutionType as AlgorithmSolutionType)) return false;
   if (
     typeof value.summary !== "string" ||
@@ -125,6 +161,7 @@ export function isAlgorithmCodeAnalysis(value: unknown): value is AlgorithmCodeA
   if (!isStringArray(value.mistakes) || !isStringArray(value.goodPoints) || !isStringArray(value.minimalChanges)) {
     return false;
   }
+  if (value.javaBasics !== undefined && !isJavaBasics(value.javaBasics)) return false;
   return (
     Array.isArray(value.weaknessTags) &&
     value.weaknessTags.length <= AI_WEAKNESS_TAGS.length &&
