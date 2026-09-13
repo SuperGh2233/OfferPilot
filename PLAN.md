@@ -6,7 +6,7 @@
 
 - 最后更新：2026-09-13
 - 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
-- 当前任务：Phase 8.5 提交并部署算法训练双栏工作台，然后继续生产 Smoke
+- 当前任务：Phase 8.5 在稳定域名继续注册、登录、退出、算法训练、八股回忆与持久化生产 Smoke
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置；Hot 100 静态题面与 Java 初始代码已由 Git 集成自动部署为 READY，真实登录与训练验收进行中
@@ -437,3 +437,4 @@ npm run build
 | 2026-09-13 | Phase 8.5 | 为 Hot 100 增加独立静态内容快照：从 LeetCode 官方接口采集 100 道纯文本题面与 Java 初始代码，训练详情按题号合并；新 Attempt 无草稿时填入模板，已有草稿（包括主动清空）优先，支持确认后恢复模板，未修改模板不作为代码提交；内容不进入 Supabase Seed，也不在运行时抓取 | 快照 100/100、唯一 ID、非空题面/模板和无 HTML 校验通过；`seed:check` 保持 100 / 165 / 904 / 120；本地 `/algorithm/49` 题面只读检查通过；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、259 项测试、238 个页面 |
 | 2026-09-13 | Phase 8.5 | 将 Hot 100 静态题面与 Java 初始代码改造提交并推送到 `main`，由 Vercel Git 集成自动部署 | Commit `1744299` 已推送且远端 `main` 一致；部署 `dpl_HCm54m45rxRwbWp4h78aX3wiycmM` 状态 READY，稳定域名已切换到新版本 |
 | 2026-09-13 | Phase 8.5 | 优化算法训练详情布局：桌面端改为题面 40% / 训练区 60% 的双栏独立滚动工作台，移动端训练区优先并使用原生折叠题面；掌握度、状态、累计刷题和下次复习合并为紧凑状态条，未开始时直接预览 Java 模板 | 桌面与 390px 移动端浏览器验收通过，无横向溢出且移动端训练区位于题面前；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、259 项测试、238 个页面 |
+| 2026-09-13 | Phase 8.5 | 将算法训练双栏工作台优化提交并推送到 `main`，由 Vercel Git 集成自动部署 | Commit `f7f7b59` 已推送且远端 `main` 一致；部署 `dpl_G9N7SC556NyEScdwxzf5TTuH7f4S` 状态 READY |
