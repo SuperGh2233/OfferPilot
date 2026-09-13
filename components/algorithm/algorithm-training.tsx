@@ -550,6 +550,37 @@ export function AlgorithmTraining({
           : mode === "complete"
             ? "本次已完成"
             : "准备开始";
+  const codeEditor = activeAttempt ? (
+    <label className="grid gap-2 text-sm font-medium" htmlFor="java-code">
+      Java 代码（可选）
+      <textarea
+        autoCapitalize="off"
+        autoCorrect="off"
+        className="min-h-72 resize-y rounded-lg border bg-background px-4 py-3 font-mono text-sm font-normal leading-6 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        id="java-code"
+        maxLength={20_000}
+        onChange={(event) => {
+          const nextCode = event.target.value;
+          setCode(nextCode);
+          setAiError(null);
+          try {
+            window.localStorage.setItem(
+              codeDraftKey(activeAttempt.id),
+              nextCode,
+            );
+          } catch {
+            setError("代码已保留在当前页面，但无法自动保存草稿。");
+          }
+        }}
+        placeholder="在这里编写或粘贴 Java 解题代码…"
+        spellCheck={false}
+        value={code}
+      />
+      <span className="text-xs font-normal text-muted-foreground">
+        草稿自动保存在当前浏览器；结束训练后会原样带入反馈。
+      </span>
+    </label>
+  ) : null;
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-6 sm:py-10">
@@ -618,29 +649,34 @@ export function AlgorithmTraining({
             </div>
 
             {mode === "timing" && activeAttempt ? (
-              <div className="mt-8 rounded-xl bg-primary px-5 py-6 text-primary-foreground sm:flex sm:items-center sm:justify-between sm:gap-6">
-                <div>
-                  <p className="text-sm text-primary-foreground/70">本次已用时</p>
-                  <p aria-live="polite" className="mt-1 font-mono text-4xl font-semibold tabular-nums">
-                    {formatDuration(elapsedSeconds)}
-                  </p>
-                  <p className="mt-2 text-xs text-primary-foreground/70">
-                    开始于 {formatDate(activeAttempt.startedAt, timeZone)} · 刷新页面会继续计时
-                  </p>
+              <div className="mt-8 space-y-5">
+                <div className="rounded-xl bg-primary px-5 py-6 text-primary-foreground sm:flex sm:items-center sm:justify-between sm:gap-6">
+                  <div>
+                    <p className="text-sm text-primary-foreground/70">本次已用时</p>
+                    <p aria-live="polite" className="mt-1 font-mono text-4xl font-semibold tabular-nums">
+                      {formatDuration(elapsedSeconds)}
+                    </p>
+                    <p className="mt-2 text-xs text-primary-foreground/70">
+                      开始于 {formatDate(activeAttempt.startedAt, timeZone)} · 刷新页面会继续计时
+                    </p>
+                  </div>
+                  <div className="mt-5 flex w-full flex-col-reverse gap-2 sm:mt-0 sm:w-auto sm:flex-row">
+                    <Button
+                      className="text-primary-foreground/80 hover:bg-white/10 hover:text-primary-foreground"
+                      disabled={saving}
+                      onClick={handleCancel}
+                      type="button"
+                      variant="ghost"
+                    >
+                      {saving ? "取消中…" : "取消训练"}
+                    </Button>
+                    <Button disabled={saving} onClick={handleFinish} type="button" variant="secondary">
+                      结束训练，填写反馈
+                    </Button>
+                  </div>
                 </div>
-                <div className="mt-5 flex w-full flex-col-reverse gap-2 sm:mt-0 sm:w-auto sm:flex-row">
-                  <Button
-                    className="text-primary-foreground/80 hover:bg-white/10 hover:text-primary-foreground"
-                    disabled={saving}
-                    onClick={handleCancel}
-                    type="button"
-                    variant="ghost"
-                  >
-                    {saving ? "取消中…" : "取消训练"}
-                  </Button>
-                  <Button disabled={saving} onClick={handleFinish} type="button" variant="secondary">
-                    结束训练，填写反馈
-                  </Button>
+                <div className="rounded-xl border bg-muted/20 p-4 sm:p-5">
+                  {codeEditor}
                 </div>
               </div>
             ) : mode === "feedback" && activeAttempt ? (
@@ -698,32 +734,7 @@ export function AlgorithmTraining({
                   </div>
                 </fieldset>
 
-                <label className="grid gap-2 text-sm font-medium" htmlFor="java-code">
-                  Java 代码（可选）
-                  <textarea
-                    className="min-h-32 resize-y rounded-lg border bg-background px-3 py-2 font-mono text-sm font-normal outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                    id="java-code"
-                    maxLength={20_000}
-                    onChange={(event) => {
-                      const nextCode = event.target.value;
-                      setCode(nextCode);
-                      setAiError(null);
-                      try {
-                        window.localStorage.setItem(
-                          codeDraftKey(activeAttempt.id),
-                          nextCode,
-                        );
-                      } catch {
-                        setError("代码已保留在当前页面，但无法自动保存草稿。");
-                      }
-                    }}
-                    placeholder="可留空；保存训练后可单独请求 AI 复盘。"
-                    value={code}
-                  />
-                  <span className="text-xs font-normal text-muted-foreground">
-                    未提交代码会保存在当前浏览器；训练记录保存后再进行 AI 复盘。
-                  </span>
-                </label>
+                {codeEditor}
 
                 <div className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs text-muted-foreground">先按确定性规则保存分数、mastery 和复习间隔；AI 复盘不会阻塞保存。</p>
