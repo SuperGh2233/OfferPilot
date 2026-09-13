@@ -353,6 +353,12 @@ async function loadProfile(
     daily_new_knowledge_count: fallback.dailyNewKnowledgeCount,
     daily_review_knowledge_count: fallback.dailyReviewKnowledgeCount,
   }).select("*").single();
+  if (inserted.error?.code === "23505") {
+    // 重试或并发首载可能已创建默认 Profile；复用该行而不是让训练请求失败。
+    const existing = await client.from("profiles").select("*").eq("id", userId).maybeSingle();
+    fail("Reload profile failed", existing.error);
+    return profileFromRow(required(existing.data, "profile"));
+  }
   fail("Create profile failed", inserted.error);
   return profileFromRow(required(inserted.data, "profile"));
 }

@@ -2,9 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getSupabaseEnv, isLocalDemoMode } from "@/lib/supabase/env";
+import { createResilientFetch } from "@/lib/supabase/resilient-fetch";
 import type { Database } from "@/types/database";
 
 const PUBLIC_PATHS = new Set(["/login", "/auth/confirm", "/auth/error"]);
+const resilientFetch = createResilientFetch();
 
 export async function updateSession(request: NextRequest) {
   if (isLocalDemoMode()) {
@@ -14,6 +16,7 @@ export async function updateSession(request: NextRequest) {
   const { url, publishableKey } = getSupabaseEnv();
   let response = NextResponse.next({ request });
   const supabase = createServerClient<Database>(url, publishableKey, {
+    global: { fetch: resilientFetch },
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll: (cookiesToSet) => {

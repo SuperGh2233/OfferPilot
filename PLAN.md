@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-- 最后更新：2026-09-13
+- 最后更新：2026-09-14
 - 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
-- 当前任务：Phase 8.5 在稳定域名继续注册、登录、退出、算法训练、八股回忆与持久化生产 Smoke
+- 当前任务：Phase 8.5 生产 Smoke 发现 Supabase 网关间歇 504，已部署弹性重试修复，继续登录态闭环验收
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
-- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置；Hot 100 静态题面与 Java 初始代码已由 Git 集成自动部署为 READY，真实登录与训练验收进行中
-- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；28 个测试文件、259 项测试通过，生成 238 个页面
+- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置；Hot 100 静态题面与 Java 初始代码已部署为 READY；生产匿名 Smoke 通过，真实登录成功、Dashboard/算法列表/训练详情渲染通过
+- 最近质量门：便携版 Node 24.21 下 `lint`、`typecheck`、`test`、`build` 全部通过；29 个测试文件、266 项测试通过（系统 PATH 曾退化为 Node 20，Node 24 便携版恢复于 `%USERPROFILE%\.local\node24`）
 
 | 阶段 | 状态 | 核心结果 |
 | --- | --- | --- |
@@ -438,3 +438,5 @@ npm run build
 | 2026-09-13 | Phase 8.5 | 将 Hot 100 静态题面与 Java 初始代码改造提交并推送到 `main`，由 Vercel Git 集成自动部署 | Commit `1744299` 已推送且远端 `main` 一致；部署 `dpl_HCm54m45rxRwbWp4h78aX3wiycmM` 状态 READY，稳定域名已切换到新版本 |
 | 2026-09-13 | Phase 8.5 | 优化算法训练详情布局：桌面端改为题面 40% / 训练区 60% 的双栏独立滚动工作台，移动端训练区优先并使用原生折叠题面；掌握度、状态、累计刷题和下次复习合并为紧凑状态条，未开始时直接预览 Java 模板 | 桌面与 390px 移动端浏览器验收通过，无横向溢出且移动端训练区位于题面前；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、259 项测试、238 个页面 |
 | 2026-09-13 | Phase 8.5 | 将算法训练双栏工作台优化提交并推送到 `main`，由 Vercel Git 集成自动部署 | Commit `f7f7b59` 已推送且远端 `main` 一致；部署 `dpl_G9N7SC556NyEScdwxzf5TTuH7f4S` 状态 READY |
+| 2026-09-14 | Phase 8.5 | 生产 Smoke 突破本机网络阻塞（vercel.app 遭 DNS 污染，经本机代理 127.0.0.1:7897 验证）：匿名 Smoke 全部通过，真实登录、Dashboard、算法列表/详情静态题面渲染通过；发现算法 Start 返回 500，Vercel 日志定位为 Vercel→Supabase 网关间歇 504（实测失败率约 10%），训练读/写与页面渲染均受影响 | 匿名 Smoke 通过；临时验收账号登录与页面渲染通过；新增 `node_modules` 内临时诊断脚本（不入库） |
+| 2026-09-14 | Phase 8.5 | 新增 `lib/supabase/resilient-fetch.ts`：服务端 Supabase 请求统一 8 秒超时，对 408/429/502/503/504 与网络错误做两次退避重试（读操作与按合同幂等的训练写安全）；接入 `lib/supabase/server.ts` 与 `proxy.ts` 客户端；`loadProfile` 对并发首载唯一冲突改为复用既有行 | 新增 7 项回归测试；便携版 Node 24.21 下 lint/typecheck/test/build 全通过，29 个测试文件、266 项测试 |
