@@ -6,7 +6,7 @@
 
 - 最后更新：2026-09-13
 - 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
-- 当前任务：Phase 8.5 继续生产登录、退出、训练闭环与 Smoke Test 验收
+- 当前任务：Phase 8.5 发布算法 AI 代码复盘兼容修复，并继续生产登录、训练与 AI Smoke Test 验收
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置，含 AI Recall 的 Vercel 生产部署为 READY，真实登录与训练验收进行中
@@ -419,3 +419,4 @@ npm run build
 | 2026-09-13 | Phase 8.5 | 完成 Hot 100 外部完成记录批量导入：支持题号、`[题号]题名`、链接识别与去重；以 60% 初始掌握度在 3 天后复习，本地 SQLite/Supabase 均持久化，不伪造 Attempt、不覆盖已有记录，并完成对应待办任务 | 页面导入 2 题验收通过且控制台无错误；Node 24 下 lint/typecheck/test/build 全通过；26 个测试文件、245 项测试、237 个页面 |
 | 2026-09-13 | Phase 8.5 | 增加八股 Recall 的用户主动 AI 语义复核：服务端通过 OpenAI 兼容 Chat API 调用阿里百炼，使用非思考模式和严格 JSON Schema 返回语义覆盖、遗漏、误区及改进表达；API Key 不下发浏览器，AI 不修改确定性 mastery；本地已配置用户提供的北京 Base URL、`qwen3.7-flash` 和私密 Key | Node 24 下 lint/typecheck/test/build 全通过；28 个测试文件、250 项测试、238 个页面；真实百炼调用返回 `structured_ok=true` |
 | 2026-09-13 | Phase 8.5 | 将 AI Recall 提交并推送到 `main`，在 Vercel Production 配置 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL` 三项服务端变量并重新发布稳定域名 | Commit `861496f` 已推送；部署 `dpl_EBBFhk7fM3rDPB82yaZwpHsp9tZo` 状态 READY、构建 238 个页面；本机访问 `vercel.app:443` 持续超时，生产匿名与登录后 Smoke 保持待验收 |
+| 2026-09-13 | Phase 8.5 | 修复生产算法 AI 代码复盘超时：将不受当前阿里百炼兼容端点支持的 Responses API 改为已验证的 Chat Completions，保持严格 JSON Schema、非思考模式、20 秒超时和服务端密钥边界 | Vercel 日志确认旧接口返回 504；同配置探测为 Responses 400、Chat 成功；真实代码复盘 Route 返回 200（约 5.2 秒）；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、250 项测试、238 个页面 |

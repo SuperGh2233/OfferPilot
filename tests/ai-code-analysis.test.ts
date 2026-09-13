@@ -55,28 +55,28 @@ describe("algorithm code analysis schema", () => {
 });
 
 describe("OpenAI code analysis service", () => {
-  it("sends an explicit strict schema request and parses output_text", async () => {
+  it("sends a chat-compatible strict schema request and parses message content", async () => {
     let request: unknown;
     const analysis = await analyzeJavaCode(input, {
       env: { OPENAI_API_KEY: "test-key", OPENAI_MODEL: "test-model" },
-      createResponse: async (body) => {
+      createCompletion: async (body) => {
         request = body;
-        return { output_text: JSON.stringify(validAnalysis) };
+        return { choices: [{ message: { content: JSON.stringify(validAnalysis) } }] };
       },
     });
 
     expect(analysis).toEqual(validAnalysis);
     expect(request).toMatchObject({
       model: "test-model",
-      store: false,
-      text: { format: { type: "json_schema", strict: true } },
+      enable_thinking: false,
+      response_format: { json_schema: { name: "algorithm_code_analysis", strict: true } },
     });
   });
 
   it("rejects empty code before calling the gateway", async () => {
     await expect(analyzeJavaCode({ ...input, code: "  " }, {
       env: { OPENAI_API_KEY: "test-key" },
-      createResponse: async () => ({ output_text: JSON.stringify(validAnalysis) }),
+      createCompletion: async () => ({ choices: [{ message: { content: JSON.stringify(validAnalysis) } }] }),
     })).rejects.toThrow(RangeError);
   });
 
@@ -87,12 +87,17 @@ describe("OpenAI code analysis service", () => {
   it("distinguishes invalid output and gateway failures", async () => {
     await expect(analyzeJavaCode(input, {
       env: { OPENAI_API_KEY: "test-key" },
-      createResponse: async () => ({ output_text: "{}" }),
+      createCompletion: async () => ({ choices: [{ message: { content: null } }] }),
     })).rejects.toBeInstanceOf(AiInvalidResponseError);
 
     await expect(analyzeJavaCode(input, {
       env: { OPENAI_API_KEY: "test-key" },
-      createResponse: async () => { throw new Error("gateway down"); },
+      createCompletion: async () => ({ choices: [{ message: { content: "{}" } }] }),
+    })).rejects.toBeInstanceOf(AiInvalidResponseError);
+
+    await expect(analyzeJavaCode(input, {
+      env: { OPENAI_API_KEY: "test-key" },
+      createCompletion: async () => { throw new Error("gateway down"); },
     })).rejects.toBeInstanceOf(AiGatewayError);
   });
 
@@ -100,7 +105,7 @@ describe("OpenAI code analysis service", () => {
     await expect(analyzeJavaCode(input, {
       env: { OPENAI_API_KEY: "test-key" },
       timeoutMs: 5,
-      createResponse: (_body, { signal }) => new Promise((_resolve, reject) => {
+      createCompletion: (_body, { signal }) => new Promise((_resolve, reject) => {
         signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
       }),
     })).rejects.toBeInstanceOf(AiTimeoutError);
