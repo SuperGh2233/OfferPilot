@@ -9,6 +9,7 @@ import {
   CloudTrainingConflictError,
   knowledgeAttemptFromRow,
   knowledgeStateFromRow,
+  importCloudAlgorithms,
   loadCloudTrainingSnapshot,
   profileFromRow,
   updateCloudProfile,
@@ -159,6 +160,72 @@ describe("Supabase training adapter", () => {
     await expect(
       updateCloudProfile(client as never, "user-1", profileFromRow(profile)),
     ).rejects.toBeInstanceOf(CloudTrainingConflictError);
+  });
+
+  it("imports only missing algorithm states and schedules a conservative review", async () => {
+    let importedRows: Record<string, unknown>[] = [];
+    const completedTaskProblemIds: unknown[][] = [];
+    const client = {
+      from: (table: string) => {
+        if (table === "algorithm_problems") {
+          return {
+            select: () => ({
+              in: async () => ({
+                data: [
+                  { id: "db-1", leetcode_id: 1 },
+                  { id: "db-49", leetcode_id: 49 },
+                ],
+                error: null,
+              }),
+            }),
+          };
+        }
+        if (table === "user_algorithm_state") {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: async () => ({
+                  data: [{ problem_id: "db-1" }],
+                  error: null,
+                }),
+              }),
+            }),
+            upsert: async (rows: Record<string, unknown>[]) => {
+              importedRows = rows;
+              return { data: null, error: null };
+            },
+          };
+        }
+        const query = {
+          eq: () => query,
+          in: (_column: string, values: unknown[]) => {
+            completedTaskProblemIds.push(values);
+            return query;
+          },
+          then: (
+            resolve: (value: FakeResult) => unknown,
+            reject?: (reason: unknown) => unknown,
+          ) => Promise.resolve({ data: null, error: null }).then(resolve, reject),
+        };
+        return { update: () => query };
+      },
+    };
+
+    await expect(importCloudAlgorithms(
+      client as never,
+      "user-1",
+      ["1", "49"],
+      new Date("2026-09-13T04:00:00.000Z"),
+    )).resolves.toEqual({ importedCount: 1, skippedCount: 1 });
+    expect(importedRows).toEqual([expect.objectContaining({
+      user_id: "user-1",
+      problem_id: "db-49",
+      mastery: 60,
+      attempt_count: 1,
+      next_review_at: "2026-09-16T04:00:00.000Z",
+      status: "learning",
+    })]);
+    expect(completedTaskProblemIds).toContainEqual(["db-49"]);
   });
 
   it("paginates long histories and inserts the deterministic daily task set", async () => {

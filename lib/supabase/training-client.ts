@@ -78,6 +78,18 @@ export async function completeCloudAttempt(input: CompleteCloudAlgorithmInput) {
   });
 }
 
+export async function importCloudAlgorithms(problemIds: readonly string[]) {
+  return request<{
+    importedCount: number;
+    skippedCount: number;
+    snapshot: CloudTrainingSnapshot;
+  }>("/api/training/algorithm", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "import_completed", problemIds }),
+  });
+}
+
 export async function recordCloudKnowledge(input: RecordCloudKnowledgeInput) {
   return request<{
     result: {

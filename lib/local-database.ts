@@ -3,6 +3,7 @@ import { dirname, isAbsolute, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { getAlgorithmProblem, algorithmCatalog, toAlgorithmPlannerProblem } from "./algorithm/catalog";
+import { importCompletedAlgorithmProblems } from "./algorithm/import-progress";
 import {
   completeDemoAlgorithmAttempt,
   createAlgorithmDemoData,
@@ -188,6 +189,26 @@ export class LocalTrainingDatabase {
     state.algorithm = result.data;
     this.writeState(state);
     return result.attempt;
+  }
+
+  importAlgorithms(problemIds: readonly string[], importedAt = new Date()) {
+    const uniqueIds = [...new Set(problemIds)];
+    if (uniqueIds.length === 0 || uniqueIds.some((id) => !getAlgorithmProblem(id))) {
+      throw new RangeError("只能导入 Hot 100 中的有效题目。");
+    }
+    const state = this.ensureToday(this.readState() ?? freshState(importedAt), importedAt);
+    const result = importCompletedAlgorithmProblems({
+      data: state.algorithm,
+      importedAt,
+      problemIds: uniqueIds,
+      userId: "local-demo",
+    });
+    state.algorithm = result.data;
+    this.writeState(state);
+    return {
+      importedCount: result.importedCount,
+      skippedCount: result.skippedCount,
+    };
   }
 
   completeAlgorithm(input: CompleteCloudAlgorithmInput): CompleteAlgorithmAttemptResult {

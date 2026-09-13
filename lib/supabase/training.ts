@@ -15,6 +15,7 @@ import {
   getAlgorithmProblem,
   toAlgorithmPlannerProblem,
 } from "../algorithm/catalog";
+import { IMPORTED_ALGORITHM_MASTERY } from "../algorithm/import-progress";
 import {
   createAlgorithmDemoData,
   ensureTodayAlgorithmTasks,
@@ -48,6 +49,7 @@ import type {
   AlgorithmMistakeTag,
   AlgorithmResult,
 } from "../mastery/algorithm";
+import { calculateNextAlgorithmReview } from "../mastery/algorithm";
 import type { KnowledgeSelfRating } from "../mastery/knowledge";
 import {
   createDemoProfile,
@@ -69,6 +71,7 @@ import type {
 
 type Client = SupabaseClient<Database>;
 type DailyTaskInsert = Database["public"]["Tables"]["daily_tasks"]["Insert"];
+type UserAlgorithmStateInsert = Database["public"]["Tables"]["user_algorithm_state"]["Insert"];
 type PageResult<T> = {
   data: T[] | null;
   error: { code?: string; message: string } | null;
@@ -565,6 +568,89 @@ export async function startCloudAlgorithmAttempt(
     userId,
     problemId,
   );
+}
+
+export async function importCloudAlgorithms(
+  client: Client,
+  userId: string,
+  problemIds: readonly string[],
+  importedAt = new Date(),
+) {
+  const uniqueIds = [...new Set(problemIds)];
+  const problems = uniqueIds.map((id) => getAlgorithmProblem(id));
+  if (
+    uniqueIds.length === 0
+    || uniqueIds.length > algorithmCatalog.length
+    || problems.some((problem) => !problem)
+  ) {
+    throw new RangeError("只能导入 Hot 100 中的有效题目。");
+  }
+  if (!Number.isFinite(importedAt.getTime())) {
+    throw new RangeError("导入时间无效。");
+  }
+
+  const selected = await client
+    .from("algorithm_problems")
+    .select("id, leetcode_id")
+    .in("leetcode_id", problems.map((problem) => problem!.leetcodeId));
+  fail("Load imported algorithm problems failed", selected.error);
+  const problemRows = required(selected.data, "imported algorithm problems");
+  if (problemRows.length !== uniqueIds.length) {
+    throw new Error("Supabase algorithm catalog is incomplete");
+  }
+
+  const existing = await client
+    .from("user_algorithm_state")
+    .select("problem_id")
+    .eq("user_id", userId)
+    .in("problem_id", problemRows.map((problem) => problem.id));
+  fail("Load imported algorithm states failed", existing.error);
+  const existingIds = new Set(
+    required(existing.data, "imported algorithm states").map((state) => state.problem_id),
+  );
+  const timestamp = importedAt.toISOString();
+  const nextReviewAt = calculateNextAlgorithmReview(
+    IMPORTED_ALGORITHM_MASTERY,
+    importedAt,
+  ).toISOString();
+  const importedRows: UserAlgorithmStateInsert[] = problemRows
+    .filter((problem) => !existingIds.has(problem.id))
+    .map((problem) => ({
+      user_id: userId,
+      problem_id: problem.id,
+      mastery: IMPORTED_ALGORITHM_MASTERY,
+      attempt_count: 1,
+      last_attempt_at: timestamp,
+      next_review_at: nextReviewAt,
+      status: "learning",
+      last_result: "first_ac",
+      independent_ac_count: 0,
+      last_independent_ac_at: null,
+      spaced_independent_ac_at: null,
+    }));
+
+  if (importedRows.length > 0) {
+    const imported = await client
+      .from("user_algorithm_state")
+      .upsert(importedRows, {
+        onConflict: "user_id,problem_id",
+        ignoreDuplicates: true,
+      });
+    fail("Import algorithm states failed", imported.error);
+
+    const completedTasks = await client
+      .from("daily_tasks")
+      .update({ status: "completed", completed_at: timestamp })
+      .eq("user_id", userId)
+      .in("algorithm_problem_id", importedRows.map((row) => row.problem_id))
+      .in("status", ["pending", "in_progress"]);
+    fail("Complete imported algorithm tasks failed", completedTasks.error);
+  }
+
+  return {
+    importedCount: importedRows.length,
+    skippedCount: uniqueIds.length - importedRows.length,
+  };
 }
 
 export async function completeCloudAlgorithmAttempt(

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   authenticatedTrainingContext: vi.fn(),
   completeCloudAlgorithmAttempt: vi.fn(),
+  importCloudAlgorithms: vi.fn(),
   loadCloudTrainingSnapshot: vi.fn(),
   recordCloudKnowledgeAttempt: vi.fn(),
   startCloudAlgorithmAttempt: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock("../lib/supabase/training", async (importOriginal) => {
   return {
     ...actual,
     completeCloudAlgorithmAttempt: mocks.completeCloudAlgorithmAttempt,
+    importCloudAlgorithms: mocks.importCloudAlgorithms,
     loadCloudTrainingSnapshot: mocks.loadCloudTrainingSnapshot,
     recordCloudKnowledgeAttempt: mocks.recordCloudKnowledgeAttempt,
     startCloudAlgorithmAttempt: mocks.startCloudAlgorithmAttempt,
@@ -95,6 +97,26 @@ describe("cloud training routes", () => {
       context.client,
       "user-1",
       "1",
+    );
+  });
+
+  it("imports validated Hot 100 ids using the authenticated user only", async () => {
+    mocks.importCloudAlgorithms.mockResolvedValue({
+      importedCount: 2,
+      skippedCount: 0,
+    });
+    const response = await algorithmPost(
+      jsonRequest("http://localhost/api/training/algorithm", {
+        action: "import_completed",
+        problemIds: ["1", "49"],
+        userId: "attacker-controlled",
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.importCloudAlgorithms).toHaveBeenCalledWith(
+      context.client,
+      "user-1",
+      ["1", "49"],
     );
   });
 

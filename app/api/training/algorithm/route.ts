@@ -13,6 +13,7 @@ import type {
 import { isLocalDatabaseMode } from "../../../../lib/supabase/env";
 import {
   completeCloudAlgorithmAttempt,
+  importCloudAlgorithms,
   loadCloudTrainingSnapshot,
   startCloudAlgorithmAttempt,
 } from "../../../../lib/supabase/training";
@@ -58,6 +59,26 @@ export async function POST(request: Request) {
     if (!localMode && !context) return unauthorized();
     const body = await requestObject(request);
     const action = body.action;
+
+    if (action === "import_completed") {
+      if (
+        !Array.isArray(body.problemIds)
+        || body.problemIds.length === 0
+        || body.problemIds.length > 100
+        || body.problemIds.some((id) => typeof id !== "string" || id.trim().length === 0)
+      ) {
+        throw new RangeError("problemIds 必须包含 1–100 个有效题目。");
+      }
+      const problemIds = [...new Set(body.problemIds as string[])];
+      const result = localMode
+        ? getLocalTrainingDatabase().importAlgorithms(problemIds)
+        : await importCloudAlgorithms(context!.client, context!.userId, problemIds);
+      const snapshot = localMode
+        ? getLocalTrainingDatabase().loadSnapshot()
+        : await loadCloudTrainingSnapshot(context!.client, context!.userId);
+      return NextResponse.json({ ...result, snapshot });
+    }
+
     const problemId = nonEmpty(body.problemId, "problemId");
 
     if (action === "start") {
@@ -70,7 +91,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ attempt, snapshot });
     }
     if (action !== "complete") {
-      throw new RangeError("action 必须是 start 或 complete。");
+      throw new RangeError("action 必须是 start、complete 或 import_completed。");
     }
 
     const attemptId = requestUuid(body.attemptId, "attemptId");

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   ALGORITHM_DEMO_CHANGED_EVENT,
+  ALGORITHM_DEMO_USER_ID,
   calculateAlgorithmCurrentWeek,
   ensureTodayAlgorithmTasks,
   getAlgorithmDemoDateKey,
@@ -15,6 +16,10 @@ import {
   type StorageLike,
 } from "@/lib/algorithm/demo-store";
 import {
+  importCompletedAlgorithmProblems,
+  parseAlgorithmImport,
+} from "@/lib/algorithm/import-progress";
+import {
   toAlgorithmPlannerProblem,
   type AlgorithmCatalogProblem,
 } from "@/lib/algorithm/catalog";
@@ -24,6 +29,7 @@ import {
 } from "@/lib/profile/demo-store";
 import { getTrainingStatusPresentation } from "@/lib/ui/training-status";
 import { useCloudTrainingSnapshot } from "@/lib/supabase/use-cloud-training";
+import { importCloudAlgorithms } from "@/lib/supabase/training-client";
 
 type AlgorithmFilter =
   | "all"
@@ -149,6 +155,12 @@ export default function AlgorithmList({
   const [filter, setFilter] = useState<AlgorithmFilter>("all");
   const [selectedTag, setSelectedTag] = useState("");
   const [demoSnapshot, setDemoSnapshot] = useState<DemoSnapshot | null>(null);
+  const [importText, setImportText] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<{
+    kind: "error" | "success";
+    text: string;
+  } | null>(null);
   const cloud = useCloudTrainingSnapshot(!demoMode);
 
   const refreshDemoSnapshot = useCallback(() => {
@@ -224,6 +236,14 @@ export default function AlgorithmList({
 
   const data = snapshot?.data ?? null;
   const now = snapshot?.now ?? 0;
+  const importPreview = useMemo(
+    () => parseAlgorithmImport(importText, problems),
+    [importText, problems],
+  );
+  const importableProblemIds = useMemo(
+    () => importPreview.problemIds.filter((id) => !hasAttempted(data, id)),
+    [data, importPreview.problemIds],
+  );
   const todayTaskIds = useMemo(
     () => new Set((snapshot?.tasks ?? []).map((task) => task.problemId)),
     [snapshot?.tasks],
@@ -268,6 +288,48 @@ export default function AlgorithmList({
   const todayCompletedCount = snapshot?.tasks.filter(
     (task) => task.status === "completed",
   ).length ?? 0;
+
+  async function handleImport(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!data || importableProblemIds.length === 0 || importing) return;
+    setImporting(true);
+    setImportMessage(null);
+    try {
+      let importedCount: number;
+      let skippedCount: number;
+      if (demoMode) {
+        const result = importCompletedAlgorithmProblems({
+          data,
+          importedAt: new Date(),
+          problemIds: importableProblemIds,
+          userId: ALGORITHM_DEMO_USER_ID,
+        });
+        if (!saveAlgorithmDemoData(getStorage(), result.data)) {
+          throw new Error("浏览器无法保存导入结果。");
+        }
+        importedCount = result.importedCount;
+        skippedCount = importPreview.problemIds.length - importedCount;
+        window.dispatchEvent(new Event(ALGORITHM_DEMO_CHANGED_EVENT));
+      } else {
+        const result = await importCloudAlgorithms(importableProblemIds);
+        importedCount = result.importedCount;
+        skippedCount = importPreview.problemIds.length - importedCount;
+        cloud.setSnapshot(result.snapshot);
+      }
+      setImportText("");
+      setImportMessage({
+        kind: "success",
+        text: `已导入 ${importedCount} 道题${skippedCount > 0 ? `，跳过 ${skippedCount} 道已有记录` : ""}；3 天后开始复习。`,
+      });
+    } catch (error) {
+      setImportMessage({
+        kind: "error",
+        text: error instanceof Error ? error.message : "导入失败，请稍后重试。",
+      });
+    } finally {
+      setImporting(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-muted/30">
@@ -331,6 +393,54 @@ export default function AlgorithmList({
           <StatCard label="已掌握" value={masteredCount} detail="高分且完成间隔复刷" />
           <StatCard label="待复习" value={dueCount} detail={`今日完成 ${todayCompletedCount}/${snapshot?.tasks.length ?? 0}`} />
         </section>
+
+        <details className="rounded-2xl border bg-card shadow-sm">
+          <summary className="cursor-pointer px-4 py-4 font-semibold marker:text-muted-foreground sm:px-5">
+            导入做过的题
+          </summary>
+          <form onSubmit={handleImport} className="border-t px-4 py-4 sm:px-5">
+            <label htmlFor="algorithm-import" className="text-sm font-medium">
+              每行粘贴一道题
+            </label>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              支持题号、[题号]题名或 LeetCode 题目链接。导入后不会直接判定为掌握，也不会覆盖现有训练记录。
+            </p>
+            <textarea
+              id="algorithm-import"
+              value={importText}
+              onChange={(event) => {
+                setImportText(event.target.value);
+                setImportMessage(null);
+              }}
+              rows={5}
+              placeholder={"1\n[49]字母异位词分组\nhttps://leetcode.cn/problems/longest-substring-without-repeating-characters/"}
+              className="mt-3 w-full resize-y rounded-xl border bg-background px-3 py-2 font-mono text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/30"
+            />
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                已识别 {importPreview.problemIds.length} 道 · 可导入 {importableProblemIds.length} 道
+                {importPreview.unmatchedEntries.length > 0
+                  ? ` · ${importPreview.unmatchedEntries.length} 项未匹配`
+                  : ""}
+              </p>
+              <button
+                type="submit"
+                disabled={!data || importableProblemIds.length === 0 || importing}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {importing ? "正在导入…" : `确认导入 ${importableProblemIds.length} 道`}
+              </button>
+            </div>
+            {importMessage ? (
+              <p
+                aria-live="polite"
+                className={`mt-3 text-sm ${importMessage.kind === "success" ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"}`}
+              >
+                {importMessage.text}
+              </p>
+            ) : null}
+          </form>
+        </details>
 
         <section className="rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-4">
