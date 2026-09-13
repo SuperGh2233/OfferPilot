@@ -6,10 +6,10 @@
 
 - 最后更新：2026-09-13
 - 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
-- 当前任务：Phase 8.5 提交并部署 Hot 100 静态题面与 Java 初始代码，然后继续稳定域名生产 Smoke
+- 当前任务：Phase 8.5 在稳定域名完成注册、登录、退出、算法训练、八股回忆与持久化生产 Smoke
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
-- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置；算法计时页 Java 编辑区已由 Git 集成自动部署为 READY，真实登录与训练验收进行中
+- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置；Hot 100 静态题面与 Java 初始代码已由 Git 集成自动部署为 READY，真实登录与训练验收进行中
 - 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；28 个测试文件、259 项测试通过，生成 238 个页面
 
 | 阶段 | 状态 | 核心结果 |
@@ -434,3 +434,4 @@ npm run build
 | 2026-09-13 | Phase 8.5 | 把算法训练页从纯计时器改为可直接写题：计时状态展示大尺寸 Java 编辑区，关闭拼写/自动修正，复用现有按 Attempt 保存的浏览器草稿，结束训练后同一代码自动进入反馈 | Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、258 项测试、238 个页面；在线编译与判题按安全边界延后 |
 | 2026-09-13 | Phase 8.5 | 将算法计时页 Java 编辑区提交并推送到 `main`，由 Vercel Git 集成自动部署 | Commit `33d11b3` 已推送且远端 `main` 一致；部署 `dpl_CWDuY5fpuZTJ8citZ3hF7xuYiWLb` 状态 READY，稳定域名已切换到新版本 |
 | 2026-09-13 | Phase 8.5 | 为 Hot 100 增加独立静态内容快照：从 LeetCode 官方接口采集 100 道纯文本题面与 Java 初始代码，训练详情按题号合并；新 Attempt 无草稿时填入模板，已有草稿（包括主动清空）优先，支持确认后恢复模板，未修改模板不作为代码提交；内容不进入 Supabase Seed，也不在运行时抓取 | 快照 100/100、唯一 ID、非空题面/模板和无 HTML 校验通过；`seed:check` 保持 100 / 165 / 904 / 120；本地 `/algorithm/49` 题面只读检查通过；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、259 项测试、238 个页面 |
+| 2026-09-13 | Phase 8.5 | 将 Hot 100 静态题面与 Java 初始代码改造提交并推送到 `main`，由 Vercel Git 集成自动部署 | Commit `1744299` 已推送且远端 `main` 一致；部署 `dpl_HCm54m45rxRwbWp4h78aX3wiycmM` 状态 READY，稳定域名已切换到新版本 |
