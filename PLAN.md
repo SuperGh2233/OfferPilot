@@ -9,7 +9,7 @@
 - 当前任务：Phase 8.5 继续生产登录、退出、训练闭环与 Smoke Test 验收
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
-- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；Vercel 生产站点已发布，真实登录与训练验收进行中
+- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置，含 AI Recall 的 Vercel 生产部署为 READY，真实登录与训练验收进行中
 - 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；28 个测试文件、250 项测试通过，生成 238 个页面
 
 | 阶段 | 状态 | 核心结果 |
@@ -22,7 +22,7 @@
 | Phase 5 | 已完成 | 八股学习、主动回忆、反馈与复习状态闭环 |
 | Phase 6 | 已完成 | Dashboard、Progress、Settings 与周期边界闭环 |
 | Phase 7 | 已完成 | 可选 AI Java 代码分析、严格响应与失败降级闭环 |
-| Phase 8 | 进行中 | 本地 SQLite 日常使用已就绪；Supabase 适配与部署验收工具保留，部署延后 |
+| Phase 8 | 进行中 | 本地 SQLite 日常使用已就绪；Supabase 与 Vercel 已部署，生产登录、训练和 AI Recall Smoke 待最终验收 |
 
 ## 计划维护规则
 
@@ -418,3 +418,4 @@ npm run build
 | 2026-09-13 | Phase 8.5 | 修复重设计划起点后旧任务仍显示欠账：欠账统计仅包含当前计划开始日至昨天的未完成任务，保留旧历史、Mastery 与真正到期复习 | 目标回归通过；Node 24 下 lint/typecheck/test/build 全通过；25 个测试文件、242 项测试、237 个页面 |
 | 2026-09-13 | Phase 8.5 | 完成 Hot 100 外部完成记录批量导入：支持题号、`[题号]题名`、链接识别与去重；以 60% 初始掌握度在 3 天后复习，本地 SQLite/Supabase 均持久化，不伪造 Attempt、不覆盖已有记录，并完成对应待办任务 | 页面导入 2 题验收通过且控制台无错误；Node 24 下 lint/typecheck/test/build 全通过；26 个测试文件、245 项测试、237 个页面 |
 | 2026-09-13 | Phase 8.5 | 增加八股 Recall 的用户主动 AI 语义复核：服务端通过 OpenAI 兼容 Chat API 调用阿里百炼，使用非思考模式和严格 JSON Schema 返回语义覆盖、遗漏、误区及改进表达；API Key 不下发浏览器，AI 不修改确定性 mastery；本地已配置用户提供的北京 Base URL、`qwen3.7-flash` 和私密 Key | Node 24 下 lint/typecheck/test/build 全通过；28 个测试文件、250 项测试、238 个页面；真实百炼调用返回 `structured_ok=true` |
+| 2026-09-13 | Phase 8.5 | 将 AI Recall 提交并推送到 `main`，在 Vercel Production 配置 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL` 三项服务端变量并重新发布稳定域名 | Commit `861496f` 已推送；部署 `dpl_EBBFhk7fM3rDPB82yaZwpHsp9tZo` 状态 READY、构建 238 个页面；本机访问 `vercel.app:443` 持续超时，生产匿名与登录后 Smoke 保持待验收 |
