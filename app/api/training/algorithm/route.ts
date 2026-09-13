@@ -12,6 +12,7 @@ import type {
 } from "../../../../lib/mastery/algorithm";
 import { isLocalDatabaseMode } from "../../../../lib/supabase/env";
 import {
+  cancelCloudAlgorithmAttempt,
   completeCloudAlgorithmAttempt,
   importCloudAlgorithms,
   loadCloudTrainingSnapshot,
@@ -82,6 +83,22 @@ export async function POST(request: Request) {
 
     const problemId = nonEmpty(body.problemId, "problemId");
 
+    if (action === "cancel") {
+      const attemptId = requestUuid(body.attemptId, "attemptId");
+      if (localMode) {
+        getLocalTrainingDatabase().cancelAlgorithm(attemptId, problemId);
+      } else {
+        await cancelCloudAlgorithmAttempt(context!.client, context!.userId, {
+          attemptId,
+          problemId,
+        });
+      }
+      const snapshot = localMode
+        ? getLocalTrainingDatabase().loadSnapshot()
+        : await loadCloudTrainingSnapshot(context!.client, context!.userId);
+      return NextResponse.json({ snapshot });
+    }
+
     if (action === "save_ai_analysis") {
       const attemptId = requestUuid(body.attemptId, "attemptId");
       if (!isAlgorithmCodeAnalysis(body.aiAnalysis)) {
@@ -114,7 +131,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ attempt, snapshot });
     }
     if (action !== "complete") {
-      throw new RangeError("action 必须是 start、complete、save_ai_analysis 或 import_completed。");
+      throw new RangeError("action 必须是 start、cancel、complete、save_ai_analysis 或 import_completed。");
     }
 
     const attemptId = requestUuid(body.attemptId, "attemptId");

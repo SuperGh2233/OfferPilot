@@ -105,6 +105,11 @@ export type SaveCloudAlgorithmAnalysisInput = {
   aiAnalysis: AlgorithmCodeAnalysis;
 };
 
+export type CancelCloudAlgorithmInput = {
+  attemptId: string;
+  problemId: string;
+};
+
 export type RecordCloudKnowledgeInput =
   | {
       attemptId: string;
@@ -574,6 +579,35 @@ export async function startCloudAlgorithmAttempt(
     userId,
     problemId,
   );
+}
+
+export async function cancelCloudAlgorithmAttempt(
+  client: Client,
+  userId: string,
+  input: CancelCloudAlgorithmInput,
+): Promise<void> {
+  const { row: problem } = await resolveProblem(client, input.problemId);
+  const deleted = await client
+    .from("algorithm_attempts")
+    .delete()
+    .eq("id", input.attemptId)
+    .eq("user_id", userId)
+    .eq("problem_id", problem.id)
+    .is("finished_at", null)
+    .select("id")
+    .maybeSingle();
+  fail("Cancel algorithm attempt failed", deleted.error);
+  if (!deleted.data) {
+    throw new CloudTrainingConflictError("训练状态已在其他页面更新。");
+  }
+
+  const tasks = await client
+    .from("daily_tasks")
+    .update({ status: "pending", completed_at: null })
+    .eq("user_id", userId)
+    .eq("algorithm_problem_id", problem.id)
+    .eq("status", "in_progress");
+  fail("Restore algorithm tasks failed", tasks.error);
 }
 
 export async function importCloudAlgorithms(

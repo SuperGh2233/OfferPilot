@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   algorithmAttemptFromRow,
   algorithmStateFromRow,
+  cancelCloudAlgorithmAttempt,
   CloudTrainingConflictError,
   knowledgeAttemptFromRow,
   knowledgeStateFromRow,
@@ -417,6 +418,67 @@ describe("Supabase training adapter", () => {
     expect(updatePayload).toEqual(aiAnalysis);
     expect(saved.aiAnalysis).toEqual(aiAnalysis);
     expect(saved.attemptScore).toBe(88);
+  });
+
+  it("deletes only the matching open attempt and restores in-progress tasks", async () => {
+    const filters: Array<[string, unknown]> = [];
+    let restoredTasks: unknown;
+    const deletion = {
+      eq: (column: string, value: unknown) => {
+        filters.push([column, value]);
+        return deletion;
+      },
+      is: (column: string, value: unknown) => {
+        filters.push([column, value]);
+        return deletion;
+      },
+      select: () => deletion,
+      maybeSingle: async () => ({ data: { id: "attempt-1" }, error: null }),
+    };
+    const taskUpdate = {
+      eq: () => taskUpdate,
+      then: (
+        resolve: (value: { data: null; error: null }) => unknown,
+        reject?: (reason: unknown) => unknown,
+      ) => Promise.resolve({ data: null, error: null }).then(resolve, reject),
+    };
+    const client = {
+      from: (table: string) => {
+        if (table === "algorithm_problems") {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: async () => ({
+                  data: { id: "db-1", leetcode_id: 1 },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "algorithm_attempts") {
+          return { delete: () => deletion };
+        }
+        return {
+          update: (value: unknown) => {
+            restoredTasks = value;
+            return taskUpdate;
+          },
+        };
+      },
+    };
+
+    await expect(cancelCloudAlgorithmAttempt(client as never, "user-1", {
+      attemptId: "attempt-1",
+      problemId: "1",
+    })).resolves.toBeUndefined();
+    expect(filters).toEqual([
+      ["id", "attempt-1"],
+      ["user_id", "user-1"],
+      ["problem_id", "db-1"],
+      ["finished_at", null],
+    ]);
+    expect(restoredTasks).toEqual({ status: "pending", completed_at: null });
   });
 
   it("maps knowledge evidence and keeps structured matched points", () => {

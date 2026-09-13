@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   authenticatedTrainingContext: vi.fn(),
+  cancelCloudAlgorithmAttempt: vi.fn(),
   completeCloudAlgorithmAttempt: vi.fn(),
   importCloudAlgorithms: vi.fn(),
   loadCloudTrainingSnapshot: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock("../lib/supabase/training", async (importOriginal) => {
     await importOriginal<typeof import("../lib/supabase/training")>();
   return {
     ...actual,
+    cancelCloudAlgorithmAttempt: mocks.cancelCloudAlgorithmAttempt,
     completeCloudAlgorithmAttempt: mocks.completeCloudAlgorithmAttempt,
     importCloudAlgorithms: mocks.importCloudAlgorithms,
     loadCloudTrainingSnapshot: mocks.loadCloudTrainingSnapshot,
@@ -99,6 +101,24 @@ describe("cloud training routes", () => {
       context.client,
       "user-1",
       "1",
+    );
+  });
+
+  it("cancels an algorithm attempt using the authenticated user only", async () => {
+    const response = await algorithmPost(
+      jsonRequest("http://localhost/api/training/algorithm", {
+        action: "cancel",
+        attemptId,
+        problemId: "1",
+        userId: "attacker-controlled",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.cancelCloudAlgorithmAttempt).toHaveBeenCalledWith(
+      context.client,
+      "user-1",
+      { attemptId, problemId: "1" },
     );
   });
 

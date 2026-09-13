@@ -6,6 +6,7 @@ import { getAlgorithmProblem, algorithmCatalog, toAlgorithmPlannerProblem } from
 import { importCompletedAlgorithmProblems } from "./algorithm/import-progress";
 import {
   attachDemoAlgorithmAnalysis,
+  cancelDemoAlgorithmAttempt,
   completeDemoAlgorithmAttempt,
   createAlgorithmDemoData,
   ensureTodayAlgorithmTasks,
@@ -187,6 +188,19 @@ export class LocalTrainingDatabase {
       startedAt,
       attemptId: crypto.randomUUID(),
       timeZone: state.profile.timeZone,
+    });
+    state.algorithm = result.data;
+    this.writeState(state);
+    return result.attempt;
+  }
+
+  cancelAlgorithm(attemptId: string, problemId: string) {
+    const state = this.readState();
+    if (!state) throw new LocalTrainingConflictError("本地训练记录不存在。");
+    const result = cancelDemoAlgorithmAttempt({
+      data: state.algorithm,
+      attemptId,
+      problemId,
     });
     state.algorithm = result.data;
     this.writeState(state);

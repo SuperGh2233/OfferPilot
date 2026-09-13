@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ALGORITHM_DEMO_STORAGE_KEY,
   attachDemoAlgorithmAnalysis,
+  cancelDemoAlgorithmAttempt,
   calculateAlgorithmCurrentWeek,
   completeDemoAlgorithmAttempt,
   createAlgorithmDemoData,
@@ -181,6 +182,36 @@ describe("algorithm demo local storage adapter", () => {
         attemptId: "attempt-1",
       }),
     ).toThrow(/unique/);
+  });
+
+  it("cancels only the active attempt and restores its in-progress tasks", () => {
+    const withTasks = ensureTodayAlgorithmTasks(
+      createAlgorithmDemoData("2026-09-09"),
+      problems,
+      day(9),
+    ).data;
+    const started = startDemoAlgorithmAttempt({
+      data: withTasks,
+      problemId: "1",
+      startedAt: day(9),
+      attemptId: "attempt-to-cancel",
+    });
+    const canceled = cancelDemoAlgorithmAttempt({
+      data: started.data,
+      problemId: "1",
+      attemptId: started.attempt.id,
+    });
+
+    expect(canceled.attempt).toEqual(started.attempt);
+    expect(canceled.data.activeAttempts).toEqual({});
+    expect(canceled.data.attempts).toEqual([]);
+    expect(canceled.data.states).toEqual({});
+    expect(canceled.data.dailyTasks["2026-09-09"][0].status).toBe("pending");
+    expect(() => cancelDemoAlgorithmAttempt({
+      data: canceled.data,
+      problemId: "1",
+      attemptId: started.attempt.id,
+    })).toThrow(/matching active attempt/);
   });
 
   it("completes a successful attempt, updates mastery and review, then persists a failure", () => {

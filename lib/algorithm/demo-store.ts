@@ -532,6 +532,33 @@ export function startDemoAlgorithmAttempt({
   return { data: nextData, attempt, resumed: false };
 }
 
+export function cancelDemoAlgorithmAttempt({
+  data,
+  problemId,
+  attemptId,
+}: {
+  data: AlgorithmDemoData;
+  problemId: string;
+  attemptId: string;
+}) {
+  assertAlgorithmDemoData(data);
+  const attempt = data.activeAttempts[problemId];
+  if (!attempt || attempt.id !== attemptId) {
+    throw new RangeError("no matching active attempt exists for problemId");
+  }
+
+  const nextData = cloneData(data);
+  delete nextData.activeAttempts[problemId];
+  for (const date of Object.keys(nextData.dailyTasks)) {
+    nextData.dailyTasks[date] = nextData.dailyTasks[date].map((task) =>
+      task.problemId === problemId && task.status === "in_progress"
+        ? { ...task, status: "pending", completedAt: null }
+        : task,
+    );
+  }
+  return { data: nextData, attempt };
+}
+
 export function completeDemoAlgorithmAttempt({
   data,
   problemId,

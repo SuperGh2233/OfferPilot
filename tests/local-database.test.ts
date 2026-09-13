@@ -79,6 +79,13 @@ describe("local SQLite training database", () => {
       expect(reopened.algorithm.attempts[0].aiAnalysis).toEqual(analysis);
       expect(reopened.algorithm.states[problem.id].mastery).toBe(completion.state.mastery);
 
+      const canceledAttempt = database.startAlgorithm(problem.id, now);
+      database.cancelAlgorithm(canceledAttempt.id, problem.id);
+      const afterCancel = database.loadSnapshot(now);
+      expect(afterCancel.algorithm.activeAttempts[problem.id]).toBeUndefined();
+      expect(afterCancel.algorithm.attempts).toHaveLength(1);
+      expect(afterCancel.algorithm.states[problem.id].mastery).toBe(completion.state.mastery);
+
       const question = knowledgeQuestions.find((candidate) =>
         candidate.questionType === "main" && candidate.isCore6Weeks,
       )!;

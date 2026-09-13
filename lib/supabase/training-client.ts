@@ -10,6 +10,7 @@ import { loadKnowledgeDemoData } from "../knowledge/demo-store";
 import { loadDemoProfile, type DemoProfile } from "../profile/demo-store";
 import type {
   CloudTrainingSnapshot,
+  CancelCloudAlgorithmInput,
   CompleteCloudAlgorithmInput,
   RecordCloudKnowledgeInput,
   SaveCloudAlgorithmAnalysisInput,
@@ -65,6 +66,14 @@ export async function startCloudAttempt(problemId: string) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "start", problemId }),
+  });
+}
+
+export async function cancelCloudAttempt(input: CancelCloudAlgorithmInput) {
+  return request<{ snapshot: CloudTrainingSnapshot }>("/api/training/algorithm", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "cancel", ...input }),
   });
 }
 

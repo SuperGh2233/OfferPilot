@@ -6,11 +6,11 @@
 
 - 最后更新：2026-09-13
 - 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
-- 当前任务：Phase 8.5 在稳定域名完成注册、登录、退出、算法训练、八股回忆与持久化生产 Smoke
+- 当前任务：Phase 8.5 提交并部署算法训练取消功能，然后继续稳定域名生产 Smoke
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置；算法写题流程优化已由 Git 集成自动部署为 READY，真实登录与训练验收进行中
-- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；28 个测试文件、255 项测试通过，生成 238 个页面
+- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；28 个测试文件、258 项测试通过，生成 238 个页面
 
 | 阶段 | 状态 | 核心结果 |
 | --- | --- | --- |
@@ -245,6 +245,7 @@ npm run build
 - [x] 支持批量导入外部已完成的 Hot 100 题目，并在本地数据库与 Supabase 共用同一语义。
 - [x] 接入 OpenAI 兼容的八股 Recall AI 语义复核，服务端读取题库、严格校验结构化结果且不修改 mastery。
 - [x] 优化算法写题流程：未提交代码草稿自动恢复，训练记录先保存，AI 复盘后执行并独立持久化。
+- [x] 支持取消尚未完成的算法训练，不改变历史成绩与 Mastery，并恢复对应待办状态。
 - [ ] 完成生产 Smoke Test、README 和恢复/排错说明。（脚本与文档已完成，待真实生产执行）
 - [ ] 运行完整质量门并完成 V1 最终验收。
 
@@ -425,3 +426,4 @@ npm run build
 | 2026-09-13 | Phase 8.5 | 在现有算法 AI 代码复盘中增加“本题 Java 基础语法”：最多 4 张卡片，展示代码实际涉及方法的用途、标准写法、最小示例和易错点；复用现有 AI 请求与 Attempt JSON 持久化，并兼容无该字段的旧复盘 | 真实 `qwen3.7-flash` 复盘返回 `String.toCharArray()`、`Arrays.sort(char[])` 等 3 项语法知识；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、252 项测试、238 个页面 |
 | 2026-09-13 | Phase 8.5 | 优化算法写题流程：未提交 Java 代码按 Attempt 自动保存在当前浏览器并可刷新恢复；训练反馈先独立保存，完成后再请求 AI，分析结果追加到同一 Attempt，覆盖浏览器 Demo、本地 SQLite 与 Supabase，且不重复计算 mastery | 浏览器验证草稿刷新恢复、先保存后出现 AI 按钮且控制台无错误；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、255 项测试、238 个页面 |
 | 2026-09-13 | Phase 8.5 | 将算法写题流程优化提交并推送到 `main`，交由已连接的 Vercel Git 集成自动部署 | Commit `195ec97` 已推送且远端 `main` 一致；部署 `dpl_DHKg6xKD9Bd47L9QCp2FSmCTiftR` 状态 READY，稳定域名已指向新版本 |
+| 2026-09-13 | Phase 8.5 | 补齐算法训练取消流程：计时卡增加二次确认的取消入口，撤销未完成 Attempt、恢复进行中任务并清除该次代码草稿；浏览器 Demo、本地 SQLite 与 Supabase 共用一致语义，不改变历史成绩与 Mastery | 4 个目标测试文件 31 项通过；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、258 项测试、238 个页面 |

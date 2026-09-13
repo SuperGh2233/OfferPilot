@@ -8,6 +8,7 @@ import {
   ALGORITHM_DEMO_CHANGED_EVENT,
   ALGORITHM_DEMO_TIME_ZONE,
   attachDemoAlgorithmAnalysis,
+  cancelDemoAlgorithmAttempt,
   completeDemoAlgorithmAttempt,
   ensureTodayAlgorithmTasks,
   loadAlgorithmDemoData,
@@ -35,6 +36,7 @@ import {
   type AlgorithmCodeAnalysis,
 } from "@/lib/ai/code-analysis";
 import {
+  cancelCloudAttempt,
   completeCloudAttempt,
   saveCloudAlgorithmAnalysis,
   startCloudAttempt,
@@ -369,6 +371,40 @@ export function AlgorithmTraining({
     setMode("feedback");
   }
 
+  async function handleCancel() {
+    if (!data || !activeAttempt || saving) return;
+    if (!window.confirm("取消本次训练？本次计时和未提交代码将被清除，历史成绩与 Mastery 不受影响。")) {
+      return;
+    }
+
+    setError(null);
+    setSaving(true);
+    try {
+      if (!demoMode) {
+        const canceled = await cancelCloudAttempt({
+          attemptId: activeAttempt.id,
+          problemId: problem.id,
+        });
+        cloud.setSnapshot(canceled.snapshot);
+      } else {
+        const canceled = cancelDemoAlgorithmAttempt({
+          data,
+          attemptId: activeAttempt.id,
+          problemId: problem.id,
+        });
+        if (!persist(canceled.data)) return;
+      }
+      clearCodeDraft(activeAttempt.id);
+      setCode("");
+      setFeedbackEndedAt(null);
+      setMode("idle");
+    } catch (cancelError) {
+      setError(errorMessage(cancelError));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function toggleMistakeTag(tag: AlgorithmMistakeTag) {
     setMistakeTags((current) =>
       current.includes(tag)
@@ -592,9 +628,20 @@ export function AlgorithmTraining({
                     开始于 {formatDate(activeAttempt.startedAt, timeZone)} · 刷新页面会继续计时
                   </p>
                 </div>
-                <Button className="mt-5 w-full sm:mt-0 sm:w-auto" onClick={handleFinish} type="button" variant="secondary">
-                  结束训练，填写反馈
-                </Button>
+                <div className="mt-5 flex w-full flex-col-reverse gap-2 sm:mt-0 sm:w-auto sm:flex-row">
+                  <Button
+                    className="text-primary-foreground/80 hover:bg-white/10 hover:text-primary-foreground"
+                    disabled={saving}
+                    onClick={handleCancel}
+                    type="button"
+                    variant="ghost"
+                  >
+                    {saving ? "取消中…" : "取消训练"}
+                  </Button>
+                  <Button disabled={saving} onClick={handleFinish} type="button" variant="secondary">
+                    结束训练，填写反馈
+                  </Button>
+                </div>
               </div>
             ) : mode === "feedback" && activeAttempt ? (
               <form className="mt-7 space-y-6" onSubmit={handleSubmitFeedback}>
