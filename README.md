@@ -6,7 +6,7 @@ OfferPilot 是一个可每天使用的个人秋招训练系统，围绕两条闭
 
 ## 当前状态
 
-- Phase 0–7 已完成：算法与八股规则、每日 Planner、训练闭环、Dashboard、Progress、Settings 和可选 AI 代码复盘均可在本地使用。
+- Phase 0–7 已完成：算法与八股规则、每日 Planner、训练闭环、Dashboard、Progress、Settings 和可选 AI 代码复盘均可在本地使用；Phase 8 已加入八股回忆 AI 语义复核。
 - Phase 8 的导航、深色模式、响应式基础、状态语义、Loading/Error/404 和可访问性已完成。
 - 本地 Demo 可使用服务器端 SQLite 单文件持久化；生产环境使用真实 Supabase Auth、PostgreSQL 与 RLS。
 - Supabase Migration、两次 Seed、精确题库校验和双用户 RLS 隔离已通过；真实注册账号已创建并确认。
@@ -20,7 +20,7 @@ OfferPilot 是一个可每天使用的个人秋招训练系统，围绕两条闭
 - Tailwind CSS 4、shadcn/ui
 - Node.js 内置 SQLite（本地 Demo 数据库）
 - Supabase Auth、PostgreSQL、RLS（生产数据库）
-- OpenAI Responses API（可选代码复盘）
+- OpenAI 兼容 Responses / Chat API（可选代码复盘与八股回忆语义复核）
 - Vitest
 - Vercel 生产部署平台
 
@@ -64,11 +64,11 @@ npm run dev
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase Publishable Key | 浏览器可见 |
 | `SUPABASE_SERVICE_ROLE_KEY` | 仅用于本地 Seed/校验 | 服务器；禁止进入浏览器和 Vercel 前端变量 |
 | `NEXT_PUBLIC_SITE_URL` | 邮箱确认回跳地址 | 浏览器可见 |
-| `OPENAI_API_KEY` | 可选 AI 代码复盘 | 服务器 |
-| `OPENAI_BASE_URL` | OpenAI 兼容网关；默认官方地址 | 服务器 |
-| `OPENAI_MODEL` | AI 复盘模型；默认 `gpt-5.5` | 服务器 |
+| `OPENAI_API_KEY` | 可选 AI 代码复盘与八股回忆复核 | 服务器 |
+| `OPENAI_BASE_URL` | OpenAI 兼容网关地址 | 服务器 |
+| `OPENAI_MODEL` | AI 模型名称 | 服务器 |
 
-没有 `OPENAI_API_KEY` 时，只有“AI 分析代码”会显示配置错误；训练反馈、得分和 mastery 仍可保存。
+没有 `OPENAI_API_KEY` 时，“AI 分析代码”和“AI 分析回答”会显示配置错误；训练反馈、得分和 mastery 仍可保存。八股 AI 复核只解释语义覆盖，不回写确定性关键词分数或 mastery。
 
 ## Supabase 初始化
 
@@ -122,8 +122,8 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 NEXT_PUBLIC_SITE_URL=https://你的域名
 OPENAI_API_KEY=...              # 可选
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_MODEL=gpt-5.5
+OPENAI_BASE_URL=https://your-workspace-id.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+OPENAI_MODEL=qwen3.7-flash
 ```
 
 不要把 `SUPABASE_SERVICE_ROLE_KEY` 配置到前端运行环境；Seed 应在可信本地终端执行。部署完成后，将最终域名补进 Supabase Auth 的 Site URL 与 Redirect URLs。
@@ -149,7 +149,7 @@ npm run smoke -- http://localhost:3000 demo
 - 未登录页面没有跳转：确认生产 `LOCAL_DEMO_MODE=false`，并检查 Supabase 项目值是否来自同一个项目。
 - Seed 失败：确认使用的是 Service Role Key；重新运行 `npm run seed` 是安全的，因为目录写入使用稳定 ID/唯一键 upsert。
 - 数据计数不符：先运行 `npm run seed:check` 排除本地事实源损坏，再重新执行 Seed 和 `npm run supabase:verify`。
-- AI 分析失败：确认服务器端 OpenAI 三项配置；AI 失败不会改变确定性 mastery，也不应阻止保存普通训练反馈。
+- AI 分析失败：确认服务器端 OpenAI 兼容网关三项配置，且 API Key 与网关地域一致；AI 失败不会改变确定性 mastery，也不应阻止保存普通训练反馈。
 - 本地 SQLite 数据异常：先停止开发服务，备份整个 `.offerpilot` 目录，再把 `offerpilot.sqlite` 改名后重启。应用会创建新库；不要在没有备份时删除原文件。
 - 旧浏览器 Demo 没有自动导入：只有空 SQLite 库会触发首次导入；请先备份现有 SQLite，再换成空库重试。
 

@@ -10,7 +10,7 @@
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；Vercel 生产站点已发布，真实登录与训练验收进行中
-- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；26 个测试文件、245 项测试通过，生成 237 个页面
+- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；28 个测试文件、250 项测试通过，生成 238 个页面
 
 | 阶段 | 状态 | 核心结果 |
 | --- | --- | --- |
@@ -53,6 +53,7 @@ npm run build
 - 默认六周新知识只从 120 道 `is_core_6weeks = true` 的主问题中生成。
 - follow-up 只挂在主问题下，默认不占每日新题额度。
 - mastery 只由确定性 TypeScript 规则更新；AI 分析不得直接修改 mastery。
+- 八股 Recall 保留确定性关键词分数，并允许用户提交后主动请求 AI 语义复核；AI 结果只用于解释，不回写 mastery。
 - Hard 时间修正采用 `<=40/+5`、`<=60/0`、`<=90/-5`、`>90/-10`，避免过度惩罚。
 - 算法失败时取“平滑 mastery”和“旧 mastery−15”的较低值，确保失败至少下降 15。
 - V1 不建独立 weakness 表；从 `mistake_tags` 和可选 `ai_analysis` 聚合。
@@ -241,6 +242,7 @@ npm run build
 - [ ] 关闭 `LOCAL_DEMO_MODE`，联调真实注册、邮箱确认、登录、退出和 RLS 隔离。
 - [x] 在 Vercel 配置生产环境变量并部署 Next.js 前端。
 - [x] 支持批量导入外部已完成的 Hot 100 题目，并在本地数据库与 Supabase 共用同一语义。
+- [x] 接入 OpenAI 兼容的八股 Recall AI 语义复核，服务端读取题库、严格校验结构化结果且不修改 mastery。
 - [ ] 完成生产 Smoke Test、README 和恢复/排错说明。（脚本与文档已完成，待真实生产执行）
 - [ ] 运行完整质量门并完成 V1 最终验收。
 
@@ -415,3 +417,4 @@ npm run build
 | 2026-09-13 | Phase 8.5 | 处理“漏学一天后欠账不可见”问题：算法/八股 Planner 增加逾期复习配额上浮（最多 3 倍、封顶实际逾期数、配 0 不上浮），新增 `calculateTrainingBacklog` 汇总逾期复习与往日遗留任务，Dashboard 增加补账提示卡片与入口；新题语义不变，漏学内容顺延不丢失 | Node 24 下 lint/typecheck/test/build 全通过；25 个测试文件、241 项测试、237 个页面 |
 | 2026-09-13 | Phase 8.5 | 修复重设计划起点后旧任务仍显示欠账：欠账统计仅包含当前计划开始日至昨天的未完成任务，保留旧历史、Mastery 与真正到期复习 | 目标回归通过；Node 24 下 lint/typecheck/test/build 全通过；25 个测试文件、242 项测试、237 个页面 |
 | 2026-09-13 | Phase 8.5 | 完成 Hot 100 外部完成记录批量导入：支持题号、`[题号]题名`、链接识别与去重；以 60% 初始掌握度在 3 天后复习，本地 SQLite/Supabase 均持久化，不伪造 Attempt、不覆盖已有记录，并完成对应待办任务 | 页面导入 2 题验收通过且控制台无错误；Node 24 下 lint/typecheck/test/build 全通过；26 个测试文件、245 项测试、237 个页面 |
+| 2026-09-13 | Phase 8.5 | 增加八股 Recall 的用户主动 AI 语义复核：服务端通过 OpenAI 兼容 Chat API 调用阿里百炼，使用非思考模式和严格 JSON Schema 返回语义覆盖、遗漏、误区及改进表达；API Key 不下发浏览器，AI 不修改确定性 mastery；本地已配置用户提供的北京 Base URL、`qwen3.7-flash` 和私密 Key | Node 24 下 lint/typecheck/test/build 全通过；28 个测试文件、250 项测试、238 个页面；真实百炼调用返回 `structured_ok=true` |

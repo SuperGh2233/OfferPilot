@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  parseKnowledgeRecallAnalysis,
+  type KnowledgeRecallAnalysis,
+} from "@/lib/ai/knowledge-recall-analysis";
 import { ALGORITHM_DEMO_TIME_ZONE } from "@/lib/algorithm/demo-store";
 import type {
   KnowledgeAttemptPayload,
@@ -103,6 +107,9 @@ export function KnowledgeTraining({
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<KnowledgeRecallAnalysis | null>(null);
+  const [aiStatus, setAiStatus] = useState<"idle" | "loading">("idle");
+  const [aiError, setAiError] = useState<string | null>(null);
   const pendingAttemptId = useRef<string | null>(null);
   const applyCloudSnapshot = useCallback((snapshot: CloudTrainingSnapshot) => {
     setData(snapshot.knowledge);
@@ -194,6 +201,8 @@ export function KnowledgeTraining({
   async function submitRecall(answerText: string) {
     if (!data || saving) return;
     setError(null);
+    setAiAnalysis(null);
+    setAiError(null);
     setSaving(true);
     try {
       if (!demoMode) {
@@ -235,6 +244,35 @@ export function KnowledgeTraining({
   function handleRecall(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void submitRecall(answer.trim());
+  }
+
+  async function handleAiAnalysis() {
+    const answerText = submission?.attempt.mode === "recall" ? submission.attempt.answerText : null;
+    if (!answerText?.trim() || aiStatus === "loading") return;
+
+    setAiError(null);
+    setAiStatus("loading");
+    try {
+      const response = await fetch("/api/ai/analyze-recall", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionId: question.id, answerText }),
+      });
+      const payload: unknown = await response.json();
+      if (!response.ok) {
+        const message = payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
+          ? payload.error
+          : "AI 复核失败，请稍后重试。";
+        throw new Error(message);
+      }
+      const value = payload && typeof payload === "object" && "analysis" in payload ? payload.analysis : null;
+      setAiAnalysis(parseKnowledgeRecallAnalysis(value, question.keyPoints.length));
+    } catch (analysisError) {
+      setAiAnalysis(null);
+      setAiError(analysisError instanceof Error ? analysisError.message : "AI 复核失败，请稍后重试。");
+    } finally {
+      setAiStatus("idle");
+    }
   }
 
   const visibleState = submission?.state ?? state;
@@ -320,10 +358,31 @@ export function KnowledgeTraining({
                     Mastery {submission.state.mastery} · 下次复习 {formatDate(submission.state.nextReviewAt, timeZone)}
                   </p>
                 </div>
-                {recallResult ? <RecallResult attempt={recallResult} /> : null}
+                {recallResult ? (
+                  <>
+                    <RecallResult attempt={recallResult} />
+                    <div className="rounded-2xl border bg-card p-5 shadow-sm">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-semibold">AI 语义复核（可选）</p>
+                          <p className="mt-1 text-sm text-muted-foreground">理解同义表达并指出遗漏；结果不修改本次 mastery。</p>
+                        </div>
+                        <Button disabled={!recallResult.answerText?.trim() || aiStatus === "loading"} onClick={handleAiAnalysis} type="button" variant="outline">
+                          {aiStatus === "loading" ? "分析中…" : aiAnalysis ? "重新分析" : "AI 分析回答"}
+                        </Button>
+                      </div>
+                      {aiError ? <p aria-live="assertive" className="mt-3 text-sm text-destructive">{aiError}</p> : null}
+                      {aiAnalysis ? <RecallAiPanel analysis={aiAnalysis} question={question} /> : null}
+                    </div>
+                  </>
+                ) : null}
                 <AnswerPanel question={question} />
                 <div className="flex gap-3">
-                  <Button onClick={() => setSubmission(null)} type="button" variant="outline">
+                  <Button onClick={() => {
+                    setSubmission(null);
+                    setAiAnalysis(null);
+                    setAiError(null);
+                  }} type="button" variant="outline">
                     {submission.attempt.mode === "learn" ? "进入 Recall 模式" : "再回忆一次"}
                   </Button>
                   <Link className="inline-flex h-8 items-center justify-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/80" href="/knowledge">
@@ -424,6 +483,69 @@ function RecallResult({ attempt }: { attempt: KnowledgeAttemptPayload }) {
         </ul>
       </div>
       <p className="sm:col-span-2 text-sm text-muted-foreground">加权覆盖率：{attempt.coverageScore ?? 0}%</p>
+    </div>
+  );
+}
+
+const verdictLabels: Record<KnowledgeRecallAnalysis["verdict"], string> = {
+  excellent: "掌握很好",
+  mostly_correct: "大体正确",
+  partial: "部分正确",
+  incorrect: "需要重学",
+};
+
+function RecallAiPanel({
+  analysis,
+  question,
+}: {
+  analysis: KnowledgeRecallAnalysis;
+  question: KnowledgeTrainingQuestion;
+}) {
+  return (
+    <div className="mt-4 space-y-4 border-t pt-4 text-sm">
+      <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
+        <div className="rounded-xl bg-muted p-4">
+          <p className="text-xs text-muted-foreground">语义覆盖</p>
+          <p className="mt-1 text-2xl font-semibold">{analysis.semanticScore}%</p>
+          <p className="mt-1 text-xs text-muted-foreground">{verdictLabels[analysis.verdict]}</p>
+        </div>
+        <div className="rounded-xl bg-muted p-4">
+          <p className="font-medium">复核结论</p>
+          <p className="mt-1 leading-6 text-muted-foreground">{analysis.summary}</p>
+        </div>
+      </div>
+      {analysis.coveredPoints.length > 0 ? (
+        <div>
+          <p className="font-medium text-emerald-700 dark:text-emerald-400">语义已覆盖</p>
+          <ul className="mt-2 space-y-2 leading-6">
+            {analysis.coveredPoints.map((point) => (
+              <li key={point.index}>✓ {question.keyPoints[point.index]} — <span className="text-muted-foreground">{point.evidence}</span></li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {analysis.missingPoints.length > 0 ? (
+        <div>
+          <p className="font-medium text-amber-700 dark:text-amber-400">建议补充</p>
+          <ul className="mt-2 space-y-2 leading-6">
+            {analysis.missingPoints.map((point) => (
+              <li key={point.index}>△ {question.keyPoints[point.index]} — <span className="text-muted-foreground">{point.guidance}</span></li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {analysis.misconceptions.length > 0 ? (
+        <div>
+          <p className="font-medium text-destructive">需要纠正</p>
+          <ul className="mt-2 space-y-1 text-muted-foreground">
+            {analysis.misconceptions.map((item) => <li key={item}>• {item}</li>)}
+          </ul>
+        </div>
+      ) : null}
+      <div>
+        <p className="font-medium">更完整的面试表达</p>
+        <p className="mt-2 whitespace-pre-wrap rounded-xl bg-muted p-4 leading-7">{analysis.improvedAnswer}</p>
+      </div>
     </div>
   );
 }
