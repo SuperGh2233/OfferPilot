@@ -598,7 +598,7 @@ export function AlgorithmTraining({
       <textarea
         autoCapitalize="off"
         autoCorrect="off"
-        className="min-h-72 resize-y rounded-lg border bg-background px-4 py-3 font-mono text-sm font-normal leading-6 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="min-h-80 resize-y rounded-lg border bg-background px-4 py-3 font-mono text-sm font-normal leading-6 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:min-h-[30rem]"
         id="java-code"
         maxLength={20_000}
         onChange={(event) => {
@@ -618,9 +618,20 @@ export function AlgorithmTraining({
       </span>
     </div>
   ) : null;
+  const starterPreview = (
+    <div className="mt-6 rounded-xl border bg-muted/20 p-4">
+      <p className="text-sm font-medium">Java 初始代码</p>
+      <pre className="mt-3 max-h-80 overflow-auto rounded-lg bg-background p-4 text-sm leading-6">
+        <code>{problem.javaStarterCode}</code>
+      </pre>
+      <p className="mt-3 text-xs text-muted-foreground">
+        开始训练后可直接编辑，草稿会自动保存。
+      </p>
+    </div>
+  );
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-6 sm:py-10">
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6 sm:px-6 sm:py-10">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b pb-5">
         <div>
           <Link
@@ -640,8 +651,7 @@ export function AlgorithmTraining({
         </span>
       </header>
 
-      <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <div className="min-w-0">
+      <section className="mt-8">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="rounded-full border px-2.5 py-1">Hot 100 · #{problem.leetcodeId}</span>
             <span
@@ -667,11 +677,40 @@ export function AlgorithmTraining({
           </h1>
           <p className="mt-2 text-base text-muted-foreground">{problem.titleEn}</p>
 
-          <section
+          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border bg-card px-4 py-3 text-sm shadow-sm">
+            <span>
+              Mastery <strong className={masteryColor(mastery)}>{mastery}/100</strong>
+            </span>
+            <span>
+              状态 <strong>{trainingStateLabel(currentState)}</strong>
+            </span>
+            <span>
+              累计 <strong>{currentState?.attemptCount ?? 0} 次</strong>
+            </span>
+            <span>
+              下次复习 <strong>{formatDate(currentState?.nextReviewAt ?? null, timeZone)}</strong>
+            </span>
+            <a
+              className="ml-auto font-medium underline-offset-4 hover:underline"
+              href={problem.url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              在 LeetCode 打开 ↗
+            </a>
+          </div>
+
+          <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
+          <details
             aria-labelledby="problem-statement-heading"
-            className="mt-7 rounded-2xl border bg-muted/20 p-5 sm:p-6"
+            className="order-2 overflow-hidden rounded-2xl border bg-muted/20 lg:order-1 lg:h-[calc(100vh-19rem)] lg:min-h-[36rem] lg:overflow-y-auto"
+            open
           >
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <summary className="cursor-pointer px-5 py-4 text-sm font-semibold lg:hidden">
+              题目说明
+              <span className="ml-2 font-normal text-muted-foreground">点击收起/展开</span>
+            </summary>
+            <div className="hidden items-center justify-between gap-3 px-5 pt-5 lg:flex lg:px-6 lg:pt-6">
               <h2 className="text-lg font-semibold" id="problem-statement-heading">
                 题目说明
               </h2>
@@ -679,12 +718,12 @@ export function AlgorithmTraining({
                 静态快照
               </span>
             </div>
-            <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-muted-foreground">
+            <p className="whitespace-pre-wrap break-words border-t px-5 py-5 text-sm leading-7 text-muted-foreground lg:mt-4 lg:border-0 lg:px-6 lg:pt-0">
               {problem.statement}
             </p>
-          </section>
+          </details>
 
-          <div className="mt-7 rounded-2xl border bg-card p-5 shadow-sm sm:p-7">
+          <div className="order-1 min-w-0 rounded-2xl border bg-card p-5 shadow-sm sm:p-7 lg:order-2 lg:h-[calc(100vh-19rem)] lg:min-h-[36rem] lg:overflow-y-auto">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold">当前刷次</p>
@@ -833,12 +872,15 @@ export function AlgorithmTraining({
                 </div>
               </div>
             ) : (
-              <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">准备好后开始记录计时。</p>
-                  <p className="mt-1 text-xs text-muted-foreground">计时只用于本次反馈，不会限制你在 LeetCode 上的思考时间。</p>
+              <div className="mt-8">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">准备好后开始记录计时。</p>
+                    <p className="mt-1 text-xs text-muted-foreground">计时只用于本次反馈，不会限制你的思考时间。</p>
+                  </div>
+                  <Button className="w-full sm:w-auto" disabled={!data || saving} onClick={handleStart} type="button">{saving ? "开始中…" : "开始训练"}</Button>
                 </div>
-                <Button className="w-full sm:w-auto" disabled={!data || saving} onClick={handleStart} type="button">{saving ? "开始中…" : "开始训练"}</Button>
+                {starterPreview}
               </div>
             )}
 
@@ -850,37 +892,6 @@ export function AlgorithmTraining({
           </div>
         </div>
 
-        <aside className="space-y-4">
-          <div className="rounded-2xl border bg-card p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">掌握度</p>
-                <p className={`mt-2 text-4xl font-semibold tracking-tight ${masteryColor(mastery)}`}>{mastery}<span className="ml-1 text-base font-normal text-muted-foreground">/ 100</span></p>
-              </div>
-              <span className={`rounded-full bg-muted px-2.5 py-1 text-xs font-medium ${masteryColor(mastery)}`}>{trainingStateLabel(currentState)}</span>
-            </div>
-            <div aria-hidden="true" className="mt-5 h-2 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${mastery}%` }} />
-            </div>
-            <dl className="mt-5 grid gap-3 border-t pt-4 text-sm">
-              <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">累计刷题</dt><dd className="font-medium">{currentState?.attemptCount ?? 0} 次</dd></div>
-              <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">当前状态</dt><dd className="font-medium">{trainingStateLabel(currentState)}</dd></div>
-              <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">下次复习</dt><dd className="text-right font-medium">{formatDate(currentState?.nextReviewAt ?? null, timeZone)}</dd></div>
-            </dl>
-          </div>
-
-          <div className="rounded-2xl border bg-muted/40 p-5 text-sm">
-            <p className="font-semibold">训练提示</p>
-            <ul className="mt-3 space-y-2 text-muted-foreground">
-              <li>先独立思考，再打开题解。</li>
-              <li>记录真实结果，mastery 才有意义。</li>
-              <li>Java 代码可选；AI 分析只做复盘，不参与 mastery。</li>
-            </ul>
-            <a className="mt-5 inline-flex text-sm font-medium underline-offset-4 hover:underline" href={problem.url} rel="noreferrer" target="_blank">
-              在 LeetCode 新页打开 ↗
-            </a>
-          </div>
-        </aside>
       </section>
     </main>
   );
