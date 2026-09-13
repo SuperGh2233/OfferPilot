@@ -229,8 +229,8 @@ describe("generateDailyAlgorithmTasks", () => {
   });
 
   it.each([
-    [4, ["review", "review", "new"]],
-    [5, ["review", "review", "new"]],
+    [4, ["review", "review", "review", "new"]],
+    [5, ["review", "review", "review", "new"]],
     [6, ["review", "review", "review"]],
   ] as const)("uses the Week %d review/new distribution", (currentWeek, taskTypes) => {
     const result = generateDailyAlgorithmTasks(
@@ -344,5 +344,92 @@ describe("generateDailyAlgorithmTasks validation", () => {
         ...overrides,
       }),
     ).toThrowError(RangeError);
+  });
+});
+
+describe("generateDailyAlgorithmTasks overdue review uplift", () => {
+  const overdueProblem = (id: string, day: number) =>
+    problem(id, { orderIndex: day });
+  const overdueState = (id: string, day: number) =>
+    state(id, {
+      mastery: 50,
+      nextReviewAt: new Date(Date.parse("2026-01-10T00:00:00.000Z") - day * 86_400_000)
+        .toISOString(),
+    });
+
+  it("uplifts the review quota to three times the configured amount when backlog exists", () => {
+    const result = generateDailyAlgorithmTasks(
+      plannerInput({
+        problems: [overdueProblem("r1", 1), overdueProblem("r2", 2), overdueProblem("r3", 3)],
+        states: [overdueState("r1", 1), overdueState("r2", 2), overdueState("r3", 3)],
+        reviewCount: 1,
+        newCount: 0,
+      }),
+    );
+
+    expect(result.map(({ problemId, taskType }) => [problemId, taskType])).toEqual([
+      ["r3", "review"],
+      ["r2", "review"],
+      ["r1", "review"],
+    ]);
+  });
+
+  it("caps the uplift at the actual overdue count", () => {
+    const result = generateDailyAlgorithmTasks(
+      plannerInput({
+        problems: [overdueProblem("r1", 1), overdueProblem("r2", 2)],
+        states: [overdueState("r1", 1), overdueState("r2", 2)],
+        reviewCount: 1,
+        newCount: 0,
+      }),
+    );
+
+    expect(result).toHaveLength(2);
+    expect(result.every(({ taskType }) => taskType === "review")).toBe(true);
+  });
+
+  it("never uplifts an explicitly configured zero review quota", () => {
+    const result = generateDailyAlgorithmTasks(
+      plannerInput({
+        problems: [overdueProblem("r1", 1), overdueProblem("r2", 2), overdueProblem("r3", 3)],
+        states: [overdueState("r1", 1), overdueState("r2", 2), overdueState("r3", 3)],
+        reviewCount: 0,
+        newCount: 0,
+      }),
+    );
+
+    expect(result).toEqual([]);
+  });
+
+  it("keeps new-task quota unchanged while uplifting reviews", () => {
+    const result = generateDailyAlgorithmTasks(
+      plannerInput({
+        problems: [
+          overdueProblem("r1", 1),
+          overdueProblem("r2", 2),
+          overdueProblem("r3", 3),
+          problem("new-1", { orderIndex: 10 }),
+        ],
+        states: [overdueState("r1", 1), overdueState("r2", 2), overdueState("r3", 3)],
+        reviewCount: 1,
+        newCount: 1,
+      }),
+    );
+
+    expect(result.map(({ taskType }) => taskType)).toEqual(["review", "review", "review", "new"]);
+  });
+
+  it("does not add reviews once today's quota is already scheduled", () => {
+    const result = generateDailyAlgorithmTasks(
+      plannerInput({
+        problems: [overdueProblem("r1", 1), overdueProblem("r2", 2), overdueProblem("r3", 3)],
+        states: [overdueState("r1", 1), overdueState("r2", 2), overdueState("r3", 3)],
+        existingTasks: [{ problemId: "r3", taskType: "review" }],
+        reviewCount: 1,
+        newCount: 0,
+      }),
+    );
+
+    expect(result).toEqual([]);
   });
 });

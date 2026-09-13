@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateCatalogProgress,
   calculateCyclePosition,
+  calculateTrainingBacklog,
   calculateTrainingStreak,
   calculateWeightedMastery,
   calculateWeeklyCompletion,
@@ -115,5 +116,90 @@ describe("progress summary", () => {
 
     expect(algorithmTasks.map((task) => [task.problemId, task.taskType])).toEqual([["due", "review"]]);
     expect(knowledgeTasks.map((task) => [task.questionId, task.taskType])).toEqual([["due", "review"]]);
+  });
+});
+
+describe("calculateTrainingBacklog", () => {
+  const now = "2026-09-13T12:00:00+08:00";
+
+  it("counts overdue reviews from states and leftover tasks from earlier dates", () => {
+    expect(calculateTrainingBacklog({
+      algorithmStates: [
+        { attemptCount: 1, nextReviewAt: "2026-09-12T00:00:00.000Z" },
+        { attemptCount: 1, nextReviewAt: "2026-09-14T00:00:00.000Z" },
+        { attemptCount: 0, nextReviewAt: "2026-09-01T00:00:00.000Z" },
+        { attemptCount: 2, nextReviewAt: null },
+      ],
+      knowledgeStates: [
+        { attemptCount: 1, nextReviewAt: "2026-09-10T00:00:00.000Z" },
+        { attemptCount: 1, nextReviewAt: "2026-09-20T00:00:00.000Z" },
+      ],
+      algorithmDailyTasks: {
+        "2026-09-12": [{ date: "2026-09-12", status: "completed" }],
+        "2026-09-13": [{ date: "2026-09-13", status: "pending" }],
+      },
+      knowledgeDailyTasks: {
+        "2026-09-12": [
+          { date: "2026-09-12", status: "pending" },
+          { date: "2026-09-12", status: "completed" },
+        ],
+      },
+      today: now,
+    })).toEqual({
+      algorithmOverdueReviews: 1,
+      knowledgeOverdueReviews: 1,
+      algorithmLeftoverTasks: 0,
+      knowledgeLeftoverTasks: 1,
+    });
+  });
+
+  it("treats in_progress earlier tasks as leftover but ignores today's tasks", () => {
+    expect(calculateTrainingBacklog({
+      algorithmStates: [],
+      knowledgeStates: [],
+      algorithmDailyTasks: {
+        "2026-09-12": [{ date: "2026-09-12", status: "in_progress" }],
+        "2026-09-13": [
+          { date: "2026-09-13", status: "pending" },
+          { date: "2026-09-13", status: "in_progress" },
+        ],
+      },
+      knowledgeDailyTasks: {},
+      today: now,
+    })).toEqual({
+      algorithmOverdueReviews: 0,
+      knowledgeOverdueReviews: 0,
+      algorithmLeftoverTasks: 1,
+      knowledgeLeftoverTasks: 0,
+    });
+  });
+
+  it("returns zeros when everything is complete and no reviews are due", () => {
+    expect(calculateTrainingBacklog({
+      algorithmStates: [{ attemptCount: 3, nextReviewAt: "2026-09-20T00:00:00.000Z" }],
+      knowledgeStates: [{ attemptCount: 3, nextReviewAt: "2026-09-20T00:00:00.000Z" }],
+      algorithmDailyTasks: {
+        "2026-09-12": [{ date: "2026-09-12", status: "completed" }],
+      },
+      knowledgeDailyTasks: {},
+      today: now,
+    })).toEqual({
+      algorithmOverdueReviews: 0,
+      knowledgeOverdueReviews: 0,
+      algorithmLeftoverTasks: 0,
+      knowledgeLeftoverTasks: 0,
+    });
+  });
+
+  it("rejects an invalid today input", () => {
+    expect(() =>
+      calculateTrainingBacklog({
+        algorithmStates: [],
+        knowledgeStates: [],
+        algorithmDailyTasks: {},
+        knowledgeDailyTasks: {},
+        today: "not-a-date",
+      }),
+    ).toThrowError(RangeError);
   });
 });

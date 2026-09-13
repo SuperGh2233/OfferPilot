@@ -110,7 +110,7 @@ describe("generateDailyKnowledgeTasks", () => {
     const states = Array.from({ length: 6 }, (_, index) => state(`r${index}`));
 
     const week5 = generateDailyKnowledgeTasks({ questions, states, currentWeek: 5, today });
-    expect(week5.filter(({ taskType }) => taskType === "review")).toHaveLength(5);
+    expect(week5.filter(({ taskType }) => taskType === "review")).toHaveLength(6);
     expect(week5.filter(({ taskType }) => taskType === "new")).toHaveLength(1);
 
     const week6 = generateDailyKnowledgeTasks({ questions, states, currentWeek: 6, today });
@@ -169,6 +169,84 @@ describe("generateDailyKnowledgeTasks", () => {
       currentWeek: 1,
       today,
     })).toThrow(/duplicate question id/);
+  });
+});
+
+describe("generateDailyKnowledgeTasks overdue review uplift", () => {
+  it("uplifts the review quota to three times the configured amount when backlog exists", () => {
+    const questions = [
+      question("r1", { sourceOrder: 1 }),
+      question("r2", { sourceOrder: 2 }),
+      question("r3", { sourceOrder: 3 }),
+    ];
+    const states = [
+      state("r1", { nextReviewAt: "2026-09-06T08:00:00.000Z" }),
+      state("r2", { nextReviewAt: "2026-09-07T08:00:00.000Z" }),
+      state("r3", { nextReviewAt: "2026-09-08T08:00:00.000Z" }),
+    ];
+    const tasks = generateDailyKnowledgeTasks({
+      questions,
+      states,
+      currentWeek: 1,
+      newCount: 0,
+      reviewCount: 1,
+      today,
+    });
+
+    expect(tasks.map(({ questionId, taskType }) => [questionId, taskType])).toEqual([
+      ["r1", "review"],
+      ["r2", "review"],
+      ["r3", "review"],
+    ]);
+  });
+
+  it("caps the uplift at the actual overdue count and keeps new quota unchanged", () => {
+    const questions = [
+      question("r1", { sourceOrder: 1 }),
+      question("r2", { sourceOrder: 2 }),
+      question("n1", { importance: 5 }),
+    ];
+    const states = [
+      state("r1", { nextReviewAt: "2026-09-06T08:00:00.000Z" }),
+      state("r2", { nextReviewAt: "2026-09-07T08:00:00.000Z" }),
+    ];
+    const tasks = generateDailyKnowledgeTasks({
+      questions,
+      states,
+      currentWeek: 1,
+      newCount: 1,
+      reviewCount: 1,
+      today,
+    });
+
+    expect(tasks.map(({ questionId, taskType }) => [questionId, taskType])).toEqual([
+      ["r1", "review"],
+      ["r2", "review"],
+      ["n1", "new"],
+    ]);
+  });
+
+  it("never uplifts an explicitly configured zero review quota", () => {
+    const questions = [
+      question("r1", { sourceOrder: 1 }),
+      question("r2", { sourceOrder: 2 }),
+      question("r3", { sourceOrder: 3 }),
+    ];
+    const states = [
+      state("r1", { nextReviewAt: "2026-09-06T08:00:00.000Z" }),
+      state("r2", { nextReviewAt: "2026-09-07T08:00:00.000Z" }),
+      state("r3", { nextReviewAt: "2026-09-08T08:00:00.000Z" }),
+    ];
+    const tasks = generateDailyKnowledgeTasks({
+      questions,
+      states,
+      currentWeek: 1,
+      newCount: 0,
+      reviewCount: 0,
+      today,
+    });
+
+    expect(tasks).toEqual([]);
   });
 });
 

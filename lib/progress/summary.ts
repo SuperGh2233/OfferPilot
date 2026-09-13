@@ -113,6 +113,63 @@ export function flattenDailyTasks<T extends SummaryTask>(
   return Object.values(dailyTasks).flat();
 }
 
+export type BacklogReviewState = {
+  attemptCount: number;
+  nextReviewAt: string | null;
+};
+
+export type TrainingBacklog = {
+  algorithmOverdueReviews: number;
+  knowledgeOverdueReviews: number;
+  algorithmLeftoverTasks: number;
+  knowledgeLeftoverTasks: number;
+};
+
+/**
+ * Summarizes catch-up workload that daily quotas alone do not surface:
+ * overdue reviews (next review at or before now) plus tasks from earlier
+ * dates that were never completed. Today's own tasks are never "leftover".
+ */
+export function calculateTrainingBacklog({
+  algorithmStates,
+  knowledgeStates,
+  algorithmDailyTasks,
+  knowledgeDailyTasks,
+  today,
+  timeZone,
+}: {
+  algorithmStates: readonly BacklogReviewState[];
+  knowledgeStates: readonly BacklogReviewState[];
+  algorithmDailyTasks: Record<string, readonly SummaryTask[]>;
+  knowledgeDailyTasks: Record<string, readonly SummaryTask[]>;
+  today: AlgorithmDateInput;
+  timeZone?: string;
+}): TrainingBacklog {
+  const now = today instanceof Date ? today.getTime() : new Date(today).getTime();
+  if (!Number.isFinite(now)) throw new RangeError("today must be a valid date");
+  const todayKey = getAlgorithmDemoDateKey(today, timeZone);
+
+  const countOverdue = (states: readonly BacklogReviewState[]) =>
+    states.filter(
+      (state) =>
+        state.attemptCount > 0
+        && state.nextReviewAt !== null
+        && new Date(state.nextReviewAt).getTime() <= now,
+    ).length;
+
+  const countLeftover = (dailyTasks: Record<string, readonly SummaryTask[]>) =>
+    flattenDailyTasks(dailyTasks).filter(
+      (task) => task.date < todayKey && task.status !== "completed",
+    ).length;
+
+  return {
+    algorithmOverdueReviews: countOverdue(algorithmStates),
+    knowledgeOverdueReviews: countOverdue(knowledgeStates),
+    algorithmLeftoverTasks: countLeftover(algorithmDailyTasks),
+    knowledgeLeftoverTasks: countLeftover(knowledgeDailyTasks),
+  };
+}
+
 export function calculateCatalogProgress(
   ids: readonly string[],
   states: Readonly<Record<string, ProgressState>>,

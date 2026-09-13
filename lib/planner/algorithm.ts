@@ -66,6 +66,9 @@ const VALID_TASK_TYPES: readonly AlgorithmTaskType[] = [
   "weakness",
 ];
 
+// Upper bound for overdue-review uplift, as a multiple of the configured quota.
+const REVIEW_BACKLOG_MULTIPLIER = 3;
+
 function assertArray(value: unknown, name: string): asserts value is readonly unknown[] {
   if (!Array.isArray(value)) {
     throw new RangeError(`${name} must be an array`);
@@ -259,6 +262,11 @@ function compareNewCandidates(
  *
  * Reviews are restricted to states whose next review timestamp is at or before
  * today. New tasks are restricted to problems with no state or zero attempts.
+ *
+ * When overdue reviews outnumber the configured review quota, the quota rises
+ * to at most three times the configured amount (never beyond the overdue
+ * count) so skipped days drain faster. An explicitly configured zero review
+ * quota is respected and never uplifted.
  */
 export function generateDailyAlgorithmTasks({
   problems,
@@ -354,6 +362,13 @@ export function generateDailyAlgorithmTasks({
   reviewCandidates.sort((left, right) =>
     compareReviewCandidates(left, right, reviewDates),
   );
+
+  if (reviewQuota > 0 && reviewCandidates.length > reviewQuota) {
+    reviewQuota = Math.min(
+      reviewCandidates.length,
+      reviewQuota * REVIEW_BACKLOG_MULTIPLIER,
+    );
+  }
 
   const selected: Omit<DailyAlgorithmTask, "sortOrder">[] = reviewCandidates
     .slice(0, reviewQuota)

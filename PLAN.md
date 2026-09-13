@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-- 最后更新：2026-09-12
+- 最后更新：2026-09-13
 - 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
 - 当前任务：Phase 8.5 完成生产登录、退出、训练闭环与 Smoke Test 验收
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；Vercel 生产站点已发布，真实登录与训练验收进行中
-- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；25 个测试文件、229 项测试通过，生成 237 个页面
+- 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；25 个测试文件、241 项测试通过，生成 237 个页面
 
 | 阶段 | 状态 | 核心结果 |
 | --- | --- | --- |
@@ -60,6 +60,7 @@ npm run build
 - Recall coverage 分档边界采用 `<=20 / <=40 / <=60 / <80 / >=80`；7 天后 coverage ≥80% 的 retention 证据将 mastery 保底到 90。
 - Knowledge 复习间隔按 mastery 使用 1 / 2 / 3 / 5 / 7 / 14 / 21 天；Topic 聚合中 follow-up 权重为同 importance 主问题的 50%。
 - Knowledge Planner 在 Week 5 默认调整为 1 新学 + 5 复习，Week 6 为 0 新学 + 6 复习；不足的到期复习不以未到期题补位。
+- 2026-09-13 起逾期复习上浮：当天到期复习多于复习配额时，配额自动提升为配置数量的最多 3 倍（不超过实际逾期数，显式配 0 不上浮）；Dashboard 显示逾期复习与往日遗留任务欠账。
 - 当前先运行本地 Demo，后续再连接 Supabase；前端目标部署平台仍为 Vercel。
 - 2026-09-11 起本地阶段改用 Node 24 内置 SQLite 持久化单用户训练状态；复用同一领域规则与训练 API，后续部署时切换到 Supabase，不新增 ORM 或第二套 mastery/planner 逻辑。
 
@@ -408,3 +409,4 @@ npm run build
 | 2026-09-12 | Phase 8.5 | 增加可重复执行的远端双用户 RLS 验证命令，覆盖 6 张私有表的本人可见/他人隔离、跨用户写入和删除拒绝、题库认证读取边界，并自动清理临时账号 | 真实 Supabase 执行通过；临时账号及数据已清理 |
 | 2026-09-12 | Phase 8.5 | 修复注册成功后的中文 Server Action 跳转触发非法响应头并表现为无响应；统一编码登录反馈，并将常见登录与邮件限流错误转换为中文 | 已确认真实账号创建且完成确认；浏览器反馈验收通过；Node 24 下 lint/typecheck/test/build 全通过，25 个测试文件、229 项测试、237 个页面 |
 | 2026-09-12 | Phase 8.5 | 创建 Vercel 项目并配置真实 Supabase 生产变量，发布稳定域名；Supabase Site URL 与本地/生产 Auth 回调白名单同步完成，生产域名公开且 Preview 保持保护 | Vercel Node 24 构建成功并生成 237 个页面；部署状态 READY；本机到 `vercel.app:443` 超时，远端 Smoke 待换网络验收；GitHub 自动部署待授权 Vercel GitHub App |
+| 2026-09-13 | Phase 8.5 | 处理“漏学一天后欠账不可见”问题：算法/八股 Planner 增加逾期复习配额上浮（最多 3 倍、封顶实际逾期数、配 0 不上浮），新增 `calculateTrainingBacklog` 汇总逾期复习与往日遗留任务，Dashboard 增加补账提示卡片与入口；新题语义不变，漏学内容顺延不丢失 | Node 24 下 lint/typecheck/test/build 全通过；25 个测试文件、241 项测试、237 个页面 |

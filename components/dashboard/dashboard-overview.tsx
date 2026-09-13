@@ -33,6 +33,7 @@ import {
 } from "@/lib/profile/demo-store";
 import {
   calculateCyclePosition,
+  calculateTrainingBacklog,
   calculateTrainingStreak,
   calculateWeeklyCompletion,
   flattenDailyTasks,
@@ -238,6 +239,19 @@ export function DashboardOverview({
     .sort((left, right) => left.mastery - right.mastery || left.name.localeCompare(right.name, "zh-CN"))
     .slice(0, 4);
   const remaining = algorithmCounts.remaining + knowledgeCounts.remaining;
+  const backlog = calculateTrainingBacklog({
+    algorithmStates: Object.values(snapshot.algorithmData.states),
+    knowledgeStates: Object.values(snapshot.knowledgeData.states),
+    algorithmDailyTasks: snapshot.algorithmData.dailyTasks,
+    knowledgeDailyTasks: snapshot.knowledgeData.dailyTasks,
+    today: snapshot.now,
+    timeZone: snapshot.profile.timeZone,
+  });
+  const backlogTotal =
+    backlog.algorithmOverdueReviews
+    + backlog.knowledgeOverdueReviews
+    + backlog.algorithmLeftoverTasks
+    + backlog.knowledgeLeftoverTasks;
 
   return (
     <div className="mt-8 flex flex-col gap-6">
@@ -269,6 +283,41 @@ export function DashboardOverview({
           第一周期进度 {cycle.progress}% · 本周已完成 {weekly.completed}/{weekly.total} 个已生成任务
         </p>
       </section>
+
+      {backlogTotal > 0 ? (
+        <section
+          aria-live="polite"
+          className="rounded-2xl border border-amber-300 bg-amber-50 p-6 dark:border-amber-900 dark:bg-amber-950/40"
+        >
+          <h2 className="text-lg font-semibold text-amber-900 dark:text-amber-200">
+            有训练欠账，别急着赶新进度
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-amber-900 dark:text-amber-200">
+            逾期未复习：算法 {backlog.algorithmOverdueReviews} 题、八股 {backlog.knowledgeOverdueReviews} 题
+            {backlog.algorithmLeftoverTasks + backlog.knowledgeLeftoverTasks > 0
+              ? `；往日遗留任务 ${backlog.algorithmLeftoverTasks + backlog.knowledgeLeftoverTasks} 项`
+              : ""}
+            。完成这些复习后，新题会按原计划继续推进，漏掉的内容不会丢。
+          </p>
+          <p className="mt-2 text-xs leading-5 text-amber-800/80 dark:text-amber-300/80">
+            逾期复习较多时，当天复习任务会自动加量（最多为配置数量的 3 倍），欠账会清得更快。
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link
+              className="inline-flex h-9 items-center justify-center rounded-lg bg-amber-600 px-4 text-sm font-medium text-white transition-colors hover:bg-amber-500"
+              href="/algorithm"
+            >
+              去清算法复习
+            </Link>
+            <Link
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-amber-400 px-4 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40"
+              href="/knowledge"
+            >
+              去清八股复习
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 lg:grid-cols-2">
         <TrainingCard

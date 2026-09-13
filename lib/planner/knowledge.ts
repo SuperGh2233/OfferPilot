@@ -95,6 +95,21 @@ function quotas(currentWeek: number, newCount: number, reviewCount: number) {
   return { newQuota: newCount, reviewQuota: reviewCount };
 }
 
+// Upper bound for overdue-review uplift, as a multiple of the configured quota.
+const REVIEW_BACKLOG_MULTIPLIER = 3;
+
+/**
+ * Produces a deterministic, idempotent daily knowledge slice.
+ *
+ * Reviews are restricted to attempted states whose next review timestamp is at
+ * or before today. New tasks are restricted to unattempted core main questions
+ * in teaching order.
+ *
+ * When overdue reviews outnumber the configured review quota, the quota rises
+ * to at most three times the configured amount (never beyond the overdue
+ * count) so skipped days drain faster. An explicitly configured zero review
+ * quota is respected and never uplifted.
+ */
 export function generateDailyKnowledgeTasks({
   questions,
   states,
@@ -148,9 +163,9 @@ export function generateDailyKnowledgeTasks({
 
   const plannedQuotas = quotas(currentWeek, newCount, reviewCount);
   const newQuota = Math.max(0, plannedQuotas.newQuota - existingNew);
-  const reviewQuota = Math.max(0, plannedQuotas.reviewQuota - existingReview);
+  let reviewQuota = Math.max(0, plannedQuotas.reviewQuota - existingReview);
 
-  const reviewTasks = questions
+  const reviewCandidates = questions
     .map((question, index) => ({ question, state: statesById.get(question.id), index }))
     .filter(({ question, state }) =>
       !existingIds.has(question.id)
@@ -168,7 +183,16 @@ export function generateDailyKnowledgeTasks({
         || right.question.importance - left.question.importance
         || left.question.sourceOrder - right.question.sourceOrder
         || left.index - right.index;
-    })
+    });
+
+  if (reviewQuota > 0 && reviewCandidates.length > reviewQuota) {
+    reviewQuota = Math.min(
+      reviewCandidates.length,
+      reviewQuota * REVIEW_BACKLOG_MULTIPLIER,
+    );
+  }
+
+  const reviewTasks = reviewCandidates
     .slice(0, reviewQuota)
     .map(({ question }) => ({
       questionId: question.id,
