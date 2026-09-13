@@ -6,10 +6,10 @@
 
 - 最后更新：2026-09-13
 - 当前阶段：Phase 8 — 完善、真实 Supabase、部署（进行中）
-- 当前任务：Phase 8.5 提交并部署计时页 Java 编辑区，然后继续稳定域名生产 Smoke
+- 当前任务：Phase 8.5 在稳定域名完成注册、登录、退出、算法训练、八股回忆与持久化生产 Smoke
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
-- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置；算法写题与取消训练优化已由 Git 集成自动部署为 READY，真实登录与训练验收进行中
+- 云端状态：Supabase Migration、两次 Seed、精确目录和双用户 RLS 验证通过；AI 三项服务端变量已配置；算法计时页 Java 编辑区已由 Git 集成自动部署为 READY，真实登录与训练验收进行中
 - 最近质量门：Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；28 个测试文件、258 项测试通过，生成 238 个页面
 
 | 阶段 | 状态 | 核心结果 |
@@ -430,3 +430,4 @@ npm run build
 | 2026-09-13 | Phase 8.5 | 补齐算法训练取消流程：计时卡增加二次确认的取消入口，撤销未完成 Attempt、恢复进行中任务并清除该次代码草稿；浏览器 Demo、本地 SQLite 与 Supabase 共用一致语义，不改变历史成绩与 Mastery | 4 个目标测试文件 31 项通过；Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、258 项测试、238 个页面 |
 | 2026-09-13 | Phase 8.5 | 将算法训练取消功能提交并推送到 `main`，由 Vercel Git 集成自动部署 | Commit `68054f3` 已推送且远端 `main` 一致；部署 `dpl_7ZfxUw49swrvp7TfdFTPvYAymPuw` 状态 READY，稳定域名已切换到新版本 |
 | 2026-09-13 | Phase 8.5 | 把算法训练页从纯计时器改为可直接写题：计时状态展示大尺寸 Java 编辑区，关闭拼写/自动修正，复用现有按 Attempt 保存的浏览器草稿，结束训练后同一代码自动进入反馈 | Node 24 下 lint/typecheck/test/build 全通过，28 个测试文件、258 项测试、238 个页面；在线编译与判题按安全边界延后 |
+| 2026-09-13 | Phase 8.5 | 将算法计时页 Java 编辑区提交并推送到 `main`，由 Vercel Git 集成自动部署 | Commit `33d11b3` 已推送且远端 `main` 一致；部署 `dpl_CWDuY5fpuZTJ8citZ3hF7xuYiWLb` 状态 READY，稳定域名已切换到新版本 |
