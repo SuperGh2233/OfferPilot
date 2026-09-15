@@ -123,13 +123,55 @@ export type TrainingBacklog = {
   knowledgeOverdueReviews: number;
   algorithmLeftoverTasks: number;
   knowledgeLeftoverTasks: number;
+  algorithmLearningGap: number;
+  knowledgeLearningGap: number;
+  missedTrainingDays: number;
 };
+
+type TrainingPlanCounts = {
+  dailyNewAlgorithmCount: number;
+  dailyReviewAlgorithmCount: number;
+  dailyNewKnowledgeCount: number;
+  dailyReviewKnowledgeCount: number;
+  algorithmLearnedCount: number;
+  knowledgeLearnedCount: number;
+  algorithmCatalogSize: number;
+  knowledgeCatalogSize: number;
+};
+
+function assertNonNegativeInteger(value: number, name: string) {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError(`${name} must be a non-negative integer`);
+  }
+}
+
+function plannedNewCountForDay(dayIndex: number, counts: TrainingPlanCounts) {
+  const week = Math.floor(dayIndex / 7) + 1;
+  const algorithmTotal = counts.dailyNewAlgorithmCount + counts.dailyReviewAlgorithmCount;
+  const knowledgeTotal = counts.dailyNewKnowledgeCount + counts.dailyReviewKnowledgeCount;
+
+  return {
+    algorithm: week <= 3
+      ? counts.dailyNewAlgorithmCount
+      : week <= 5
+        ? algorithmTotal - Math.round(algorithmTotal * 0.7)
+        : 0,
+    knowledge: week <= 4
+      ? counts.dailyNewKnowledgeCount
+      : week === 5
+        ? Math.min(1, knowledgeTotal)
+        : 0,
+  };
+}
 
 /**
  * Summarizes catch-up workload that daily quotas alone do not surface:
  * overdue reviews (next review at or before now) plus tasks from earlier
- * dates in the current plan that were never completed. Tasks before the plan
- * start and today's own tasks are never "leftover".
+ * dates in the current plan that were never completed. It also detects past
+ * training days without any completed task, including dates for which no task
+ * was generated, and compares learned catalog progress with planned new-item
+ * quotas through yesterday. Tasks before the plan start and today's own tasks
+ * are never "leftover" or missed.
  */
 export function calculateTrainingBacklog({
   algorithmStates,
@@ -139,6 +181,14 @@ export function calculateTrainingBacklog({
   planStartDate,
   today,
   timeZone,
+  dailyNewAlgorithmCount,
+  dailyReviewAlgorithmCount,
+  dailyNewKnowledgeCount,
+  dailyReviewKnowledgeCount,
+  algorithmLearnedCount,
+  knowledgeLearnedCount,
+  algorithmCatalogSize,
+  knowledgeCatalogSize,
 }: {
   algorithmStates: readonly BacklogReviewState[];
   knowledgeStates: readonly BacklogReviewState[];
@@ -147,11 +197,27 @@ export function calculateTrainingBacklog({
   planStartDate: AlgorithmDateInput;
   today: AlgorithmDateInput;
   timeZone?: string;
-}): TrainingBacklog {
+} & TrainingPlanCounts): TrainingBacklog {
+  const planCounts: TrainingPlanCounts = {
+    dailyNewAlgorithmCount,
+    dailyReviewAlgorithmCount,
+    dailyNewKnowledgeCount,
+    dailyReviewKnowledgeCount,
+    algorithmLearnedCount,
+    knowledgeLearnedCount,
+    algorithmCatalogSize,
+    knowledgeCatalogSize,
+  };
+  for (const [name, value] of Object.entries(planCounts)) {
+    assertNonNegativeInteger(value, name);
+  }
+
   const now = today instanceof Date ? today.getTime() : new Date(today).getTime();
   if (!Number.isFinite(now)) throw new RangeError("today must be a valid date");
   const todayKey = getAlgorithmDemoDateKey(today, timeZone);
   const planStartKey = getAlgorithmDemoDateKey(planStartDate, timeZone);
+  const planStartTimestamp = dateKeyToMilliseconds(planStartKey);
+  const todayTimestamp = dateKeyToMilliseconds(todayKey);
 
   const countOverdue = (states: readonly BacklogReviewState[]) =>
     states.filter(
@@ -169,11 +235,46 @@ export function calculateTrainingBacklog({
         && task.status !== "completed",
     ).length;
 
+  const cycleTasks = [algorithmDailyTasks, knowledgeDailyTasks].flatMap(flattenDailyTasks);
+  const scheduledDates = new Set(cycleTasks.map((task) => task.date));
+  const completedDates = new Set(
+    cycleTasks.filter((task) => task.status === "completed").map((task) => task.date),
+  );
+  const pastCycleDays = Math.min(
+    FIRST_CYCLE_DAYS,
+    Math.max(0, Math.floor((todayTimestamp - planStartTimestamp) / DAY_IN_MILLISECONDS)),
+  );
+
+  let missedTrainingDays = 0;
+  let plannedAlgorithmNewCount = 0;
+  let plannedKnowledgeNewCount = 0;
+  for (let dayIndex = 0; dayIndex < pastCycleDays; dayIndex += 1) {
+    const dateKey = shiftDateKey(planStartKey, dayIndex);
+    const dailyPlanned = plannedNewCountForDay(dayIndex, planCounts);
+    const hadPlannedWork = scheduledDates.has(dateKey)
+      || dailyPlanned.algorithm + dailyPlanned.knowledge > 0;
+    if (hadPlannedWork && !completedDates.has(dateKey)) missedTrainingDays += 1;
+    plannedAlgorithmNewCount += dailyPlanned.algorithm;
+    plannedKnowledgeNewCount += dailyPlanned.knowledge;
+  }
+
+  const algorithmLearningGap = Math.max(
+    0,
+    Math.min(algorithmCatalogSize, plannedAlgorithmNewCount) - algorithmLearnedCount,
+  );
+  const knowledgeLearningGap = Math.max(
+    0,
+    Math.min(knowledgeCatalogSize, plannedKnowledgeNewCount) - knowledgeLearnedCount,
+  );
+
   return {
     algorithmOverdueReviews: countOverdue(algorithmStates),
     knowledgeOverdueReviews: countOverdue(knowledgeStates),
     algorithmLeftoverTasks: countLeftover(algorithmDailyTasks),
     knowledgeLeftoverTasks: countLeftover(knowledgeDailyTasks),
+    algorithmLearningGap,
+    knowledgeLearningGap,
+    missedTrainingDays,
   };
 }
 

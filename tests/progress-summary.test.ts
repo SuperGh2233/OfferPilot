@@ -121,9 +121,20 @@ describe("progress summary", () => {
 
 describe("calculateTrainingBacklog", () => {
   const now = "2026-09-13T12:00:00+08:00";
+  const emptyLearningPlan = {
+    dailyNewAlgorithmCount: 0,
+    dailyReviewAlgorithmCount: 0,
+    dailyNewKnowledgeCount: 0,
+    dailyReviewKnowledgeCount: 0,
+    algorithmLearnedCount: 0,
+    knowledgeLearnedCount: 0,
+    algorithmCatalogSize: 100,
+    knowledgeCatalogSize: 120,
+  };
 
   it("counts overdue reviews from states and leftover tasks from earlier dates", () => {
     expect(calculateTrainingBacklog({
+      ...emptyLearningPlan,
       algorithmStates: [
         { attemptCount: 1, nextReviewAt: "2026-09-12T00:00:00.000Z" },
         { attemptCount: 1, nextReviewAt: "2026-09-14T00:00:00.000Z" },
@@ -151,11 +162,15 @@ describe("calculateTrainingBacklog", () => {
       knowledgeOverdueReviews: 1,
       algorithmLeftoverTasks: 0,
       knowledgeLeftoverTasks: 1,
+      algorithmLearningGap: 0,
+      knowledgeLearningGap: 0,
+      missedTrainingDays: 0,
     });
   });
 
   it("treats in_progress earlier tasks as leftover but ignores today's tasks", () => {
     expect(calculateTrainingBacklog({
+      ...emptyLearningPlan,
       algorithmStates: [],
       knowledgeStates: [],
       algorithmDailyTasks: {
@@ -173,29 +188,37 @@ describe("calculateTrainingBacklog", () => {
       knowledgeOverdueReviews: 0,
       algorithmLeftoverTasks: 1,
       knowledgeLeftoverTasks: 0,
+      algorithmLearningGap: 0,
+      knowledgeLearningGap: 0,
+      missedTrainingDays: 1,
     });
   });
 
   it("returns zeros when everything is complete and no reviews are due", () => {
     expect(calculateTrainingBacklog({
+      ...emptyLearningPlan,
       algorithmStates: [{ attemptCount: 3, nextReviewAt: "2026-09-20T00:00:00.000Z" }],
       knowledgeStates: [{ attemptCount: 3, nextReviewAt: "2026-09-20T00:00:00.000Z" }],
       algorithmDailyTasks: {
         "2026-09-12": [{ date: "2026-09-12", status: "completed" }],
       },
       knowledgeDailyTasks: {},
-      planStartDate: "2026-09-01",
+      planStartDate: "2026-09-12",
       today: now,
     })).toEqual({
       algorithmOverdueReviews: 0,
       knowledgeOverdueReviews: 0,
       algorithmLeftoverTasks: 0,
       knowledgeLeftoverTasks: 0,
+      algorithmLearningGap: 0,
+      knowledgeLearningGap: 0,
+      missedTrainingDays: 0,
     });
   });
 
   it("ignores unfinished tasks before a reset plan start date", () => {
     expect(calculateTrainingBacklog({
+      ...emptyLearningPlan,
       algorithmStates: [],
       knowledgeStates: [],
       algorithmDailyTasks: {
@@ -211,12 +234,79 @@ describe("calculateTrainingBacklog", () => {
       knowledgeOverdueReviews: 0,
       algorithmLeftoverTasks: 0,
       knowledgeLeftoverTasks: 0,
+      algorithmLearningGap: 0,
+      knowledgeLearningGap: 0,
+      missedTrainingDays: 0,
+    });
+  });
+
+  it("returns no elapsed training debt when the plan starts in the future", () => {
+    expect(calculateTrainingBacklog({
+      ...emptyLearningPlan,
+      algorithmStates: [],
+      knowledgeStates: [],
+      algorithmDailyTasks: {},
+      knowledgeDailyTasks: {},
+      planStartDate: "2026-09-14",
+      today: now,
+    })).toMatchObject({
+      algorithmLearningGap: 0,
+      knowledgeLearningGap: 0,
+      missedTrainingDays: 0,
+    });
+  });
+
+  it("counts a missed date without generated tasks and the cumulative new-learning gap", () => {
+    expect(calculateTrainingBacklog({
+      ...emptyLearningPlan,
+      dailyNewAlgorithmCount: 2,
+      dailyReviewAlgorithmCount: 1,
+      dailyNewKnowledgeCount: 3,
+      dailyReviewKnowledgeCount: 3,
+      algorithmLearnedCount: 2,
+      knowledgeLearnedCount: 3,
+      algorithmStates: [],
+      knowledgeStates: [],
+      algorithmDailyTasks: {
+        "2026-09-13": [{ date: "2026-09-13", status: "completed" }],
+      },
+      knowledgeDailyTasks: {
+        "2026-09-13": [{ date: "2026-09-13", status: "completed" }],
+      },
+      planStartDate: "2026-09-13",
+      today: "2026-09-15T12:00:00+08:00",
+    })).toMatchObject({
+      algorithmLearningGap: 2,
+      knowledgeLearningGap: 3,
+      missedTrainingDays: 1,
+    });
+  });
+
+  it("uses week-specific planner quotas, caps progress gaps, and stops after day 42", () => {
+    expect(calculateTrainingBacklog({
+      ...emptyLearningPlan,
+      dailyNewAlgorithmCount: 2,
+      dailyReviewAlgorithmCount: 3,
+      dailyNewKnowledgeCount: 3,
+      dailyReviewKnowledgeCount: 2,
+      algorithmCatalogSize: 50,
+      algorithmStates: [],
+      knowledgeStates: [],
+      algorithmDailyTasks: {},
+      knowledgeDailyTasks: {},
+      planStartDate: "2026-09-01",
+      today: "2026-10-13T12:00:00+08:00",
+    })).toMatchObject({
+      algorithmLearningGap: 50,
+      knowledgeLearningGap: 91,
+      missedTrainingDays: 35,
     });
   });
 
   it("rejects an invalid today input", () => {
     expect(() =>
       calculateTrainingBacklog({
+        ...emptyLearningPlan,
         algorithmStates: [],
         knowledgeStates: [],
         algorithmDailyTasks: {},

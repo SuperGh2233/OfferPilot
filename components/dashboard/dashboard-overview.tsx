@@ -239,6 +239,11 @@ export function DashboardOverview({
     .sort((left, right) => left.mastery - right.mastery || left.name.localeCompare(right.name, "zh-CN"))
     .slice(0, 4);
   const remaining = algorithmCounts.remaining + knowledgeCounts.remaining;
+  const algorithmLearnedCount = algorithmStates.filter((state) => state.attemptCount > 0).length;
+  const coreKnowledgeQuestions = knowledgeQuestions.filter((question) => question.isCore6Weeks);
+  const knowledgeLearnedCount = coreKnowledgeQuestions.filter(
+    (question) => snapshot.knowledgeData.states[question.id]?.attemptCount > 0,
+  ).length;
   const backlog = calculateTrainingBacklog({
     algorithmStates: Object.values(snapshot.algorithmData.states),
     knowledgeStates: Object.values(snapshot.knowledgeData.states),
@@ -247,12 +252,16 @@ export function DashboardOverview({
     planStartDate: snapshot.profile.planStartDate,
     today: snapshot.now,
     timeZone: snapshot.profile.timeZone,
+    dailyNewAlgorithmCount: snapshot.profile.dailyNewAlgorithmCount,
+    dailyReviewAlgorithmCount: snapshot.profile.dailyReviewAlgorithmCount,
+    dailyNewKnowledgeCount: snapshot.profile.dailyNewKnowledgeCount,
+    dailyReviewKnowledgeCount: snapshot.profile.dailyReviewKnowledgeCount,
+    algorithmLearnedCount,
+    knowledgeLearnedCount,
+    algorithmCatalogSize: algorithmProblems.length,
+    knowledgeCatalogSize: coreKnowledgeQuestions.length,
   });
-  const backlogTotal =
-    backlog.algorithmOverdueReviews
-    + backlog.knowledgeOverdueReviews
-    + backlog.algorithmLeftoverTasks
-    + backlog.knowledgeLeftoverTasks;
+  const hasBacklog = Object.values(backlog).some((count) => count > 0);
 
   return (
     <div className="mt-8 flex flex-col gap-6">
@@ -285,23 +294,32 @@ export function DashboardOverview({
         </p>
       </section>
 
-      {backlogTotal > 0 ? (
+      {hasBacklog ? (
         <section
           aria-live="polite"
           className="rounded-2xl border border-amber-300 bg-amber-50 p-6 dark:border-amber-900 dark:bg-amber-950/40"
         >
           <h2 className="text-lg font-semibold text-amber-900 dark:text-amber-200">
-            有训练欠账，别急着赶新进度
+            有待补齐的训练
           </h2>
-          <p className="mt-2 text-sm leading-6 text-amber-900 dark:text-amber-200">
-            逾期未复习：算法 {backlog.algorithmOverdueReviews} 题、八股 {backlog.knowledgeOverdueReviews} 题
-            {backlog.algorithmLeftoverTasks + backlog.knowledgeLeftoverTasks > 0
-              ? `；往日遗留任务 ${backlog.algorithmLeftoverTasks + backlog.knowledgeLeftoverTasks} 项`
-              : ""}
-            。完成这些复习后，新题会按原计划继续推进，漏掉的内容不会丢。
-          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <BacklogMetric label="漏训天数" value={`${backlog.missedTrainingDays} 天`} />
+            <BacklogMetric
+              label="新学进度缺口"
+              value={`算法 ${backlog.algorithmLearningGap} · 八股 ${backlog.knowledgeLearningGap}`}
+            />
+            <BacklogMetric
+              label="逾期复习"
+              value={`算法 ${backlog.algorithmOverdueReviews} · 八股 ${backlog.knowledgeOverdueReviews}`}
+            />
+          </div>
+          {backlog.algorithmLeftoverTasks + backlog.knowledgeLeftoverTasks > 0 ? (
+            <p className="mt-3 text-sm leading-6 text-amber-900 dark:text-amber-200">
+              另有 {backlog.algorithmLeftoverTasks + backlog.knowledgeLeftoverTasks} 项往日已生成但未完成的任务。
+            </p>
+          ) : null}
           <p className="mt-2 text-xs leading-5 text-amber-800/80 dark:text-amber-300/80">
-            逾期复习较多时，当天复习任务会自动加量（最多为配置数量的 3 倍），欠账会清得更快。
+            漏训按计划日期与实际完成记录计算；逾期复习较多时，当天复习任务会自动加量（最多为配置数量的 3 倍）。
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link
@@ -380,6 +398,15 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-xs text-slate-400">{label}</p>
       <p className="mt-1 text-xl font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function BacklogMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-amber-200 bg-white/60 p-3 dark:border-amber-900 dark:bg-black/10">
+      <p className="text-xs text-amber-800/80 dark:text-amber-300/80">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-amber-950 dark:text-amber-100">{value}</p>
     </div>
   );
 }

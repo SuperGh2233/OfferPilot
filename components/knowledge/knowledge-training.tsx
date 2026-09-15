@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { RecallResult } from "@/components/knowledge/recall-result";
 import {
   parseKnowledgeRecallAnalysis,
   type KnowledgeRecallAnalysis,
@@ -461,28 +462,6 @@ function AnswerPanel({ question }: { question: KnowledgeTrainingQuestion }) {
           </ul>
         ) : <p className="mt-2 text-sm text-muted-foreground">本题暂无结构化关键点。</p>}
       </div>
-    </div>
-  );
-}
-
-function RecallResult({ attempt }: { attempt: KnowledgeAttemptPayload }) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div className="rounded-2xl border border-emerald-200 bg-card p-5 dark:border-emerald-900">
-        <h2 className="font-semibold text-emerald-800 dark:text-emerald-400">你记住了 · {attempt.matchedPoints.length}</h2>
-        <ul className="mt-3 space-y-2 text-sm leading-6">
-          {attempt.matchedPoints.map((point) => <li key={point.index}>✓ {point.point}</li>)}
-          {attempt.matchedPoints.length === 0 ? <li className="text-muted-foreground">暂无匹配关键点</li> : null}
-        </ul>
-      </div>
-      <div className="rounded-2xl border border-amber-200 bg-card p-5 dark:border-amber-900">
-        <h2 className="font-semibold text-amber-800 dark:text-amber-400">还遗漏 · {attempt.missingPoints.length}</h2>
-        <ul className="mt-3 space-y-2 text-sm leading-6">
-          {attempt.missingPoints.map((point) => <li key={point.index}>△ {point.point}</li>)}
-          {attempt.missingPoints.length === 0 ? <li className="text-muted-foreground">关键点全部覆盖</li> : null}
-        </ul>
-      </div>
-      <p className="sm:col-span-2 text-sm text-muted-foreground">加权覆盖率：{attempt.coverageScore ?? 0}%</p>
     </div>
   );
 }
