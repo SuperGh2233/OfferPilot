@@ -490,6 +490,8 @@ describe("Supabase training adapter", () => {
       self_rating: null,
       answer_text: "哈希定位",
       coverage_score: 80,
+      effective_coverage_score: null,
+      ai_analysis: null,
       matched_points: [{ index: 0, point: "哈希", weight: 20, matchedBy: "哈希" }],
       missing_points: [],
       mastery_before: 55,
@@ -503,6 +505,9 @@ describe("Supabase training adapter", () => {
       weight: 20,
       matchedBy: "哈希",
     });
+    // 旧记录没有 effective_coverage_score，读取时必须回退为确定性覆盖率。
+    expect(attempt.effectiveCoverageScore).toBe(80);
+    expect(attempt.aiAnalysis).toBeNull();
 
     const state: UserKnowledgeState = {
       user_id: "user-1",

@@ -14,6 +14,8 @@ import {
   type KnowledgeSelfRating,
 } from "../mastery/knowledge";
 import type { AlgorithmDateInput, AlgorithmStateStatus } from "../mastery/algorithm";
+// 仅类型引用：AI 分析结果会随 Attempt 落库，但领域层不依赖 AI 运行时。
+import type { KnowledgeRecallAnalysis } from "../ai/knowledge-recall-analysis";
 
 export type KnowledgeAttemptPayload = {
   id: string;
@@ -22,7 +24,12 @@ export type KnowledgeAttemptPayload = {
   mode: "learn" | "recall";
   selfRating: KnowledgeSelfRating | null;
   answerText: string | null;
+  /** 确定性加权覆盖率，口径不变，始终记录以便审计与校准。 */
   coverageScore: number | null;
+  /** 当次实际计入 mastery 的覆盖率：max(确定性覆盖, AI 语义覆盖)；旧数据为 null 时按 coverageScore 处理。 */
+  effectiveCoverageScore: number | null;
+  /** AI 语义复核结果，未复核时为 null。 */
+  aiAnalysis: KnowledgeRecallAnalysis | null;
   matchedPoints: KnowledgeMatchedPoint[];
   missingPoints: KnowledgeMissingPoint[];
   masteryBefore: number | null;
@@ -142,6 +149,8 @@ export function recordKnowledgeLearn({
       selfRating,
       answerText: null,
       coverageScore: null,
+      effectiveCoverageScore: null,
+      aiAnalysis: null,
       matchedPoints: [],
       missingPoints: [],
       masteryBefore: previousState?.mastery ?? null,
@@ -164,6 +173,27 @@ export function recordKnowledgeLearn({
   };
 }
 
+/**
+ * 合成当次计分所用的覆盖率：AI 主导、确定性为下界。
+ *
+ * AI 语义分可能来自客户端提交，所以这里再做一次防御性校验，
+ * 不让越界或非整数数值进入 mastery 计算链。
+ */
+export function combineRecallCoverage(
+  deterministicCoverageScore: number,
+  aiAnalysis: KnowledgeRecallAnalysis | null,
+) {
+  if (!Number.isFinite(deterministicCoverageScore)) {
+    throw new RangeError("deterministicCoverageScore must be a finite number");
+  }
+  if (aiAnalysis === null) return deterministicCoverageScore;
+  const semanticScore = aiAnalysis.semanticScore;
+  if (!Number.isSafeInteger(semanticScore) || semanticScore < 0 || semanticScore > 100) {
+    throw new RangeError("aiAnalysis.semanticScore must be an integer between 0 and 100");
+  }
+  return Math.max(deterministicCoverageScore, semanticScore);
+}
+
 export function recordKnowledgeRecall({
   id,
   userId,
@@ -173,17 +203,20 @@ export function recordKnowledgeRecall({
   keyPoints,
   keywordAliases,
   keyPointWeights,
+  aiAnalysis = null,
   previousState,
 }: KnowledgeAttemptIdentity & {
   answerText: string;
   keyPoints: readonly string[];
   keywordAliases?: KnowledgeKeywordAliases | null;
   keyPointWeights?: KnowledgePointWeights | null;
+  aiAnalysis?: KnowledgeRecallAnalysis | null;
   previousState: PreviousKnowledgeState;
 }): {
   attempt: KnowledgeAttemptPayload;
   state: KnowledgeStatePayload;
   attemptScore: number;
+  effectiveCoverageScore: number;
 } {
   const attempted = validateIdentity({ id, userId, questionId, attemptedAt });
   validatePreviousState(previousState, userId, questionId, attempted);
@@ -197,11 +230,13 @@ export function recordKnowledgeRecall({
     keywordAliases,
     keyPointWeights,
   });
-  const attemptScore = calculateKnowledgeRecallAttemptScore(match.coverageScore);
+  // AI 主导计分、确定性为下界：语义复核只能向上修正规则漏计，不会低于已验证的关键点命中。
+  const effectiveCoverageScore = combineRecallCoverage(match.coverageScore, aiAnalysis);
+  const attemptScore = calculateKnowledgeRecallAttemptScore(effectiveCoverageScore);
   const mastery = updateKnowledgeMastery({
     oldMastery: previousState.mastery,
     attemptScore,
-    coverageScore: match.coverageScore,
+    coverageScore: effectiveCoverageScore,
     lastRecallAt: previousState.lastRecallAt,
     recalledAt: attempted,
   });
@@ -213,6 +248,7 @@ export function recordKnowledgeRecall({
 
   return {
     attemptScore,
+    effectiveCoverageScore,
     attempt: {
       id,
       userId,
@@ -221,6 +257,8 @@ export function recordKnowledgeRecall({
       selfRating: null,
       answerText,
       coverageScore: match.coverageScore,
+      effectiveCoverageScore,
+      aiAnalysis,
       matchedPoints: match.matchedPoints,
       missingPoints: match.missingPoints,
       masteryBefore: previousState.mastery,
@@ -238,7 +276,7 @@ export function recordKnowledgeRecall({
       learnCount: previousState.learnCount,
       recallCount,
       lastRecallAt: createdAt,
-      lastRecallCoverageScore: match.coverageScore,
+      lastRecallCoverageScore: effectiveCoverageScore,
     },
   };
 }

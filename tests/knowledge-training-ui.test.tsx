@@ -14,6 +14,8 @@ function recallAttempt(answerText: string): KnowledgeAttemptPayload {
     selfRating: null,
     answerText,
     coverageScore: 50,
+    effectiveCoverageScore: 50,
+    aiAnalysis: null,
     matchedPoints: [],
     missingPoints: [],
     masteryBefore: 55,
@@ -40,30 +42,38 @@ describe("Knowledge Recall result", () => {
 });
 
 describe("Knowledge Recall score comparison", () => {
-  it("labels which score counts toward mastery", () => {
+  it("names both sources and states which score was used", () => {
     const html = renderToStaticMarkup(
-      <RecallScoreComparison coverageScore={14} semanticScore={100} verdictLabel="掌握很好" />,
+      <RecallScoreComparison
+        coverageScore={14}
+        effectiveCoverageScore={100}
+        semanticScore={100}
+        verdictLabel="掌握很好"
+      />,
     );
 
-    expect(html).toContain("加权覆盖率");
+    expect(html).toContain("确定性加权覆盖率");
     expect(html).toContain("14%");
     expect(html).toContain("语义覆盖");
     expect(html).toContain("100%");
     expect(html).toContain("掌握很好");
-    expect(html).toContain("已计入 Mastery 与下次复习");
-    expect(html).toContain("仅供参考，不改变 Mastery");
+    expect(html).toContain("本次计分采用");
+    expect(html).toContain("已按语义覆盖计分");
   });
 
-  it("explains why the two scores legitimately differ", () => {
-    const html = renderToStaticMarkup(<RecallScoreComparison coverageScore={12} semanticScore={88} />);
+  it("explains that the deterministic score is the floor", () => {
+    const html = renderToStaticMarkup(
+      <RecallScoreComparison coverageScore={88} effectiveCoverageScore={88} semanticScore={60} />,
+    );
 
-    expect(html).toContain("口径不同");
-    expect(html).toContain("口语化或同义表达会被漏计");
-    expect(html).toContain("计分始终以加权覆盖率为准");
+    expect(html).toContain("以确定性加权覆盖率为准");
+    expect(html).toContain("不会把错误答案判成高分");
   });
 
-  it("falls back to zero when the deterministic score is missing", () => {
-    const html = renderToStaticMarkup(<RecallScoreComparison coverageScore={null} semanticScore={50} />);
+  it("treats a missing effective score as the deterministic score", () => {
+    const html = renderToStaticMarkup(
+      <RecallScoreComparison coverageScore={null} semanticScore={50} />,
+    );
 
     expect(html).toContain("0%");
     expect(html).toContain("50%");

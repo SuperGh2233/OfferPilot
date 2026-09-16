@@ -7,13 +7,19 @@
  */
 export function RecallScoreComparison({
   coverageScore,
+  effectiveCoverageScore,
   semanticScore,
   verdictLabel,
 }: {
   coverageScore: number | null | undefined;
+  effectiveCoverageScore?: number | null;
   semanticScore: number;
   verdictLabel?: string;
 }) {
+  const deterministic = coverageScore ?? 0;
+  const scored = effectiveCoverageScore ?? deterministic;
+  const raisedByAi = scored > deterministic;
+
   return (
     <div className="rounded-xl border bg-card p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -21,12 +27,12 @@ export function RecallScoreComparison({
       </p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/40">
-          <p className="text-xs text-emerald-800 dark:text-emerald-300">加权覆盖率 · 确定性匹配</p>
+          <p className="text-xs text-emerald-800 dark:text-emerald-300">确定性加权覆盖率</p>
           <p className="mt-1 text-xl font-semibold text-emerald-900 dark:text-emerald-200">
-            {`${coverageScore ?? 0}%`}
+            {`${deterministic}%`}
           </p>
           <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-300/80">
-            已计入 Mastery 与下次复习
+            只匹配关键点原文与已登记别名
           </p>
         </div>
         <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 dark:border-sky-900 dark:bg-sky-950/40">
@@ -34,12 +40,20 @@ export function RecallScoreComparison({
             语义覆盖 · AI 复核{verdictLabel ? ` · ${verdictLabel}` : ""}
           </p>
           <p className="mt-1 text-xl font-semibold text-sky-900 dark:text-sky-200">{`${semanticScore}%`}</p>
-          <p className="mt-1 text-xs text-sky-800/80 dark:text-sky-300/80">仅供参考，不改变 Mastery</p>
+          <p className="mt-1 text-xs text-sky-800/80 dark:text-sky-300/80">
+            按含义判断同义与口语表达
+          </p>
         </div>
       </div>
-      <p className="mt-3 text-xs leading-5 text-muted-foreground">
-        加权覆盖率只匹配关键点原文与已登记别名，口语化或同义表达会被漏计；语义复核按含义判断，因此通常更高。
-        计分始终以加权覆盖率为准，语义复核只用来指出你实际理解到哪一步。
+      <p className="mt-3 rounded-lg bg-muted p-3 text-sm leading-6">
+        本次计分采用 <span className="font-semibold">{`${scored}%`}</span>
+        {raisedByAi
+          ? `：AI 语义复核高于确定性匹配，已按语义覆盖计分，Mastery 与下次复习据此更新。`
+          : "：以确定性加权覆盖率为准（高于或等于语义覆盖时不会被下调）。"}
+      </p>
+      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+        AI 只能向上修正规则漏计，不会低于已验证的关键点命中，因此不会把错误答案判成高分。
+        语音输入、口语化复述这类表达通常会被确定性匹配漏计，这正是 AI 主导计分的意义。
       </p>
     </div>
   );

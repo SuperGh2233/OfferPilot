@@ -209,6 +209,17 @@ export function KnowledgeTraining({
     setAiError(null);
     setSaving(true);
     try {
+      // AI 主导计分：先取语义复核再落库。复核失败不阻塞提交，本次按确定性覆盖率计分。
+      let recallAiAnalysis: KnowledgeRecallAnalysis | null = null;
+      if (answerText.trim()) {
+        const { analysis, error: analysisError } = await requestAiAnalysis(answerText);
+        recallAiAnalysis = analysis;
+        if (analysisError) {
+          setAiError(`AI 语义复核不可用，本次已按确定性覆盖率计分：${analysisError}`);
+        }
+      }
+      setAiAnalysis(recallAiAnalysis);
+
       if (!demoMode) {
         const attemptId = pendingAttemptId.current ?? crypto.randomUUID();
         pendingAttemptId.current = attemptId;
@@ -218,6 +229,7 @@ export function KnowledgeTraining({
           questionId: question.id,
           attemptedAt: new Date().toISOString(),
           answerText,
+          aiAnalysis: recallAiAnalysis,
         });
         cloud.setSnapshot(result.snapshot);
         setSubmission(result.result);
@@ -232,6 +244,7 @@ export function KnowledgeTraining({
         keyPoints: question.keyPoints,
         keywordAliases: question.keywordAliases,
         keyPointWeights: question.keyPointWeights,
+        aiAnalysis: recallAiAnalysis,
         timeZone,
       });
       if (persist(result.data)) {
@@ -250,12 +263,10 @@ export function KnowledgeTraining({
     void submitRecall(answer.trim());
   }
 
-  async function handleAiAnalysis() {
-    const answerText = submission?.attempt.mode === "recall" ? submission.attempt.answerText : null;
-    if (!answerText?.trim() || aiStatus === "loading") return;
-
-    setAiError(null);
-    setAiStatus("loading");
+  /**
+   * 取 AI 语义复核。提交时同步调用，失败不抛出：调用方按确定性分回退。
+   */
+  async function requestAiAnalysis(answerText: string): Promise<{ analysis: KnowledgeRecallAnalysis | null; error: string | null }> {
     try {
       const response = await fetch("/api/ai/analyze-recall", {
         method: "POST",
@@ -267,16 +278,32 @@ export function KnowledgeTraining({
         const message = payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
           ? payload.error
           : "AI 复核失败，请稍后重试。";
-        throw new Error(message);
+        return { analysis: null, error: message };
       }
       const value = payload && typeof payload === "object" && "analysis" in payload ? payload.analysis : null;
-      setAiAnalysis(parseKnowledgeRecallAnalysis(value, question.keyPoints.length));
+      return { analysis: parseKnowledgeRecallAnalysis(value, question.keyPoints.length), error: null };
     } catch (analysisError) {
-      setAiAnalysis(null);
-      setAiError(analysisError instanceof Error ? analysisError.message : "AI 复核失败，请稍后重试。");
-    } finally {
-      setAiStatus("idle");
+      return {
+        analysis: null,
+        error: analysisError instanceof Error ? analysisError.message : "AI 复核失败，请稍后重试。",
+      };
     }
+  }
+
+  /**
+   * 补做语义复核。仅用于提交时 AI 不可用的补救：分数已经按确定性口径记录，
+   * 这里只补回解释，不改动已落库的分数与 Mastery。
+   */
+  async function handleAiRetry() {
+    const answerText = submission?.attempt.mode === "recall" ? submission.attempt.answerText : null;
+    if (!answerText?.trim() || aiStatus === "loading") return;
+
+    setAiError(null);
+    setAiStatus("loading");
+    const { analysis, error: requestError } = await requestAiAnalysis(answerText);
+    setAiAnalysis(analysis);
+    setAiError(requestError);
+    setAiStatus("idle");
   }
 
   const visibleState = submission?.state ?? state;
@@ -377,18 +404,30 @@ export function KnowledgeTraining({
                     <div className="rounded-2xl border bg-card p-5 shadow-sm">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                          <p className="font-semibold">AI 语义复核（可选）</p>
-                          <p className="mt-1 text-sm text-muted-foreground">理解同义表达并指出遗漏。复核分数只用于解释，本次 Mastery 仍以确定性覆盖率为准。</p>
+                          <p className="font-semibold">AI 语义复核{aiAnalysis ? "" : "（本次未能用于计分）"}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {aiAnalysis
+                              ? "提交时已同步复核，本次计分与 Mastery 按下方口径更新。"
+                              : "本次提交时复核不可用，已按确定性覆盖率计分；补救复核只补充解释，不改动已记录的分数。"}
+                          </p>
                         </div>
-                        <Button disabled={!recallResult.answerText?.trim() || aiStatus === "loading"} onClick={handleAiAnalysis} type="button" variant="outline">
-                          {aiStatus === "loading" ? "分析中…" : aiAnalysis ? "重新分析" : "AI 分析回答"}
-                        </Button>
+                        {aiAnalysis ? null : (
+                          <Button
+                            disabled={!recallResult.answerText?.trim() || aiStatus === "loading"}
+                            onClick={() => void handleAiRetry()}
+                            type="button"
+                            variant="outline"
+                          >
+                            {aiStatus === "loading" ? "分析中…" : "补做语义复核"}
+                          </Button>
+                        )}
                       </div>
                       {aiError ? <p aria-live="assertive" className="mt-3 text-sm text-destructive">{aiError}</p> : null}
                       {aiAnalysis ? (
                         <RecallAiPanel
                           analysis={aiAnalysis}
                           coverageScore={recallResult.coverageScore}
+                          effectiveCoverageScore={recallResult.effectiveCoverageScore}
                           question={question}
                         />
                       ) : null}
@@ -494,16 +533,19 @@ const verdictLabels: Record<KnowledgeRecallAnalysis["verdict"], string> = {
 function RecallAiPanel({
   analysis,
   coverageScore,
+  effectiveCoverageScore,
   question,
 }: {
   analysis: KnowledgeRecallAnalysis;
   coverageScore: number | null | undefined;
+  effectiveCoverageScore: number | null | undefined;
   question: KnowledgeTrainingQuestion;
 }) {
   return (
     <div className="mt-4 space-y-4 border-t pt-4 text-sm">
       <RecallScoreComparison
         coverageScore={coverageScore}
+        effectiveCoverageScore={effectiveCoverageScore}
         semanticScore={analysis.semanticScore}
         verdictLabel={verdictLabels[analysis.verdict]}
       />

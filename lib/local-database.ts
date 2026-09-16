@@ -300,6 +300,7 @@ export class LocalTrainingDatabase {
           keyPoints: question.keyPoints,
           keywordAliases: question.keywordAliases,
           keyPointWeights: question.keyPointWeights,
+          aiAnalysis: input.aiAnalysis ?? null,
           attemptedAt: input.attemptedAt,
           id: input.attemptId,
           timeZone: state.profile.timeZone,

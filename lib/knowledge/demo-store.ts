@@ -10,6 +10,7 @@ import type {
 } from "./match";
 import type { KnowledgeSelfRating } from "../mastery/knowledge";
 import type { AlgorithmDateInput } from "../mastery/algorithm";
+import type { KnowledgeRecallAnalysis } from "../ai/knowledge-recall-analysis";
 import {
   generateDailyKnowledgeTasks,
   type DailyKnowledgeTask,
@@ -146,6 +147,21 @@ export function createKnowledgeDemoData(
   };
 }
 
+/**
+ * 旧版本地数据没有 AI 复核字段。这里补成显式 null，
+ * 避免下游把 undefined 和"本次未做 AI 复核"混为一谈。
+ */
+function normalizeAttemptAiFields(data: KnowledgeDemoData): KnowledgeDemoData {
+  return {
+    ...data,
+    attempts: data.attempts.map((attempt) => ({
+      ...attempt,
+      effectiveCoverageScore: attempt.effectiveCoverageScore ?? attempt.coverageScore,
+      aiAnalysis: attempt.aiAnalysis ?? null,
+    })),
+  };
+}
+
 export function loadKnowledgeDemoData(
   storage: StorageLike,
   now: AlgorithmDateInput = new Date(),
@@ -155,7 +171,7 @@ export function loadKnowledgeDemoData(
     const raw = storage.getItem(KNOWLEDGE_DEMO_STORAGE_KEY);
     if (!raw) return createKnowledgeDemoData(now, timeZone);
     const parsed: unknown = JSON.parse(raw);
-    return isData(parsed) ? parsed : createKnowledgeDemoData(now, timeZone);
+    return isData(parsed) ? normalizeAttemptAiFields(parsed) : createKnowledgeDemoData(now, timeZone);
   } catch {
     return createKnowledgeDemoData(now, timeZone);
   }
@@ -271,6 +287,7 @@ export function recallDemoKnowledgeQuestion({
   keyPoints,
   keywordAliases,
   keyPointWeights,
+  aiAnalysis = null,
   attemptedAt = new Date(),
   id,
 }: {
@@ -280,6 +297,7 @@ export function recallDemoKnowledgeQuestion({
   keyPoints: readonly string[];
   keywordAliases?: KnowledgeKeywordAliases | null;
   keyPointWeights?: KnowledgePointWeights | null;
+  aiAnalysis?: KnowledgeRecallAnalysis | null;
   attemptedAt?: AlgorithmDateInput;
   id?: string;
   timeZone?: string;
@@ -297,6 +315,7 @@ export function recallDemoKnowledgeQuestion({
     keyPoints,
     keywordAliases,
     keyPointWeights,
+    aiAnalysis,
     previousState,
   });
   const next = copy(data);

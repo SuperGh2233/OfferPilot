@@ -132,6 +132,8 @@ export type KnowledgeAttempt = {
   self_rating: number | null;
   answer_text: string | null;
   coverage_score: number | null;
+  effective_coverage_score: number | null;
+  ai_analysis: Json | null;
   matched_points: Json;
   missing_points: Json;
   mastery_before: number | null;
@@ -234,6 +236,8 @@ export interface Database {
           p_attempt_id: string;
           p_attempted_at: string;
           p_coverage_score: number | null;
+          p_effective_coverage_score: number | null;
+          p_ai_analysis: Json | null;
           p_expected_attempt_count: number;
           p_mastery_after: number;
           p_mastery_before: number | null;

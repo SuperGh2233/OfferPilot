@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 
+import {
+  parseKnowledgeRecallAnalysis,
+  type KnowledgeRecallAnalysis,
+} from "../../../../lib/ai/knowledge-recall-analysis";
 import { getLocalTrainingDatabase } from "../../../../lib/local-database";
 import type { KnowledgeSelfRating } from "../../../../lib/mastery/knowledge";
 import { isLocalDatabaseMode } from "../../../../lib/supabase/env";
@@ -39,6 +43,17 @@ export async function POST(request: Request) {
       throw new RangeError("answerText 必须是长度不超过 20000 的字符串。");
     }
 
+    // AI 语义复核结果由客户端提交，这里做严格结构校验后再进入计分链。
+    // 只做纯结构校验（不绑定具体题目的关键点数量），越界索引只影响展示，不影响计分。
+    let aiAnalysis: KnowledgeRecallAnalysis | null = null;
+    if (body.mode === "recall" && body.aiAnalysis !== undefined && body.aiAnalysis !== null) {
+      try {
+        aiAnalysis = parseKnowledgeRecallAnalysis(body.aiAnalysis, Number.MAX_SAFE_INTEGER);
+      } catch {
+        throw new RangeError("aiAnalysis 结构无效。");
+      }
+    }
+
     const input = body.mode === "learn"
       ? {
           attemptId,
@@ -54,6 +69,7 @@ export async function POST(request: Request) {
             questionId,
             attemptedAt,
             answerText: body.answerText as string,
+            aiAnalysis,
           }
         : null;
     if (!input) throw new RangeError("mode 必须是 learn 或 recall。");

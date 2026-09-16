@@ -52,8 +52,11 @@ npm run build
 - 八股完整保存 165 个 Topic、394 道主问题、510 道追问，共 904 道题。
 - 默认六周新知识只从 120 道 `is_core_6weeks = true` 的主问题中生成。
 - follow-up 只挂在主问题下，默认不占每日新题额度。
-- mastery 只由确定性 TypeScript 规则更新；AI 分析不得直接修改 mastery。
-- 八股 Recall 保留确定性关键词分数，并允许用户提交后主动请求 AI 语义复核；AI 结果只用于解释，不回写 mastery。
+- mastery 只由确定性 TypeScript 规则更新；AI 分析不得直接修改 mastery。（2026-09-17 补充：AI 语义分现在作为该 TS 规则的**输入**参与计分，但模型仍然不直接写 mastery，落库与掌握度计算全部由 TypeScript 规则完成。）
+- 八股 Recall 保留确定性关键词分数，并允许用户提交后主动请求 AI 语义复核；AI 结果只用于解释，不回写 mastery。（**2026-09-17 修订**：用户报告规则匹配对自由复述理解不足、打分明显偏低，确认这是真实缺陷而非展示问题，计分口径改为 AI 主导，见下条。）
+- 2026-09-17 起八股 Recall 计分改为 **AI 主导 + 确定性下界**：`effectiveCoverageScore = max(确定性加权覆盖率, AI 语义覆盖)`；`semanticScore` 为 null 时退化为确定性覆盖。AI 只负责向上修正规则漏计，不能低于已验证的关键点命中，以此天然抑制模型高估。mastery、下次复习与 `lastRecallCoverageScore` 一律使用 `effectiveCoverageScore`。
+- AI 复核改为**提交时同步执行**：前端先调用 `/api/ai/analyze-recall`，成功则把分析随提交一起写入，单次落库、不设提升端点；AI 不可用时按确定性分计分并在界面明确告知，不阻塞提交、不丢回答。AI 分析作为 `ai_analysis` 落库，同时补齐优先级 3 的持久化缺口。
+- Attempt 三个分数分离记录，便于后续校准：`coverage_score` 保持确定性口径不变，`ai_analysis.semanticScore` 为语义口径，新增 `effective_coverage_score` 记录**当次实际计分所用的覆盖率**（读取时对旧行回退为 `coverage_score`）。历史 Attempt 不回填、不重算，新规则只对之后的提交生效。
 - 算法 AI 代码复盘同时提取本题代码实际涉及的 Java 基础方法，展示用途、语法、示例和易错点；复用现有复盘请求与持久化，不建立独立课程模块。
 - 算法训练页使用随 Hot 100 快照保存的静态题面与 Java 初始代码；已有草稿优先且不得被模板覆盖，不引入运行时抓取或在线判题。
 - Hard 时间修正采用 `<=40/+5`、`<=60/0`、`<=90/-5`、`>90/-10`，避免过度惩罚。

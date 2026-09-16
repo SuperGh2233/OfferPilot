@@ -5,6 +5,10 @@ import {
   type AlgorithmCodeAnalysis,
 } from "../ai/code-analysis";
 import {
+  parseKnowledgeRecallAnalysis,
+  type KnowledgeRecallAnalysis,
+} from "../ai/knowledge-recall-analysis";
+import {
   completeAlgorithmAttempt,
   type AlgorithmAttemptPayload,
   type AlgorithmStatePayload,
@@ -124,6 +128,8 @@ export type RecordCloudKnowledgeInput =
       questionId: string;
       attemptedAt: string;
       answerText: string;
+      /** AI 语义复核结果；缺失时本次按确定性覆盖率计分。 */
+      aiAnalysis?: KnowledgeRecallAnalysis | null;
     };
 
 function fail(
@@ -194,6 +200,21 @@ function parseAiAnalysis(value: Json | null): AlgorithmCodeAnalysis | null {
   return isAlgorithmCodeAnalysis(value) ? value : null;
 }
 
+/**
+ * 读取落库的 AI 语义复核结果。
+ *
+ * 这里拿不到题目上下文，因此把 keyPointCount 放宽到上限，让校验退化为纯结构校验；
+ * 损坏的记录按"没有 AI 复核"处理，不让单条脏数据阻断整个训练快照。
+ */
+function parseKnowledgeAiAnalysis(value: Json | null): KnowledgeRecallAnalysis | null {
+  if (value === null) return null;
+  try {
+    return parseKnowledgeRecallAnalysis(value, Number.MAX_SAFE_INTEGER);
+  } catch {
+    return null;
+  }
+}
+
 export function profileFromRow(row: Profile): DemoProfile {
   const timeZone = DEMO_TIME_ZONES.find((value) => value === row.timezone);
   if (!timeZone) throw new Error("Unsupported profile timezone: " + row.timezone);
@@ -262,6 +283,8 @@ export function knowledgeAttemptFromRow(
     selfRating: row.self_rating as KnowledgeSelfRating | null,
     answerText: row.answer_text,
     coverageScore: row.coverage_score,
+    effectiveCoverageScore: row.effective_coverage_score ?? row.coverage_score,
+    aiAnalysis: parseKnowledgeAiAnalysis(row.ai_analysis),
     matchedPoints: typedArray<KnowledgeMatchedPoint>(row.matched_points),
     missingPoints: typedArray<KnowledgeMissingPoint>(row.missing_points),
     masteryBefore: row.mastery_before,
@@ -855,6 +878,7 @@ export async function recordCloudKnowledgeAttempt(
         keyPoints: question.keyPoints,
         keywordAliases: question.keywordAliases,
         keyPointWeights: question.keyPointWeights,
+        aiAnalysis: input.aiAnalysis ?? null,
         previousState: required(previousState, "previous knowledge state"),
       });
   const rpc = await client.rpc("record_knowledge_training_attempt", {
@@ -862,6 +886,8 @@ export async function recordCloudKnowledgeAttempt(
     p_attempt_id: result.attempt.id,
     p_attempted_at: result.attempt.createdAt,
     p_coverage_score: result.attempt.coverageScore,
+    p_effective_coverage_score: result.attempt.effectiveCoverageScore,
+    p_ai_analysis: result.attempt.aiAnalysis,
     p_expected_attempt_count: previousState?.attemptCount ?? 0,
     p_mastery_after: result.attempt.masteryAfter,
     p_mastery_before: result.attempt.masteryBefore,

@@ -26,7 +26,13 @@ export function RecallResult({ attempt }: { attempt: KnowledgeAttemptPayload }) 
             {attempt.missingPoints.length === 0 ? <li className="text-muted-foreground">关键点全部覆盖</li> : null}
           </ul>
         </div>
-        <p className="sm:col-span-2 text-sm text-muted-foreground">加权覆盖率：{attempt.coverageScore ?? 0}%</p>
+        <p className="sm:col-span-2 text-sm text-muted-foreground">
+          确定性加权覆盖率：{attempt.coverageScore ?? 0}%
+          {typeof attempt.effectiveCoverageScore === "number"
+            && attempt.effectiveCoverageScore !== (attempt.coverageScore ?? 0)
+            ? `（本次计分采用 ${attempt.effectiveCoverageScore}%）`
+            : ""}
+        </p>
       </div>
     </div>
   );
