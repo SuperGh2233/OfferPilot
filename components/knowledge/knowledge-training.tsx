@@ -85,8 +85,8 @@ function formatDate(value: string | null | undefined, timeZone: string) {
 
 function statusPresentation(state: KnowledgeStatePayload | null) {
   if (!state) return getTrainingStatusPresentation("unlearned");
-  if (state.status === "mastered") return getTrainingStatusPresentation("mastered");
   if (new Date(state.nextReviewAt).getTime() <= Date.now()) return getTrainingStatusPresentation("due");
+  if (state.status === "mastered") return getTrainingStatusPresentation("mastered");
   if (state.mastery < 60) return getTrainingStatusPresentation("weak");
   return getTrainingStatusPresentation("learning");
 }

@@ -118,6 +118,12 @@ export type BacklogReviewState = {
   nextReviewAt: string | null;
 };
 
+export function isReviewDue(state: BacklogReviewState, now: number) {
+  return state.attemptCount > 0
+    && state.nextReviewAt !== null
+    && new Date(state.nextReviewAt).getTime() <= now;
+}
+
 export type TrainingBacklog = {
   algorithmOverdueReviews: number;
   knowledgeOverdueReviews: number;
@@ -220,12 +226,7 @@ export function calculateTrainingBacklog({
   const todayTimestamp = dateKeyToMilliseconds(todayKey);
 
   const countOverdue = (states: readonly BacklogReviewState[]) =>
-    states.filter(
-      (state) =>
-        state.attemptCount > 0
-        && state.nextReviewAt !== null
-        && new Date(state.nextReviewAt).getTime() <= now,
-    ).length;
+    states.filter((state) => isReviewDue(state, now)).length;
 
   const countLeftover = (dailyTasks: Record<string, readonly SummaryTask[]>) =>
     flattenDailyTasks(dailyTasks).filter(

@@ -8,9 +8,17 @@ import {
 import { isBrowserDemoMode, isLocalDemoMode } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function AlgorithmPage() {
+export default async function AlgorithmPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string | string[] }>;
+}) {
   const localMode = isLocalDemoMode();
   const demoMode = isBrowserDemoMode();
+  const requestedFilter = (await searchParams).filter;
+  const initialFilter = requestedFilter === "due" || requestedFilter === "unlearned"
+    ? requestedFilter
+    : "all";
 
   if (!localMode) {
     const supabase = await createClient();
@@ -24,6 +32,8 @@ export default async function AlgorithmPage() {
   return (
     <AlgorithmList
       demoMode={demoMode}
+      initialFilter={initialFilter}
+      key={initialFilter}
       problems={algorithmCatalog}
       tags={algorithmTags}
     />

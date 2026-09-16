@@ -319,21 +319,33 @@ export function DashboardOverview({
             </p>
           ) : null}
           <p className="mt-2 text-xs leading-5 text-amber-800/80 dark:text-amber-300/80">
-            漏训按计划日期与实际完成记录计算；逾期复习较多时，当天复习任务会自动加量（最多为配置数量的 3 倍）。
+            逾期复习可在下方入口查看全部到期题；新学进度缺口是累计数量，不对应某天固定的旧题，可继续学习核心题逐步补齐。今日复习任务最多为配置数量的 3 倍。
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <Link
+            {backlog.algorithmOverdueReviews > 0 ? <Link
               className="inline-flex h-9 items-center justify-center rounded-lg bg-amber-600 px-4 text-sm font-medium text-white transition-colors hover:bg-amber-500"
-              href="/algorithm"
+              href="/algorithm?filter=due#problems"
             >
               去清算法复习
-            </Link>
-            <Link
+            </Link> : null}
+            {backlog.knowledgeOverdueReviews > 0 ? <Link
               className="inline-flex h-9 items-center justify-center rounded-lg border border-amber-400 px-4 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40"
-              href="/knowledge"
+              href="/knowledge#due"
             >
               去清八股复习
-            </Link>
+            </Link> : null}
+            {backlog.algorithmLearningGap > 0 ? <Link
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-amber-400 px-4 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40"
+              href="/algorithm?filter=unlearned#problems"
+            >
+              去补算法新学
+            </Link> : null}
+            {backlog.knowledgeLearningGap > 0 ? <Link
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-amber-400 px-4 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40"
+              href="/knowledge#new"
+            >
+              去补八股新学
+            </Link> : null}
           </div>
         </section>
       ) : null}

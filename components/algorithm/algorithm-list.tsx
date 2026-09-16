@@ -28,6 +28,7 @@ import {
   PROFILE_DEMO_CHANGED_EVENT,
 } from "@/lib/profile/demo-store";
 import { getTrainingStatusPresentation } from "@/lib/ui/training-status";
+import { isReviewDue } from "@/lib/progress/summary";
 import { useCloudTrainingSnapshot } from "@/lib/supabase/use-cloud-training";
 import { importCloudAlgorithms } from "@/lib/supabase/training-client";
 
@@ -50,6 +51,7 @@ type DemoSnapshot = {
 
 type AlgorithmListProps = {
   demoMode: boolean;
+  initialFilter: "all" | "due" | "unlearned";
   problems: readonly AlgorithmCatalogProblem[];
   tags: readonly string[];
 };
@@ -88,17 +90,13 @@ function hasAttempted(data: AlgorithmDemoData | null, problemId: string) {
   return state !== undefined && state.attemptCount > 0;
 }
 
-function isDue(
+function isAlgorithmDue(
   data: AlgorithmDemoData | null,
   problemId: string,
   now: number,
 ) {
   const state = getState(data, problemId);
-  return (
-    state !== undefined &&
-    state.status !== "mastered" &&
-    new Date(state.nextReviewAt).getTime() <= now
-  );
+  return state !== undefined && isReviewDue(state, now);
 }
 
 function isMastered(data: AlgorithmDemoData | null, problemId: string) {
@@ -131,11 +129,11 @@ function getCardStatus(
   if (!state || state.attemptCount === 0) {
     return getTrainingStatusPresentation("unlearned");
   }
+  if (isAlgorithmDue(data, problemId, now)) {
+    return getTrainingStatusPresentation("due");
+  }
   if (state.status === "mastered") {
     return getTrainingStatusPresentation("mastered");
-  }
-  if (isDue(data, problemId, now)) {
-    return getTrainingStatusPresentation("due");
   }
   if (state.mastery < 60) {
     return getTrainingStatusPresentation("weak");
@@ -149,10 +147,11 @@ function getInitials(problem: AlgorithmCatalogProblem) {
 
 export default function AlgorithmList({
   demoMode,
+  initialFilter,
   problems,
   tags,
 }: AlgorithmListProps) {
-  const [filter, setFilter] = useState<AlgorithmFilter>("all");
+  const [filter, setFilter] = useState<AlgorithmFilter>(initialFilter);
   const [selectedTag, setSelectedTag] = useState("");
   const [demoSnapshot, setDemoSnapshot] = useState<DemoSnapshot | null>(null);
   const [importText, setImportText] = useState("");
@@ -260,7 +259,7 @@ export default function AlgorithmList({
     };
 
     for (const problem of problems) {
-      if (isDue(data, problem.id, now)) counts.due += 1;
+      if (isAlgorithmDue(data, problem.id, now)) counts.due += 1;
       if (!hasAttempted(data, problem.id)) counts.unlearned += 1;
       if (isMastered(data, problem.id)) counts.mastered += 1;
       if (isWeak(data, problem.id)) counts.weak += 1;
@@ -273,7 +272,7 @@ export default function AlgorithmList({
       const matchesFilter =
         filter === "all" ||
         (filter === "today" && todayTaskIds.has(problem.id)) ||
-        (filter === "due" && isDue(data, problem.id, now)) ||
+        (filter === "due" && isAlgorithmDue(data, problem.id, now)) ||
         (filter === "unlearned" && !hasAttempted(data, problem.id)) ||
         (filter === "mastered" && isMastered(data, problem.id)) ||
         (filter === "weak" && isWeak(data, problem.id));
@@ -442,7 +441,7 @@ export default function AlgorithmList({
           </form>
         </details>
 
-        <section className="rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
+        <section className="scroll-mt-20 rounded-2xl border bg-card p-4 shadow-sm sm:p-5" id="problems">
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap gap-2" aria-label="训练状态筛选">
               {FILTERS.map((item) => {

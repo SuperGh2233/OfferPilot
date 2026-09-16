@@ -19,6 +19,7 @@ import {
 } from "@/lib/knowledge/demo-store";
 import { calculateKnowledgeTopicMastery } from "@/lib/mastery/knowledge";
 import type { KnowledgePlannerQuestion } from "@/lib/planner/knowledge";
+import { isReviewDue } from "@/lib/progress/summary";
 import {
   loadDemoProfile,
   PROFILE_DEMO_CHANGED_EVENT,
@@ -45,9 +46,21 @@ type Snapshot = {
 
 const CATEGORY_ORDER = ["Java基础", "Java集合", "Java并发", "JVM", "Spring", "MySQL", "Redis"];
 
-function isDue(data: KnowledgeDemoData | null, questionId: string, now: number) {
+function isDue(data: Pick<KnowledgeDemoData, "states"> | null, questionId: string, now: number) {
   const state = data?.states[questionId];
-  return state !== undefined && new Date(state.nextReviewAt).getTime() <= now;
+  return state !== undefined && isReviewDue(state, now);
+}
+
+function getDueKnowledgeQuestions(
+  questions: readonly KnowledgeOverviewQuestion[],
+  data: Pick<KnowledgeDemoData, "states"> | null,
+  now: number,
+) {
+  if (!data) return [];
+  return questions.filter((question) => isDue(data, question.id, now)).sort((left, right) =>
+    new Date(data.states[left.id].nextReviewAt).getTime()
+    - new Date(data.states[right.id].nextReviewAt).getTime(),
+  );
 }
 
 function formatReview(value: string | undefined, now: number, timeZone: string) {
@@ -169,7 +182,19 @@ export function KnowledgeOverview({
   const masteredCount = Object.values(data?.states ?? {}).filter(
     (state) => state.status === "mastered",
   ).length;
-  const dueCount = questions.filter((question) => isDue(data, question.id, now)).length;
+  const dueQuestions = getDueKnowledgeQuestions(questions, data, now);
+  const dueCount = dueQuestions.length;
+  const plannerById = new Map(plannerQuestions.map((question) => [question.id, question]));
+  const unlearnedCoreQuestions = (data ? questions : []).filter((question) =>
+    question.questionType === "main"
+    && question.isCore6Weeks
+    && (data?.states[question.id]?.attemptCount ?? 0) === 0,
+  ).sort((left, right) =>
+    (plannerById.get(left.id)?.recommendedWeek ?? 99)
+    - (plannerById.get(right.id)?.recommendedWeek ?? 99)
+    || right.importance - left.importance
+    || (plannerById.get(left.id)?.sourceOrder ?? 0) - (plannerById.get(right.id)?.sourceOrder ?? 0),
+  );
   const completedToday = snapshot?.tasks.filter((task) => task.status === "completed").length ?? 0;
 
   return (
@@ -233,6 +258,42 @@ export function KnowledgeOverview({
                 </Link>
               );
             })}
+          </div>
+        </section>
+
+        <section className="scroll-mt-20 rounded-2xl border bg-card p-5 shadow-sm" id="due">
+          <h2 className="font-semibold">全部到期复习 · {dueCount} 道</h2>
+          <p className="mt-1 text-sm text-muted-foreground">这里包含未排入今日配额的到期题，可按需继续复习。</p>
+          <div className="mt-4 grid max-h-80 gap-2 overflow-y-auto sm:grid-cols-2">
+            {dueQuestions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">目前没有到期题。</p>
+            ) : dueQuestions.map((question) => (
+              <Link
+                className="rounded-xl border p-3 text-sm font-medium leading-6 hover:border-ring hover:bg-muted"
+                href={`/knowledge/${question.id}`}
+                key={question.id}
+              >
+                {question.question}
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="scroll-mt-20 rounded-2xl border bg-card p-5 shadow-sm" id="new">
+          <h2 className="font-semibold">可补的核心新学 · {unlearnedCoreQuestions.length} 道</h2>
+          <p className="mt-1 text-sm text-muted-foreground">按推荐周次排列；进度缺口不是旧日期固定题单，完成任意未学核心题都能缩小缺口。</p>
+          <div className="mt-4 grid max-h-80 gap-2 overflow-y-auto sm:grid-cols-2">
+            {unlearnedCoreQuestions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">六周核心题已全部学习。</p>
+            ) : unlearnedCoreQuestions.map((question) => (
+              <Link
+                className="rounded-xl border p-3 text-sm font-medium leading-6 hover:border-ring hover:bg-muted"
+                href={`/knowledge/${question.id}`}
+                key={question.id}
+              >
+                {question.question}
+              </Link>
+            ))}
           </div>
         </section>
 

@@ -7,6 +7,7 @@ import {
   calculateTrainingStreak,
   calculateWeightedMastery,
   calculateWeeklyCompletion,
+  isReviewDue,
 } from "../lib/progress/summary";
 import { generateDailyAlgorithmTasks } from "../lib/planner/algorithm";
 import { generateDailyKnowledgeTasks } from "../lib/planner/knowledge";
@@ -121,6 +122,13 @@ describe("progress summary", () => {
 
 describe("calculateTrainingBacklog", () => {
   const now = "2026-09-13T12:00:00+08:00";
+
+  it("uses the same due rule for mastered and learning states", () => {
+    const timestamp = new Date(now).getTime();
+    expect(isReviewDue({ attemptCount: 2, nextReviewAt: "2026-09-12T00:00:00.000Z" }, timestamp)).toBe(true);
+    expect(isReviewDue({ attemptCount: 0, nextReviewAt: "2026-09-12T00:00:00.000Z" }, timestamp)).toBe(false);
+    expect(isReviewDue({ attemptCount: 2, nextReviewAt: "2026-09-14T00:00:00.000Z" }, timestamp)).toBe(false);
+  });
   const emptyLearningPlan = {
     dailyNewAlgorithmCount: 0,
     dailyReviewAlgorithmCount: 0,
