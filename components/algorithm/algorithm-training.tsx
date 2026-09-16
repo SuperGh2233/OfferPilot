@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +31,7 @@ import type {
   AlgorithmResult,
 } from "@/lib/mastery/algorithm";
 import type { AlgorithmTrainingProblem } from "@/lib/algorithm/catalog";
+import { computeTabIndent } from "@/lib/editor/tab-indent";
 import {
   parseAlgorithmCodeAnalysis,
   type AlgorithmCodeAnalysis,
@@ -193,6 +194,63 @@ export function AlgorithmTraining({
   const [aiError, setAiError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const codeRef = useRef<HTMLTextAreaElement | null>(null);
+  const pendingCodeCaretRef = useRef<number | null>(null);
+  /** 先按 Esc 再按 Tab 时放行，保留"用键盘离开编辑器"的能力。 */
+  const escapeCodeEditorRef = useRef(false);
+
+  // 手动改写代码后把光标放回预期位置；只在确实排过队时动作。
+  useEffect(() => {
+    const caret = pendingCodeCaretRef.current;
+    if (caret === null) return;
+    pendingCodeCaretRef.current = null;
+    codeRef.current?.setSelectionRange(caret, caret);
+  }, [code]);
+
+  const applyCode = useCallback((nextCode: string, attemptId: string) => {
+    setCode(nextCode);
+    setAiError(null);
+    if (!saveCodeDraft(attemptId, nextCode)) {
+      setError("代码已保留在当前页面，但无法自动保存草稿。");
+    }
+  }, []);
+
+  /**
+   * Tab 在编辑区内缩进，Shift+Tab 反缩进，不再把焦点移出输入框。
+   * 需要离开编辑器时先按 Esc 再按 Tab。
+   */
+  function handleCodeKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Escape") {
+      escapeCodeEditorRef.current = true;
+      return;
+    }
+    if (event.key !== "Tab") return;
+    if (event.ctrlKey || event.altKey || event.metaKey) return;
+    if (escapeCodeEditorRef.current) {
+      escapeCodeEditorRef.current = false;
+      return;
+    }
+    if (!activeAttempt) return;
+
+    const target = event.currentTarget;
+    event.preventDefault();
+    const result = computeTabIndent({
+      value: code,
+      selectionStart: target.selectionStart,
+      selectionEnd: target.selectionEnd,
+      outdent: event.shiftKey,
+    });
+    if (result.value === code) return;
+
+    // 光标处的纯插入交给 setRangeText：它直接改 DOM 值，React 不会覆盖光标。
+    if (result.replacement !== null && target.selectionStart === target.selectionEnd) {
+      target.setRangeText(result.replacement, target.selectionStart, target.selectionEnd, "end");
+      applyCode(target.value, activeAttempt.id);
+      return;
+    }
+    pendingCodeCaretRef.current = result.selectionEnd;
+    applyCode(result.value, activeAttempt.id);
+  }
   const applyCloudSnapshot = useCallback((snapshot: CloudTrainingSnapshot) => {
     setData(snapshot.algorithm);
     setTimeZone(snapshot.profile.timeZone);
@@ -601,20 +659,15 @@ export function AlgorithmTraining({
         className="min-h-80 resize-y rounded-lg border bg-background px-4 py-3 font-mono text-sm font-normal leading-6 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:min-h-[30rem]"
         id="java-code"
         maxLength={20_000}
-        onChange={(event) => {
-          const nextCode = event.target.value;
-          setCode(nextCode);
-          setAiError(null);
-          if (!saveCodeDraft(activeAttempt.id, nextCode)) {
-            setError("代码已保留在当前页面，但无法自动保存草稿。");
-          }
-        }}
+        onChange={(event) => applyCode(event.target.value, activeAttempt.id)}
+        onKeyDown={handleCodeKeyDown}
         placeholder="在这里编写或粘贴 Java 解题代码…"
+        ref={codeRef}
         spellCheck={false}
         value={code}
       />
       <span className="text-xs font-normal text-muted-foreground">
-        初始代码来自静态题库快照；草稿自动保存，未修改的模板不会作为代码提交。
+        Tab 缩进、Shift+Tab 反缩进；需要移出编辑器时先按 Esc 再按 Tab。草稿自动保存，未修改的模板不会作为代码提交。
       </span>
     </div>
   ) : null;
