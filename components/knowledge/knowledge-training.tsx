@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 
 import { Button } from "@/components/ui/button";
 import { RecallResult } from "@/components/knowledge/recall-result";
+import { RecallScoreComparison } from "@/components/knowledge/recall-score-comparison";
 import { VoiceAnswerButton } from "@/components/knowledge/voice-answer-button";
 import {
   parseKnowledgeRecallAnalysis,
@@ -377,14 +378,20 @@ export function KnowledgeTraining({
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <p className="font-semibold">AI 语义复核（可选）</p>
-                          <p className="mt-1 text-sm text-muted-foreground">理解同义表达并指出遗漏；结果不修改本次 mastery。</p>
+                          <p className="mt-1 text-sm text-muted-foreground">理解同义表达并指出遗漏。复核分数只用于解释，本次 Mastery 仍以确定性覆盖率为准。</p>
                         </div>
                         <Button disabled={!recallResult.answerText?.trim() || aiStatus === "loading"} onClick={handleAiAnalysis} type="button" variant="outline">
                           {aiStatus === "loading" ? "分析中…" : aiAnalysis ? "重新分析" : "AI 分析回答"}
                         </Button>
                       </div>
                       {aiError ? <p aria-live="assertive" className="mt-3 text-sm text-destructive">{aiError}</p> : null}
-                      {aiAnalysis ? <RecallAiPanel analysis={aiAnalysis} question={question} /> : null}
+                      {aiAnalysis ? (
+                        <RecallAiPanel
+                          analysis={aiAnalysis}
+                          coverageScore={recallResult.coverageScore}
+                          question={question}
+                        />
+                      ) : null}
                     </div>
                   </>
                 ) : null}
@@ -486,23 +493,23 @@ const verdictLabels: Record<KnowledgeRecallAnalysis["verdict"], string> = {
 
 function RecallAiPanel({
   analysis,
+  coverageScore,
   question,
 }: {
   analysis: KnowledgeRecallAnalysis;
+  coverageScore: number | null | undefined;
   question: KnowledgeTrainingQuestion;
 }) {
   return (
     <div className="mt-4 space-y-4 border-t pt-4 text-sm">
-      <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
-        <div className="rounded-xl bg-muted p-4">
-          <p className="text-xs text-muted-foreground">语义覆盖</p>
-          <p className="mt-1 text-2xl font-semibold">{analysis.semanticScore}%</p>
-          <p className="mt-1 text-xs text-muted-foreground">{verdictLabels[analysis.verdict]}</p>
-        </div>
-        <div className="rounded-xl bg-muted p-4">
-          <p className="font-medium">复核结论</p>
-          <p className="mt-1 leading-6 text-muted-foreground">{analysis.summary}</p>
-        </div>
+      <RecallScoreComparison
+        coverageScore={coverageScore}
+        semanticScore={analysis.semanticScore}
+        verdictLabel={verdictLabels[analysis.verdict]}
+      />
+      <div className="rounded-xl bg-muted p-4">
+        <p className="font-medium">复核结论</p>
+        <p className="mt-1 leading-6 text-muted-foreground">{analysis.summary}</p>
       </div>
       {analysis.coveredPoints.length > 0 ? (
         <div>

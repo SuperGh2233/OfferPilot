@@ -10,7 +10,7 @@
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7、Phase 8
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase 与 Vercel 生产部署 READY；生产 Smoke 全部通过——匿名边界（脚本）、真实登录/登出/重登、Dashboard 刷新、算法开始/取消/完成/草稿恢复/AI 代码复盘、知识 Learn/Recall/AI 语义复核、刷新与重登后持久化均验收通过；期间发现并修复 Supabase 网关间歇 504（弹性重试已部署，修复后探测 12/12 成功）
-- 最近质量门：Node 22.22.2 下 `lint`、`typecheck`、`test`、`build` 全部通过；33 个测试文件、297 项测试通过，构建新增 `/api/ai/transcribe` 动态路由（注意：本机 `npm run <script>` 包装层在沙箱下会返回 1 且吞掉输出，已改用 `npx eslint` / `npx tsc --noEmit` / `npx vitest run` / `npx next build` 直接验证，工具自身退出码为 0）
+- 最近质量门：Node 22.22.2 下 `lint`、`typecheck`、`test`、`build` 全部通过；33 个测试文件、300 项测试通过，构建注册 `/api/ai/transcribe` 动态路由（注意：本机 `npm run <script>` 包装层在沙箱下会返回 1 且吞掉输出，已改用 `npx eslint` / `npx tsc --noEmit` / `npx vitest run` / `npx next build` 直接验证，工具自身退出码为 0）
 
 | 阶段 | 状态 | 核心结果 |
 | --- | --- | --- |
@@ -281,6 +281,7 @@ npm run build
 - [x] Dashboard 欠账准确性：计划起点后的未打开日期也能识别漏训；分开展示逾期复习、累计新学进度缺口和漏训天数，且重设起点后不继承起点前欠账。
 - [x] 欠账入口正确性：算法复习按钮直达待复习筛选，八股复习按钮直达全部到期题（不受今日配额限制），列表与 Dashboard 的到期数量一致；新学缺口可直达未学题。（2026-09-16 完成，质量门全绿）
 - [x] 八股 Recall 语音输入：录音、服务端转写、结果追加进回答框，复用服务端密钥边界与有界超时，不改变提交语义与 Attempt 结构。（2026-09-17 完成，真实转写验证通过）
+- [x] 八股 Recall 两个分数口径显式化：并列展示「加权覆盖率（确定性匹配，已计入 Mastery 与下次复习）」与「语义覆盖（AI 复核，仅供参考，不改变 Mastery）」，并说明两者差异原因，消除“AI 复核后分数没生效”的误判；计分语义与 Attempt 结构保持不变。（2026-09-17 完成）
 - [ ] 优先级 2：完成 120 道核心题的原子关键点、别名、口语等价与期望匹配/误报回归集。
 - [ ] 优先级 3：将 Knowledge AI 语义复核附加到对应 Recall Attempt，并支持刷新后恢复与历次遗漏对比。
 
@@ -466,3 +467,4 @@ npm run build
 | 2026-09-16 | 正确性阻塞 | 修复 Dashboard 欠账漏算未打开日期：在第一周期内按计划配额与实际已学数计算算法/八股新学进度缺口，单独统计有计划任务但无任何完成记录的漏训日，并继续分开展示逾期复习与已生成遗留任务；重设起点仍隔离旧欠账 | 9 月 13 日完成、14 日无任务记录的回归通过；Node 24.19 下 lint/typecheck/test/build 全通过，30 个测试文件、271 项测试、238 个页面 |
 | 2026-09-16 | 正确性阻塞 | 修复“点欠账入口后找不到对应题目”：算法入口改为 `/algorithm?filter=due#problems` 并支持 URL 初始筛选（含 `key` 保证同路由二次跳转确定性重置），八股新增“全部到期复习 / 可补核心新学”两个锚点区块，四个欠账按钮按指标是否大于 0 分别显示并直达对应题单；抽出 `isReviewDue()` 统一 Dashboard 欠账统计、算法列表与详情状态的到期判定，已掌握但再次到期不再被“待复习”筛选漏掉 | Node 22.22.2 下 lint/typecheck/test/build 全通过；30 个测试文件、272 项测试、238 个页面；新增到期口径回归 1 项 |
 | 2026-09-17 | 语音输入 | 新增八股 Recall 语音输入：浏览器 `MediaRecorder` 录音后本地转 16kHz 单声道 WAV（新增 `lib/audio/wav.ts` 纯函数），经新增受认证路由 `/api/ai/transcribe` 调百炼 `qwen3-asr-flash`（OpenAI 兼容 `/chat/completions` + `input_audio` Data URL）；服务层复用现有 AI 错误类型、30 秒有界超时、base64 与格式校验，密钥不出服务端；转写文本追加进回答框（不覆盖已有文字），录音期间禁用提交，不改变 Attempt 结构与 mastery 链路。同时把 `/api/ai/transcribe` 与漏掉的 `/api/ai/analyze-recall` 纳入 Smoke 匿名边界清单 | lint/typecheck 通过；33 个测试文件、297 项测试通过；`next build` 成功并注册 `/api/ai/transcribe`；真实百炼调用返回 `"欢迎使用阿里云。"`，确认 base URL、模型名、请求体与响应解析契约正确 |
+| 2026-09-17 | 展示修复 | 用户报告“AI 复核后分数没应用到真正得分”。核对确认为既定决策（mastery 只由确定性规则更新），真实缺陷是界面未说明两个分数的口径关系：新增 `RecallScoreComparison` 并列展示加权覆盖率（计入 Mastery）与语义覆盖（仅供参考），写明差异原因，并在复核入口文案中明确“本次 Mastery 仍以确定性覆盖率为准”；`RecallAiPanel` 增加 `coverageScore` 入参；计分语义、Attempt 结构与数据库保持不变。另确认 AI 复核结果仍未持久化（`knowledge_attempts` 无 `ai_analysis` 列），属路线图优先级 3 的已知缺口 | 目标渲染回归新增 3 项；lint/typecheck 通过；33 个测试文件、300 项测试通过；`next build` 成功 |
