@@ -125,9 +125,15 @@ describe("calculateTrainingBacklog", () => {
 
   it("uses the same due rule for mastered and learning states", () => {
     const timestamp = new Date(now).getTime();
-    expect(isReviewDue({ attemptCount: 2, nextReviewAt: "2026-09-12T00:00:00.000Z" }, timestamp)).toBe(true);
+    const masteredButDueAgain = { attemptCount: 4, nextReviewAt: "2026-09-12T00:00:00.000Z", status: "mastered" as const };
+    const masteredNotYetDue = { attemptCount: 4, nextReviewAt: "2026-09-14T00:00:00.000Z", status: "mastered" as const };
+
+    // A mastered problem that came due again must still count as due, otherwise the
+    // dashboard backlog is larger than what the review filter can show.
+    expect(isReviewDue(masteredButDueAgain, timestamp)).toBe(true);
+    expect(isReviewDue(masteredNotYetDue, timestamp)).toBe(false);
     expect(isReviewDue({ attemptCount: 0, nextReviewAt: "2026-09-12T00:00:00.000Z" }, timestamp)).toBe(false);
-    expect(isReviewDue({ attemptCount: 2, nextReviewAt: "2026-09-14T00:00:00.000Z" }, timestamp)).toBe(false);
+    expect(isReviewDue({ attemptCount: 2, nextReviewAt: "2026-09-12T00:00:00.000Z" }, timestamp)).toBe(true);
   });
   const emptyLearningPlan = {
     dailyNewAlgorithmCount: 0,
