@@ -6,11 +6,11 @@
 
 - 最后更新：2026-09-16
 - 当前阶段：Phase 8 已完成，V1 最终验收通过；进入 AGENTS.md 优化路线图优先级 2
-- 当前任务：完成欠账入口正确性修复（已验收），返回 AGENTS.md 优化路线图优先级 2；同时跟踪生产部署后的用户复核结果
+- 当前任务：八股 Recall 语音输入已完成本地验收与真实转写验证，返回 AGENTS.md 优化路线图优先级 2（120 道核心题匹配质量）
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7、Phase 8
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase 与 Vercel 生产部署 READY；生产 Smoke 全部通过——匿名边界（脚本）、真实登录/登出/重登、Dashboard 刷新、算法开始/取消/完成/草稿恢复/AI 代码复盘、知识 Learn/Recall/AI 语义复核、刷新与重登后持久化均验收通过；期间发现并修复 Supabase 网关间歇 504（弹性重试已部署，修复后探测 12/12 成功）
-- 最近质量门：Node 22.22.2 下 `lint`、`typecheck`、`test`、`build` 全部通过；30 个测试文件、272 项测试通过，生成 238 个页面（系统 PATH 已解析到 Node 22.22.2，满足 >=22.13.0）
+- 最近质量门：Node 22.22.2 下 `lint`、`typecheck`、`test`、`build` 全部通过；33 个测试文件、297 项测试通过，构建新增 `/api/ai/transcribe` 动态路由（注意：本机 `npm run <script>` 包装层在沙箱下会返回 1 且吞掉输出，已改用 `npx eslint` / `npx tsc --noEmit` / `npx vitest run` / `npx next build` 直接验证，工具自身退出码为 0）
 
 | 阶段 | 状态 | 核心结果 |
 | --- | --- | --- |
@@ -66,6 +66,8 @@ npm run build
 - 2026-09-13 起逾期复习上浮：当天到期复习多于复习配额时，配额自动提升为配置数量的最多 3 倍（不超过实际逾期数，显式配 0 不上浮）；Dashboard 显示逾期复习与往日遗留任务欠账。
 - 计划开始日期是遗留任务欠账的下边界；重设起点不会删除历史或掌握度，但新起点之前的未完成日任务不再计入当前计划欠账。
 - 外部已完成算法题允许按题号、`[题号]题名` 或 LeetCode 链接批量导入；导入题以 60% 保守掌握度进入学习状态、3 天后复习，不伪造训练 Attempt，也不覆盖已有 OfferPilot 记录。
+- 2026-09-17 起八股 Recall 支持语音输入：录音在浏览器本地完成，转写走服务端百炼 `qwen3-asr-flash`（OpenAI 兼容 `/chat/completions` + `input_audio` Data URL），复用现有 `OPENAI_API_KEY` / `OPENAI_BASE_URL`，不注入浏览器；前端统一把录音转成 16kHz 单声道 WAV 再上传，原始音频不落盘、不入库，只保存用户确认后的文本。个人用量在百炼 10 小时/月免费额度内，成本约等于 0。
+- 语音输入只做八股 Recall 一处；算法训练不新增语音与笔记字段，避免扩大改动面。
 - 当前先运行本地 Demo，后续再连接 Supabase；前端目标部署平台仍为 Vercel。
 - 2026-09-11 起本地阶段改用 Node 24 内置 SQLite 持久化单用户训练状态；复用同一领域规则与训练 API，后续部署时切换到 Supabase，不新增 ORM 或第二套 mastery/planner 逻辑。
 
@@ -278,6 +280,7 @@ npm run build
 - [x] Knowledge Recall 提交后在匹配结果前展示只读的本次原始回答，保留换行；空回答明确显示“本次选择：想不起来”，不修改已保存 Attempt。
 - [x] Dashboard 欠账准确性：计划起点后的未打开日期也能识别漏训；分开展示逾期复习、累计新学进度缺口和漏训天数，且重设起点后不继承起点前欠账。
 - [x] 欠账入口正确性：算法复习按钮直达待复习筛选，八股复习按钮直达全部到期题（不受今日配额限制），列表与 Dashboard 的到期数量一致；新学缺口可直达未学题。（2026-09-16 完成，质量门全绿）
+- [x] 八股 Recall 语音输入：录音、服务端转写、结果追加进回答框，复用服务端密钥边界与有界超时，不改变提交语义与 Attempt 结构。（2026-09-17 完成，真实转写验证通过）
 - [ ] 优先级 2：完成 120 道核心题的原子关键点、别名、口语等价与期望匹配/误报回归集。
 - [ ] 优先级 3：将 Knowledge AI 语义复核附加到对应 Recall Attempt，并支持刷新后恢复与历次遗漏对比。
 
@@ -285,7 +288,7 @@ npm run build
 
 - 岗位抓取、投递管理、面试管理。
 - BOSS、智联、51Job、Chrome/IDEA 插件、LeetCode 自动同步。
-- 语音口试、社交、排行榜、金币等游戏化功能。
+- 语音口试（发音评分、对话式口试）、社交、排行榜、金币等游戏化功能。2026-09-17 起例外：八股 Recall 允许“语音转文字”输入，仅做转写填入回答框，不做发音评价、不做语音对话。
 - Agent 工作流、LangChain、LangGraph、RAG。
 - 微服务、Kafka、Redis。
 - 剑指 Offer、CodeTop、公司专项题或额外算法题库。
@@ -462,3 +465,4 @@ npm run build
 | 2026-09-16 | 优先级 2 | Knowledge Recall 结果区增加只读“我的回答”卡片，直接复用已持久化的 `answerText` 并保留换行；选择“想不起来”时显示明确文案，匹配、Mastery 与 Attempt 数据结构保持不变 | 新增 2 项独立渲染回归；Codex bundled Node 24.19 下 lint/typecheck/test/build 全通过，30 个测试文件、268 项测试、238 个页面 |
 | 2026-09-16 | 正确性阻塞 | 修复 Dashboard 欠账漏算未打开日期：在第一周期内按计划配额与实际已学数计算算法/八股新学进度缺口，单独统计有计划任务但无任何完成记录的漏训日，并继续分开展示逾期复习与已生成遗留任务；重设起点仍隔离旧欠账 | 9 月 13 日完成、14 日无任务记录的回归通过；Node 24.19 下 lint/typecheck/test/build 全通过，30 个测试文件、271 项测试、238 个页面 |
 | 2026-09-16 | 正确性阻塞 | 修复“点欠账入口后找不到对应题目”：算法入口改为 `/algorithm?filter=due#problems` 并支持 URL 初始筛选（含 `key` 保证同路由二次跳转确定性重置），八股新增“全部到期复习 / 可补核心新学”两个锚点区块，四个欠账按钮按指标是否大于 0 分别显示并直达对应题单；抽出 `isReviewDue()` 统一 Dashboard 欠账统计、算法列表与详情状态的到期判定，已掌握但再次到期不再被“待复习”筛选漏掉 | Node 22.22.2 下 lint/typecheck/test/build 全通过；30 个测试文件、272 项测试、238 个页面；新增到期口径回归 1 项 |
+| 2026-09-17 | 语音输入 | 新增八股 Recall 语音输入：浏览器 `MediaRecorder` 录音后本地转 16kHz 单声道 WAV（新增 `lib/audio/wav.ts` 纯函数），经新增受认证路由 `/api/ai/transcribe` 调百炼 `qwen3-asr-flash`（OpenAI 兼容 `/chat/completions` + `input_audio` Data URL）；服务层复用现有 AI 错误类型、30 秒有界超时、base64 与格式校验，密钥不出服务端；转写文本追加进回答框（不覆盖已有文字），录音期间禁用提交，不改变 Attempt 结构与 mastery 链路。同时把 `/api/ai/transcribe` 与漏掉的 `/api/ai/analyze-recall` 纳入 Smoke 匿名边界清单 | lint/typecheck 通过；33 个测试文件、297 项测试通过；`next build` 成功并注册 `/api/ai/transcribe`；真实百炼调用返回 `"欢迎使用阿里云。"`，确认 base URL、模型名、请求体与响应解析契约正确 |

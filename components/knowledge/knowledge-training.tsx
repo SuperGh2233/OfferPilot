@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 
 import { Button } from "@/components/ui/button";
 import { RecallResult } from "@/components/knowledge/recall-result";
+import { VoiceAnswerButton } from "@/components/knowledge/voice-answer-button";
 import {
   parseKnowledgeRecallAnalysis,
   type KnowledgeRecallAnalysis,
@@ -108,6 +109,7 @@ export function KnowledgeTraining({
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [voiceBusy, setVoiceBusy] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<KnowledgeRecallAnalysis | null>(null);
   const [aiStatus, setAiStatus] = useState<"idle" | "loading">("idle");
   const [aiError, setAiError] = useState<string | null>(null);
@@ -346,9 +348,18 @@ export function KnowledgeTraining({
                   placeholder="例如：hash、定位桶、链表、resize…"
                   value={answer}
                 />
+                <div className="mt-3">
+                  <VoiceAnswerButton
+                    disabled={saving}
+                    onBusyChange={setVoiceBusy}
+                    onTranscript={(text) => setAnswer((previous) => (
+                      previous.trim() ? `${previous.trimEnd()}\n${text}` : text
+                    ))}
+                  />
+                </div>
                 <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                  <Button disabled={saving} onClick={() => void submitRecall("")} type="button" variant="outline">想不起来</Button>
-                  <Button disabled={!answer.trim() || saving} type="submit">{saving ? "保存中…" : "提交回忆"}</Button>
+                  <Button disabled={saving || voiceBusy} onClick={() => void submitRecall("")} type="button" variant="outline">想不起来</Button>
+                  <Button disabled={!answer.trim() || saving || voiceBusy} type="submit">{saving ? "保存中…" : "提交回忆"}</Button>
                 </div>
               </form>
             ) : submission ? (

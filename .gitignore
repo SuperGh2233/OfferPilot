@@ -16,6 +16,9 @@
 # local database
 /.offerpilot/
 
+# agent workspace notes
+/.workbuddy/
+
 # next.js
 /.next/
 /out/

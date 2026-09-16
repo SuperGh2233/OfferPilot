@@ -42,6 +42,8 @@ if (demoMode) {
 
   const protectedApis = [
     ["/api/ai/analyze-code", "POST"],
+    ["/api/ai/analyze-recall", "POST"],
+    ["/api/ai/transcribe", "POST"],
     ["/api/training/snapshot", "GET"],
     ["/api/training/algorithm", "POST"],
     ["/api/training/knowledge", "POST"],
