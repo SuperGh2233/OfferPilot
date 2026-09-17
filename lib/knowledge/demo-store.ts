@@ -20,6 +20,7 @@ import {
   ALGORITHM_DEMO_TIME_ZONE,
   calculateAlgorithmCurrentWeek,
   getAlgorithmDemoDateKey,
+  shiftToTrainingDay,
   type StorageLike,
 } from "../algorithm/demo-store";
 
@@ -206,8 +207,11 @@ export function ensureTodayKnowledgeTasks(
 ) {
   if (!isData(data)) throw new RangeError("knowledge demo data is invalid");
   const timeZone = options.timeZone ?? ALGORITHM_DEMO_TIME_ZONE;
-  const taskDate = getAlgorithmDemoDateKey(today, timeZone);
-  const currentWeek = calculateAlgorithmCurrentWeek(data.planStartDate, today, timeZone);
+  // 与算法侧一致：日期键与周次按训练日（凌晨 3 点重置）计算，
+  // 下发给规划器的 today 仍是真实时刻。
+  const trainingDay = shiftToTrainingDay(today);
+  const taskDate = getAlgorithmDemoDateKey(trainingDay, timeZone);
+  const currentWeek = calculateAlgorithmCurrentWeek(data.planStartDate, trainingDay, timeZone);
   const cached = data.dailyTasks[taskDate];
   if (cached) return { data, tasks: cached, currentWeek, date: taskDate };
 

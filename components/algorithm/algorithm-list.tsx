@@ -8,7 +8,7 @@ import {
   ALGORITHM_DEMO_USER_ID,
   calculateAlgorithmCurrentWeek,
   ensureTodayAlgorithmTasks,
-  getAlgorithmDemoDateKey,
+  getAlgorithmTrainingDateKey,
   loadAlgorithmDemoData,
   saveAlgorithmDemoData,
   type AlgorithmDemoData,
@@ -217,7 +217,7 @@ export default function AlgorithmList({
   const cloudSnapshot = useMemo<DemoSnapshot | null>(() => {
     if (!cloud.snapshot) return null;
     const now = new Date();
-    const date = getAlgorithmDemoDateKey(now, cloud.snapshot.profile.timeZone);
+    const date = getAlgorithmTrainingDateKey(now, cloud.snapshot.profile.timeZone);
     return {
       data: cloud.snapshot.algorithm,
       tasks: cloud.snapshot.algorithm.dailyTasks[date] ?? [],

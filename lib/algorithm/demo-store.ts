@@ -187,6 +187,39 @@ export function getAlgorithmDemoDateKey(
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+/**
+ * 每日任务的重置时刻（按 profile 时区计算的小时数）。
+ *
+ * 凌晨 3 点重置意味着 00:00–02:59 的活跃仍算作前一天的任务，
+ * 夜里学习不会刚过零点就被判成"昨天没完成、今天已开始"。
+ */
+export const DAILY_RESET_HOUR = 3;
+const DAILY_RESET_OFFSET_MS = DAILY_RESET_HOUR * 60 * 60 * 1000;
+
+/**
+ * 把时间点换算成它所属训练日的时刻（即回退到"重置前"的日历日）。
+ *
+ * 注意：这里只用于**日期**归属（日期键、周次、连续天数），
+ * 到期判定与时间戳必须继续使用真实时刻。
+ */
+export function shiftToTrainingDay(value: AlgorithmDateInput): Date {
+  return new Date(parseDate(value, "date").getTime() - DAILY_RESET_OFFSET_MS);
+}
+
+/**
+ * 把"现在"映射成所属训练日的日期键。
+ *
+ * 与 getAlgorithmDemoDateKey 的区别：本函数带每日重置偏移，只适用于真实时间点；
+ * 计划开始日之类的纯日期请继续用 getAlgorithmDemoDateKey（YYYY-MM-DD 会原样返回）。
+ */
+export function getAlgorithmTrainingDateKey(
+  value: AlgorithmDateInput,
+  timeZone: string = ALGORITHM_DEMO_TIME_ZONE,
+): string {
+  if (typeof value === "string" && isValidDateKey(value)) return value;
+  return getAlgorithmDemoDateKey(shiftToTrainingDay(value), timeZone);
+}
+
 function normalizeDateKey(
   value: AlgorithmDateInput,
   name: string,
@@ -418,8 +451,12 @@ export function ensureTodayAlgorithmTasks(
 ): EnsureTodayAlgorithmTasksResult {
   assertAlgorithmDemoData(data);
   const timeZone = options.timeZone ?? ALGORITHM_DEMO_TIME_ZONE;
-  const date = getAlgorithmDemoDateKey(today, timeZone);
-  const currentWeek = calculateAlgorithmCurrentWeek(data.planStartDate, today, timeZone);
+  // 训练日以凌晨 3 点重置：日期键与周次都按训练日算，避免凌晨打开应用时
+  // 出现"任务记在昨天、周次却已经翻到新一周"的错配。
+  // 下发给规划器的 today 仍用真实时刻，保证刚到期（例如 01:00）的复习不会被漏掉。
+  const trainingDay = shiftToTrainingDay(today);
+  const date = getAlgorithmDemoDateKey(trainingDay, timeZone);
+  const currentWeek = calculateAlgorithmCurrentWeek(data.planStartDate, trainingDay, timeZone);
   const cachedTasks = data.dailyTasks[date];
   if (cachedTasks !== undefined) {
     return { data, tasks: cachedTasks, currentWeek, date };
@@ -526,7 +563,7 @@ export function startDemoAlgorithmAttempt({
   nextData.activeAttempts[problemId] = attempt;
   startPendingTask(
     nextData.dailyTasks,
-    [getAlgorithmDemoDateKey(started, timeZone)],
+    [getAlgorithmTrainingDateKey(started, timeZone)],
     problemId,
   );
   return { data: nextData, attempt, resumed: false };

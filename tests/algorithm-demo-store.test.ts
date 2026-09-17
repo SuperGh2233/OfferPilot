@@ -7,8 +7,10 @@ import {
   calculateAlgorithmCurrentWeek,
   completeDemoAlgorithmAttempt,
   createAlgorithmDemoData,
+  DAILY_RESET_HOUR,
   ensureTodayAlgorithmTasks,
   getAlgorithmDemoDateKey,
+  getAlgorithmTrainingDateKey,
   loadAlgorithmDemoData,
   saveAlgorithmDemoData,
   startDemoAlgorithmAttempt,
@@ -385,5 +387,53 @@ describe("algorithm demo local storage adapter", () => {
     }).data;
     withAttempt.activeAttempts["1"].waCount = 4;
     expect(saveAlgorithmDemoData(storage, withAttempt)).toBe(false);
+  });
+});
+
+describe("daily task reset at 03:00", () => {
+  it("keeps the small hours on the previous training day", () => {
+    expect(DAILY_RESET_HOUR).toBe(3);
+    expect(getAlgorithmTrainingDateKey("2026-09-17T00:30:00+08:00")).toBe("2026-09-16");
+    expect(getAlgorithmTrainingDateKey("2026-09-17T02:59:59+08:00")).toBe("2026-09-16");
+    expect(getAlgorithmTrainingDateKey("2026-09-17T03:00:00+08:00")).toBe("2026-09-17");
+    expect(getAlgorithmTrainingDateKey("2026-09-17T23:30:00+08:00")).toBe("2026-09-17");
+  });
+
+  it("leaves pure date keys unshifted so plan start dates stay correct", () => {
+    expect(getAlgorithmTrainingDateKey("2026-09-16")).toBe("2026-09-16");
+    expect(getAlgorithmTrainingDateKey("2026-09-16T00:00:00.000Z", "UTC")).toBe("2026-09-15");
+    expect(getAlgorithmDemoDateKey("2026-09-16T00:00:00.000Z", "UTC")).toBe("2026-09-16");
+  });
+
+  it("generates today's tasks under the previous date before 03:00", () => {
+    const initial = createAlgorithmDemoData("2026-09-09");
+    const beforeReset = ensureTodayAlgorithmTasks(
+      initial,
+      problems,
+      new Date("2026-09-17T01:30:00+08:00"),
+    );
+    expect(beforeReset.date).toBe("2026-09-16");
+    expect(beforeReset.tasks.every((task) => task.date === "2026-09-16")).toBe(true);
+
+    const afterReset = ensureTodayAlgorithmTasks(
+      beforeReset.data,
+      problems,
+      new Date("2026-09-17T03:30:00+08:00"),
+    );
+    expect(afterReset.date).toBe("2026-09-17");
+    expect(Object.keys(afterReset.data.dailyTasks).sort())
+      .toEqual(["2026-09-16", "2026-09-17"]);
+  });
+
+  it("keeps the cycle week aligned with the training day", () => {
+    // 计划第 7 天（2026-09-17）的凌晨 1:30 仍属于第 7 天，不应提前翻到第 2 周。
+    const initial = createAlgorithmDemoData("2026-09-11");
+    const atSmallHours = new Date("2026-09-18T01:30:00+08:00");
+    const result = ensureTodayAlgorithmTasks(initial, problems, atSmallHours);
+
+    expect(result.date).toBe("2026-09-17");
+    expect(result.currentWeek).toBe(1);
+    // 对照：若按真实日历日计算，同一时刻已经会被算成第 2 周。
+    expect(calculateAlgorithmCurrentWeek("2026-09-11", atSmallHours)).toBe(2);
   });
 });

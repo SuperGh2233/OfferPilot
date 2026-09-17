@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { getAlgorithmDemoDateKey } from "../algorithm/demo-store";
+import { getAlgorithmTrainingDateKey } from "../algorithm/demo-store";
 import type { CloudTrainingSnapshot } from "./training";
 import { loadCloudSnapshot } from "./training-client";
 
@@ -49,9 +49,9 @@ export function useCloudTrainingSnapshot(
   const timeZone = snapshot?.profile.timeZone;
   useEffect(() => {
     if (!enabled || !timeZone) return;
-    let dateKey = getAlgorithmDemoDateKey(new Date(), timeZone);
+    let dateKey = getAlgorithmTrainingDateKey(new Date(), timeZone);
     const checkDate = () => {
-      const nextDateKey = getAlgorithmDemoDateKey(new Date(), timeZone);
+      const nextDateKey = getAlgorithmTrainingDateKey(new Date(), timeZone);
       if (nextDateKey === dateKey) return;
       dateKey = nextDateKey;
       void refresh();

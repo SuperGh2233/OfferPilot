@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ALGORITHM_DEMO_CHANGED_EVENT,
   ensureTodayAlgorithmTasks,
-  getAlgorithmDemoDateKey,
+  getAlgorithmTrainingDateKey,
   loadAlgorithmDemoData,
   saveAlgorithmDemoData,
   type AlgorithmDemoData,
@@ -159,7 +159,7 @@ export function DashboardOverview({
   const cloudSnapshot = useMemo<Snapshot | null>(() => {
     if (!cloud.snapshot) return null;
     const now = new Date();
-    const date = getAlgorithmDemoDateKey(now, cloud.snapshot.profile.timeZone);
+    const date = getAlgorithmTrainingDateKey(now, cloud.snapshot.profile.timeZone);
     return {
       algorithmData: cloud.snapshot.algorithm,
       algorithmTasks: cloud.snapshot.algorithm.dailyTasks[date] ?? [],

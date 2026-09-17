@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ALGORITHM_DEMO_TIME_ZONE,
   calculateAlgorithmCurrentWeek,
-  getAlgorithmDemoDateKey,
+  getAlgorithmTrainingDateKey,
 } from "@/lib/algorithm/demo-store";
 import type { KnowledgeCatalogTopic } from "@/lib/knowledge/catalog";
 import {
@@ -142,7 +142,7 @@ export function KnowledgeOverview({
   const cloudSnapshot = useMemo<Snapshot | null>(() => {
     if (!cloud.snapshot) return null;
     const now = new Date();
-    const date = getAlgorithmDemoDateKey(now, cloud.snapshot.profile.timeZone);
+    const date = getAlgorithmTrainingDateKey(now, cloud.snapshot.profile.timeZone);
     return {
       data: cloud.snapshot.knowledge,
       tasks: cloud.snapshot.knowledge.dailyTasks[date] ?? [],

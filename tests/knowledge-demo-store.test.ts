@@ -133,3 +133,22 @@ describe("knowledge demo store", () => {
       .toBe("2026-08-30T08:00:00.000Z");
   });
 });
+
+describe("daily task reset at 03:00", () => {
+  it("aligns knowledge tasks with the same reset boundary as algorithm tasks", () => {
+    const initial = createKnowledgeDemoData("2026-09-09");
+    const beforeReset = ensureTodayKnowledgeTasks(
+      initial,
+      questions,
+      new Date("2026-09-17T01:30:00+08:00"),
+    );
+    expect(beforeReset.date).toBe("2026-09-16");
+
+    const afterReset = ensureTodayKnowledgeTasks(
+      beforeReset.data,
+      questions,
+      new Date("2026-09-17T03:30:00+08:00"),
+    );
+    expect(afterReset.date).toBe("2026-09-17");
+  });
+});

@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-- 最后更新：2026-09-17
+- 最后更新：2026-09-18
 - 当前阶段：Phase 8 已完成，V1 最终验收通过；进入 AGENTS.md 优化路线图优先级 2
-- 当前任务：**阻塞中**——八股 Recall 改为 AI 主导计分（`max(确定性, 语义)`）已实现并通过质量门，代码提交在本地，但**必须先应用迁移 `202609170001_knowledge_ai_scoring.sql` 才能部署**：新代码调用带新参数的 RPC，若代码先上线，八股 Learn/Recall 提交会返回 500。迁移需要数据库密码或 `SUPABASE_ACCESS_TOKEN`，本机均无。
+- 当前任务：**阻塞中**——每日任务重置改到凌晨 3 点已实现并通过质量门，同样待推送；八股 Recall 改为 AI 主导计分（`max(确定性, 语义)`）已实现并通过质量门，代码提交在本地，但**必须先应用迁移 `202609170001_knowledge_ai_scoring.sql` 才能部署**：新代码调用带新参数的 RPC，若代码先上线，八股 Learn/Recall 提交会返回 500。迁移需要数据库密码或 `SUPABASE_ACCESS_TOKEN`，本机均无。
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7、Phase 8
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase 与 Vercel 生产部署 READY；生产 Smoke 全部通过——匿名边界（脚本）、真实登录/登出/重登、Dashboard 刷新、算法开始/取消/完成/草稿恢复/AI 代码复盘、知识 Learn/Recall/AI 语义复核、刷新与重登后持久化均验收通过；期间发现并修复 Supabase 网关间歇 504（弹性重试已部署，修复后探测 12/12 成功）。2026-09-17 只读探测确认远端 `knowledge_attempts` 尚无 `effective_coverage_score` / `ai_analysis` 两列，即迁移未应用。
-- 最近质量门：Node 22.22.2 下 `lint`、`typecheck`、`test`、`build` 全部通过；34 个测试文件、319 项测试通过（注意：本机 `npm run <script>` 包装层在沙箱下会返回 1 且吞掉输出，已改用 `npx eslint` / `npx tsc --noEmit` / `npx vitest run` / `npx next build` 直接验证，工具自身退出码为 0）
+- 最近质量门：Node 22.22.2 下 `lint`、`typecheck`、`test`、`build` 全部通过；34 个测试文件、324 项测试通过（注意：本机 `npm run <script>` 包装层在沙箱下会返回 1 且吞掉输出，已改用 `npx eslint` / `npx tsc --noEmit` / `npx vitest run` / `npx next build` 直接验证，工具自身退出码为 0）
 
 | 阶段 | 状态 | 核心结果 |
 | --- | --- | --- |
@@ -54,6 +54,7 @@ npm run build
 - follow-up 只挂在主问题下，默认不占每日新题额度。
 - mastery 只由确定性 TypeScript 规则更新；AI 分析不得直接修改 mastery。（2026-09-17 补充：AI 语义分现在作为该 TS 规则的**输入**参与计分，但模型仍然不直接写 mastery，落库与掌握度计算全部由 TypeScript 规则完成。）
 - 八股 Recall 保留确定性关键词分数，并允许用户提交后主动请求 AI 语义复核；AI 结果只用于解释，不回写 mastery。（**2026-09-17 修订**：用户报告规则匹配对自由复述理解不足、打分明显偏低，确认这是真实缺陷而非展示问题，计分口径改为 AI 主导，见下条。）
+- 2026-09-18 起每日任务重置时刻改为**按 profile 时区凌晨 3 点**（`DAILY_RESET_HOUR = 3`）：日期键、周次、连续天数、缺失日与欠账统计统一改用 `getAlgorithmTrainingDateKey()`；计划开始日等纯日期转换继续使用无偏移的 `getAlgorithmDemoDateKey()`（`YYYY-MM-DD` 会被原样返回）。到期判定与所有时间戳仍使用真实时刻，避免凌晨刚到期的复习被漏掉。
 - 2026-09-17 起八股 Recall 计分改为 **AI 主导 + 确定性下界**：`effectiveCoverageScore = max(确定性加权覆盖率, AI 语义覆盖)`；`semanticScore` 为 null 时退化为确定性覆盖。AI 只负责向上修正规则漏计，不能低于已验证的关键点命中，以此天然抑制模型高估。mastery、下次复习与 `lastRecallCoverageScore` 一律使用 `effectiveCoverageScore`。
 - AI 复核改为**提交时同步执行**：前端先调用 `/api/ai/analyze-recall`，成功则把分析随提交一起写入，单次落库、不设提升端点；AI 不可用时按确定性分计分并在界面明确告知，不阻塞提交、不丢回答。AI 分析作为 `ai_analysis` 落库，同时补齐优先级 3 的持久化缺口。
 - Attempt 三个分数分离记录，便于后续校准：`coverage_score` 保持确定性口径不变，`ai_analysis.semanticScore` 为语义口径，新增 `effective_coverage_score` 记录**当次实际计分所用的覆盖率**（读取时对旧行回退为 `coverage_score`）。历史 Attempt 不回填、不重算，新规则只对之后的提交生效。
@@ -475,3 +476,4 @@ npm run build
 | 2026-09-17 | 展示修复 | 用户报告“AI 复核后分数没应用到真正得分”。核对确认为既定决策（mastery 只由确定性规则更新），真实缺陷是界面未说明两个分数的口径关系：新增 `RecallScoreComparison` 并列展示加权覆盖率（计入 Mastery）与语义覆盖（仅供参考），写明差异原因，并在复核入口文案中明确“本次 Mastery 仍以确定性覆盖率为准”；`RecallAiPanel` 增加 `coverageScore` 入参；计分语义、Attempt 结构与数据库保持不变。另确认 AI 复核结果仍未持久化（`knowledge_attempts` 无 `ai_analysis` 列），属路线图优先级 3 的已知缺口 | 目标渲染回归新增 3 项；lint/typecheck 通过；33 个测试文件、300 项测试通过；`next build` 成功 |
 | 2026-09-17 | 计分口径 | 八股 Recall 改为 AI 主导计分：新增 `combineRecallCoverage`，`effectiveCoverageScore = max(确定性加权覆盖率, AI 语义覆盖)`，mastery、下次复习与 `lastRecallCoverageScore` 全部改用该值；确定性覆盖与 AI 语义覆盖分列落库（`coverage_score` / `ai_analysis.semanticScore` / 新增 `effective_coverage_score`），历史行保持 null 且读取时回退，不回填不重算。AI 复核改到提交时同步执行：前端先调 `/api/ai/analyze-recall` 再单次落库，AI 不可用时按确定性分计分并明确告知，补救复核只补解释不改分。新增迁移 `202609170001_knowledge_ai_scoring.sql`，两个新 RPC 参数带默认值以便迁移对旧前端也兼容 | lint/typecheck 通过；34 个测试文件、316 项测试通过；`next build` 成功。**待应用迁移后部署** |
 | 2026-09-17 | 编辑器 | 算法训练页 Java 编辑器支持 Tab 缩进：新增纯函数 `lib/editor/tab-indent.ts`（光标处插入一个缩进宽度；反缩进只移除光标前真实存在的空白且不越过行首；多行选区整块伸缩并保持选区）。组件对纯插入走 `setRangeText` 以免 React 重置光标，其余情况走状态更新 + 一次性光标恢复；保留 Ctrl/Alt/Meta+Tab 与"Esc 后 Tab"的键盘退出路径 | 新增 11 项目标测试；lint/typecheck 通过；34 个测试文件、316 项测试通过；`next build` 成功 |
+| 2026-09-18 | 任务重置 | 每日任务重置时刻改为按 profile 时区**凌晨 3 点**：新增 `DAILY_RESET_HOUR`、`shiftToTrainingDay()` 与 `getAlgorithmTrainingDateKey()`；任务生成（算法/八股 ensure）、今日任务挑选（算法列表/Dashboard/八股总览）、连续天数与周期位置、欠账与缺失日统计、以及开始训练时写入的 `p_task_date` 全部改用训练日口径；确保函数的日期键与周次同时按训练日计算，避免凌晨出现"任务记在昨天、周次已翻新周"的错配。计划开始日与 profile 校验仍用无偏移的 `getAlgorithmDemoDateKey()`。到期判定与所有时间戳保持真实时刻 | 新增边界回归 5 项（00:30/02:59:59 归前一天、03:00 归当天、纯日期不偏移、周次与训练日对齐、八股侧一致）；lint/typecheck 通过；34 个测试文件、324 项测试通过；`next build` 成功 |

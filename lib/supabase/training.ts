@@ -24,6 +24,7 @@ import {
   createAlgorithmDemoData,
   ensureTodayAlgorithmTasks,
   getAlgorithmDemoDateKey,
+  getAlgorithmTrainingDateKey,
   type AlgorithmDemoData,
   type LocalAlgorithmTask,
 } from "../algorithm/demo-store";
@@ -600,7 +601,7 @@ export async function startCloudAlgorithmAttempt(
     p_attempt_id: crypto.randomUUID(),
     p_problem_id: row.id,
     p_started_at: startedAt.toISOString(),
-    p_task_date: getAlgorithmDemoDateKey(startedAt, profile.timeZone),
+    p_task_date: getAlgorithmTrainingDateKey(startedAt, profile.timeZone),
   });
   fail("Start algorithm attempt failed", result.error);
   return parseStartedAttempt(

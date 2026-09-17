@@ -1,4 +1,4 @@
-import { getAlgorithmDemoDateKey } from "../algorithm/demo-store";
+import { getAlgorithmDemoDateKey, getAlgorithmTrainingDateKey } from "../algorithm/demo-store";
 import type { AlgorithmDateInput } from "../mastery/algorithm";
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
@@ -51,7 +51,7 @@ export function calculateCyclePosition(
   today: AlgorithmDateInput,
   timeZone?: string,
 ): CyclePosition {
-  const todayKey = getAlgorithmDemoDateKey(today, timeZone);
+  const todayKey = getAlgorithmTrainingDateKey(today, timeZone);
   const elapsedDays = Math.floor(
     (dateKeyToMilliseconds(todayKey) - dateKeyToMilliseconds(planStartDate))
       / DAY_IN_MILLISECONDS,
@@ -96,7 +96,7 @@ export function calculateTrainingStreak(
   const completedDates = new Set(
     tasks.filter((task) => task.status === "completed").map((task) => task.date),
   );
-  let cursor = getAlgorithmDemoDateKey(today, timeZone);
+  let cursor = getAlgorithmTrainingDateKey(today, timeZone);
   if (!completedDates.has(cursor)) cursor = shiftDateKey(cursor, -1);
 
   let streak = 0;
@@ -220,7 +220,7 @@ export function calculateTrainingBacklog({
 
   const now = today instanceof Date ? today.getTime() : new Date(today).getTime();
   if (!Number.isFinite(now)) throw new RangeError("today must be a valid date");
-  const todayKey = getAlgorithmDemoDateKey(today, timeZone);
+  const todayKey = getAlgorithmTrainingDateKey(today, timeZone);
   const planStartKey = getAlgorithmDemoDateKey(planStartDate, timeZone);
   const planStartTimestamp = dateKeyToMilliseconds(planStartKey);
   const todayTimestamp = dateKeyToMilliseconds(todayKey);
