@@ -10,7 +10,7 @@
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7、Phase 8
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase 与 Vercel 生产部署 READY；生产 Smoke 全部通过——匿名边界（脚本）、真实登录/登出/重登、Dashboard 刷新、算法开始/取消/完成/草稿恢复/AI 代码复盘、知识 Learn/Recall/AI 语义复核、刷新与重登后持久化均验收通过；期间发现并修复 Supabase 网关间歇 504（弹性重试已部署，修复后探测 12/12 成功）。2026-09-17 只读探测确认远端 `knowledge_attempts` 尚无 `effective_coverage_score` / `ai_analysis` 两列，即迁移未应用。
-- 最近质量门：Node 22.22.2 下 `lint`、`typecheck`、`test`、`build` 全部通过；34 个测试文件、316 项测试通过（注意：本机 `npm run <script>` 包装层在沙箱下会返回 1 且吞掉输出，已改用 `npx eslint` / `npx tsc --noEmit` / `npx vitest run` / `npx next build` 直接验证，工具自身退出码为 0）
+- 最近质量门：Node 22.22.2 下 `lint`、`typecheck`、`test`、`build` 全部通过；34 个测试文件、319 项测试通过（注意：本机 `npm run <script>` 包装层在沙箱下会返回 1 且吞掉输出，已改用 `npx eslint` / `npx tsc --noEmit` / `npx vitest run` / `npx next build` 直接验证，工具自身退出码为 0）
 
 | 阶段 | 状态 | 核心结果 |
 | --- | --- | --- |

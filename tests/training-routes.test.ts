@@ -201,6 +201,76 @@ describe("cloud training routes", () => {
     expect(mocks.recordCloudKnowledgeAttempt).not.toHaveBeenCalled();
   });
 
+  it("passes a validated AI review through to the recall submission", async () => {
+    const aiAnalysis = {
+      semanticScore: 100,
+      verdict: "excellent",
+      summary: "覆盖完整",
+      coveredPoints: [{ index: 0, evidence: "提到了扩容" }],
+      missingPoints: [],
+      misconceptions: [],
+      improvedAnswer: "更完整的表达",
+    };
+    mocks.recordCloudKnowledgeAttempt.mockResolvedValue({ attempt: {}, state: {} });
+
+    const response = await knowledgePost(
+      jsonRequest("http://localhost/api/training/knowledge", {
+        attemptId,
+        mode: "recall",
+        questionId,
+        answerText: "发生 resize",
+        aiAnalysis,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.recordCloudKnowledgeAttempt).toHaveBeenCalledWith(
+      context.client,
+      "user-1",
+      expect.objectContaining({ answerText: "发生 resize", aiAnalysis }),
+    );
+  });
+
+  it("keeps a recall submission without an AI review on the deterministic score", async () => {
+    mocks.recordCloudKnowledgeAttempt.mockResolvedValue({ attempt: {}, state: {} });
+
+    const response = await knowledgePost(
+      jsonRequest("http://localhost/api/training/knowledge", {
+        attemptId,
+        mode: "recall",
+        questionId,
+        answerText: "发生 resize",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.recordCloudKnowledgeAttempt).toHaveBeenCalledWith(
+      context.client,
+      "user-1",
+      expect.objectContaining({ aiAnalysis: null }),
+    );
+  });
+
+  it("rejects a malformed AI review before persistence", async () => {
+    for (const broken of [
+      { semanticScore: 120 },
+      { semanticScore: 80, verdict: "perfect", summary: "x", coveredPoints: [], missingPoints: [], misconceptions: [], improvedAnswer: "y" },
+      "not-an-object",
+    ]) {
+      const response = await knowledgePost(
+        jsonRequest("http://localhost/api/training/knowledge", {
+          attemptId,
+          mode: "recall",
+          questionId,
+          answerText: "发生 resize",
+          aiAnalysis: broken,
+        }),
+      );
+      expect(response.status).toBe(400);
+    }
+    expect(mocks.recordCloudKnowledgeAttempt).not.toHaveBeenCalled();
+  });
+
   it("rejects malformed profile fields through the service boundary", async () => {
     mocks.updateCloudProfile.mockRejectedValue(
       new RangeError("Profile fields are invalid"),
