@@ -8,6 +8,7 @@ import {
 } from "./attempts";
 import {
   aggregateAlgorithmWeaknesses,
+  algorithmNewQuotaForWeek,
   generateDailyAlgorithmTasks,
   type AlgorithmPlannerProblem,
   type DailyAlgorithmTask,
@@ -43,6 +44,7 @@ export type LocalAlgorithmTask = DailyAlgorithmTask & {
   date: string;
   status: LocalAlgorithmTaskStatus;
   completedAt: string | null;
+  backfilled?: boolean;
 };
 
 export type AlgorithmDemoData = {
@@ -246,6 +248,16 @@ export function calculateAlgorithmCurrentWeek(
   return Math.min(6, Math.max(1, Math.floor(elapsedDays / 7) + 1));
 }
 
+export function pastPlanDateKeys(planStartDate: string, todayKey: string): string[] {
+  const start = dateKeyToUtc(planStartDate);
+  const end = Math.min(dateKeyToUtc(todayKey), start + 42 * DAY_IN_MILLISECONDS);
+  const dates: string[] = [];
+  for (let timestamp = start; timestamp < end; timestamp += DAY_IN_MILLISECONDS) {
+    dates.push(new Date(timestamp).toISOString().slice(0, 10));
+  }
+  return dates;
+}
+
 export function createAlgorithmDemoData(
   planStartDate: AlgorithmDateInput = new Date(),
   timeZone: string = ALGORITHM_DEMO_TIME_ZONE,
@@ -345,6 +357,7 @@ function isLocalAlgorithmTask(value: unknown): value is LocalAlgorithmTask {
     isValidDateKey(value.date) &&
     typeof value.status === "string" &&
     VALID_TASK_STATUSES.includes(value.status as (typeof VALID_TASK_STATUSES)[number]) &&
+    (value.backfilled === undefined || typeof value.backfilled === "boolean") &&
     (value.completedAt === null || isDate(value.completedAt))
   );
 }
@@ -457,9 +470,50 @@ export function ensureTodayAlgorithmTasks(
   const trainingDay = shiftToTrainingDay(today);
   const date = getAlgorithmDemoDateKey(trainingDay, timeZone);
   const currentWeek = calculateAlgorithmCurrentWeek(data.planStartDate, trainingDay, timeZone);
-  const cachedTasks = data.dailyTasks[date];
+  const pastDates = pastPlanDateKeys(data.planStartDate, date);
+  const configuredNew = options.newCount ?? 2;
+  const configuredReview = options.reviewCount ?? 1;
+  const expectedNew = Math.min(problems.length, pastDates.reduce((total, pastDate) =>
+    total + algorithmNewQuotaForWeek(
+      calculateAlgorithmCurrentWeek(data.planStartDate, pastDate, timeZone),
+      configuredNew,
+      configuredReview,
+    ), 0));
+  const learned = Object.values(data.states).filter((state) => state.attemptCount > 0).length;
+  const pastTasks = pastDates.flatMap((pastDate) => data.dailyTasks[pastDate] ?? []);
+  const pendingNew = pastTasks.filter((task) => task.taskType !== "review" && task.status !== "completed").length;
+  let toBackfill = Math.max(0, expectedNew - learned - pendingNew);
+  const assigned = new Set(Object.values(data.dailyTasks).flat()
+    .filter((task) => task.date >= data.planStartDate && task.taskType !== "review")
+    .map((task) => task.problemId));
+  let nextData = data;
+  for (const pastDate of pastDates) {
+    if (toBackfill === 0) break;
+    if (data.dailyTasks[pastDate] !== undefined) continue;
+    const week = calculateAlgorithmCurrentWeek(data.planStartDate, pastDate, timeZone);
+    const tasks: LocalAlgorithmTask[] = generateDailyAlgorithmTasks({
+      problems: problems.filter((problem) => !assigned.has(problem.id)),
+      states: Object.values(data.states),
+      currentWeek: week,
+      newCount: configuredNew,
+      reviewCount: configuredReview,
+      today,
+    }).filter((task) => task.taskType !== "review").slice(0, toBackfill).map((task) => ({
+      ...task,
+      date: pastDate,
+      status: "pending",
+      completedAt: null,
+      backfilled: true,
+    }));
+    if (tasks.length === 0) continue;
+    if (nextData === data) nextData = cloneData(data);
+    nextData.dailyTasks[pastDate] = tasks;
+    for (const task of tasks) assigned.add(task.problemId);
+    toBackfill -= tasks.length;
+  }
+  const cachedTasks = nextData.dailyTasks[date];
   if (cachedTasks !== undefined) {
-    return { data, tasks: cachedTasks, currentWeek, date };
+    return { data: nextData, tasks: cachedTasks, currentWeek, date };
   }
 
   const weaknesses = aggregateAlgorithmWeaknesses({
@@ -469,7 +523,7 @@ export function ensureTodayAlgorithmTasks(
     })),
   }).map(({ tag }) => tag);
   const tasks = generateDailyAlgorithmTasks({
-    problems,
+    problems: problems.filter((problem) => !assigned.has(problem.id)),
     states: Object.values(data.states),
     weaknessTags: weaknesses,
     currentWeek,
@@ -482,7 +536,7 @@ export function ensureTodayAlgorithmTasks(
     status: "pending" as const,
     completedAt: null,
   }));
-  const nextData = cloneData(data);
+  if (nextData === data) nextData = cloneData(data);
   nextData.dailyTasks[date] = tasks;
   return { data: nextData, tasks, currentWeek, date };
 }

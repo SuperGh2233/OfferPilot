@@ -184,17 +184,12 @@ export function KnowledgeOverview({
   ).length;
   const dueQuestions = getDueKnowledgeQuestions(questions, data, now);
   const dueCount = dueQuestions.length;
-  const plannerById = new Map(plannerQuestions.map((question) => [question.id, question]));
-  const unlearnedCoreQuestions = (data ? questions : []).filter((question) =>
-    question.questionType === "main"
-    && question.isCore6Weeks
-    && (data?.states[question.id]?.attemptCount ?? 0) === 0,
-  ).sort((left, right) =>
-    (plannerById.get(left.id)?.recommendedWeek ?? 99)
-    - (plannerById.get(right.id)?.recommendedWeek ?? 99)
-    || right.importance - left.importance
-    || (plannerById.get(left.id)?.sourceOrder ?? 0) - (plannerById.get(right.id)?.sourceOrder ?? 0),
-  );
+  const backlogTasks = Object.values(data?.dailyTasks ?? {}).flat().filter((task) =>
+    task.date >= (data?.planStartDate ?? "")
+    && task.date < (snapshot?.date ?? "")
+    && task.taskType === "new"
+    && task.status !== "completed",
+  ).sort((left, right) => left.date.localeCompare(right.date) || left.sortOrder - right.sortOrder);
   const completedToday = snapshot?.tasks.filter((task) => task.status === "completed").length ?? 0;
 
   return (
@@ -279,19 +274,20 @@ export function KnowledgeOverview({
           </div>
         </section>
 
-        <section className="scroll-mt-20 rounded-2xl border bg-card p-5 shadow-sm" id="new">
-          <h2 className="font-semibold">可补的核心新学 · {unlearnedCoreQuestions.length} 道</h2>
-          <p className="mt-1 text-sm text-muted-foreground">按推荐周次排列；进度缺口不是旧日期固定题单，完成任意未学核心题都能缩小缺口。</p>
+        <section className="scroll-mt-20 rounded-2xl border bg-card p-5 shadow-sm" id="backlog">
+          <h2 className="font-semibold">往日待补新学 · {backlogTasks.length} 道</h2>
+          <p className="mt-1 text-sm text-muted-foreground">按原训练日期排列；“补排”表示漏训当日没有生成任务，回来后才分配。</p>
           <div className="mt-4 grid max-h-80 gap-2 overflow-y-auto sm:grid-cols-2">
-            {unlearnedCoreQuestions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">六周核心题已全部学习。</p>
-            ) : unlearnedCoreQuestions.map((question) => (
+            {backlogTasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">没有往日待补新学题。</p>
+            ) : backlogTasks.map((task) => (
               <Link
                 className="rounded-xl border p-3 text-sm font-medium leading-6 hover:border-ring hover:bg-muted"
-                href={`/knowledge/${question.id}`}
-                key={question.id}
+                href={`/knowledge/${task.questionId}`}
+                key={`${task.date}-${task.questionId}`}
               >
-                {question.question}
+                <span className="block text-xs text-muted-foreground">{task.date} · {task.backfilled ? "补排" : "原定任务"}</span>
+                {questionById.get(task.questionId)?.question ?? "题目不可用"}
               </Link>
             ))}
           </div>

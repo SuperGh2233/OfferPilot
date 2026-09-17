@@ -56,6 +56,14 @@ describe("progress summary", () => {
     expect(calculateTrainingStreak(tasks, "2026-09-09T12:00:00+08:00")).toBe(1);
   });
 
+  it("uses the actual completion day for a late catch-up task", () => {
+    const tasks = [
+      { date: "2026-09-13", status: "completed" as const, completedAt: "2026-09-13T12:00:00+08:00" },
+      { date: "2026-09-14", status: "completed" as const, completedAt: "2026-09-15T12:00:00+08:00" },
+    ];
+    expect(calculateTrainingStreak(tasks, "2026-09-15T12:00:00+08:00")).toBe(1);
+  });
+
   it("summarizes learned, mastered, due, and unlearned catalog items", () => {
     expect(calculateCatalogProgress(["new", "due", "mastered"], {
       due: {
@@ -145,6 +153,19 @@ describe("calculateTrainingBacklog", () => {
     algorithmCatalogSize: 100,
     knowledgeCatalogSize: 120,
   };
+
+  it("keeps a missed day in history after its backfilled task is completed later", () => {
+    expect(calculateTrainingBacklog({
+      ...emptyLearningPlan,
+      algorithmStates: [], knowledgeStates: [],
+      algorithmDailyTasks: {
+        "2026-09-14": [{ date: "2026-09-14", status: "completed", completedAt: "2026-09-15T12:00:00+08:00" }],
+      },
+      knowledgeDailyTasks: {},
+      planStartDate: "2026-09-14",
+      today: "2026-09-15T12:00:00+08:00",
+    })).toMatchObject({ missedTrainingDays: 1, algorithmLeftoverTasks: 0 });
+  });
 
   it("counts overdue reviews from states and leftover tasks from earlier dates", () => {
     expect(calculateTrainingBacklog({

@@ -148,6 +148,31 @@ describe("algorithm demo local storage adapter", () => {
     expect(result.tasks[0].taskType).toBe("new");
   });
 
+  it("backfills missed dates with fixed new problems and completes the assigned debt", () => {
+    const catalog = Array.from({ length: 8 }, (_, index) => ({
+      id: String(index + 1), tags: ["数组"], recommendedWeek: 1,
+      importance: 5, orderIndex: index + 1,
+    }));
+    const first = ensureTodayAlgorithmTasks(createAlgorithmDemoData("2026-09-09"), catalog, day(9));
+    const returned = ensureTodayAlgorithmTasks(first.data, catalog, day(11));
+    expect(returned.data.dailyTasks["2026-09-09"].map((task) => task.problemId)).toEqual(["1", "2"]);
+    expect(returned.data.dailyTasks["2026-09-10"].map((task) => [task.problemId, task.backfilled])).toEqual([["3", true], ["4", true]]);
+    expect(returned.tasks.map((task) => task.problemId)).toEqual(["5", "6"]);
+    expect(ensureTodayAlgorithmTasks(returned.data, catalog, day(11)).data).toBe(returned.data);
+
+    const started = startDemoAlgorithmAttempt({ data: returned.data, problemId: "3", startedAt: day(11), attemptId: "backfill-3" });
+    const completed = completeDemoAlgorithmAttempt({
+      data: started.data, problemId: "3", difficulty: "easy", finishedAt: day(11),
+      result: "first_ac", independence: "independent", waCount: 0, mistakeTags: [],
+    });
+    expect(completed.data.dailyTasks["2026-09-10"][0].status).toBe("completed");
+
+    const todayAlreadyAssigned = ensureTodayAlgorithmTasks(createAlgorithmDemoData("2026-09-11"), catalog, day(11)).data;
+    const lateBackfill = ensureTodayAlgorithmTasks({ ...todayAlreadyAssigned, planStartDate: "2026-09-09" }, catalog, day(11));
+    expect(lateBackfill.tasks.map((task) => task.problemId)).toEqual(["1", "2"]);
+    expect(lateBackfill.data.dailyTasks["2026-09-09"].map((task) => task.problemId)).toEqual(["3", "4"]);
+  });
+
   it("starts once and resumes the persisted timer after a reload", () => {
     const storage = new MemoryStorage();
     const initial = createAlgorithmDemoData("2026-09-09");
@@ -422,7 +447,7 @@ describe("daily task reset at 03:00", () => {
     );
     expect(afterReset.date).toBe("2026-09-17");
     expect(Object.keys(afterReset.data.dailyTasks).sort())
-      .toEqual(["2026-09-16", "2026-09-17"]);
+      .toEqual(["2026-09-09", "2026-09-10", "2026-09-16", "2026-09-17"]);
   });
 
   it("keeps the cycle week aligned with the training day", () => {

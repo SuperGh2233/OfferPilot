@@ -67,6 +67,26 @@ describe("knowledge demo store", () => {
     expect(result.tasks.every((task) => task.taskType === "new")).toBe(true);
   });
 
+  it("backfills missed new questions without replacing old or today's tasks", () => {
+    const catalog = Array.from({ length: 9 }, (_, index) => ({
+      id: `q${index + 1}`, questionType: "main" as const, isCore6Weeks: true,
+      recommendedWeek: 1, importance: 5, sourceOrder: index + 1,
+    }));
+    const first = ensureTodayKnowledgeTasks(createKnowledgeDemoData(day(1)), catalog, day(1));
+    const returned = ensureTodayKnowledgeTasks(first.data, catalog, day(3));
+    expect(returned.data.dailyTasks["2026-09-01"].map((task) => task.questionId)).toEqual(["q1", "q2", "q3"]);
+    expect(returned.data.dailyTasks["2026-09-02"].map((task) => [task.questionId, task.backfilled])).toEqual([["q4", true], ["q5", true], ["q6", true]]);
+    expect(returned.tasks.map((task) => task.questionId)).toEqual(["q7", "q8", "q9"]);
+    expect(ensureTodayKnowledgeTasks(returned.data, catalog, day(3)).data).toBe(returned.data);
+    const learned = learnDemoKnowledgeQuestion({ data: returned.data, questionId: "q4", selfRating: 4, attemptedAt: day(3), id: "backfill-q4" });
+    expect(learned.data.dailyTasks["2026-09-02"][0].status).toBe("completed");
+
+    const todayAlreadyAssigned = ensureTodayKnowledgeTasks(createKnowledgeDemoData(day(3)), catalog, day(3)).data;
+    const lateBackfill = ensureTodayKnowledgeTasks({ ...todayAlreadyAssigned, planStartDate: "2026-09-01" }, catalog, day(3));
+    expect(lateBackfill.tasks.map((task) => task.questionId)).toEqual(["q1", "q2", "q3"]);
+    expect(lateBackfill.data.dailyTasks["2026-09-01"].map((task) => task.questionId)).toEqual(["q4", "q5", "q6"]);
+  });
+
   it("persists Learn then Recall and completes the matching daily task", () => {
     const storage = new MemoryStorage();
     const withTasks = ensureTodayKnowledgeTasks(

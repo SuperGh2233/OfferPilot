@@ -13,6 +13,7 @@ import type { AlgorithmDateInput } from "../mastery/algorithm";
 import type { KnowledgeRecallAnalysis } from "../ai/knowledge-recall-analysis";
 import {
   generateDailyKnowledgeTasks,
+  knowledgeQuotasForWeek,
   type DailyKnowledgeTask,
   type KnowledgePlannerQuestion,
 } from "../planner/knowledge";
@@ -20,6 +21,7 @@ import {
   ALGORITHM_DEMO_TIME_ZONE,
   calculateAlgorithmCurrentWeek,
   getAlgorithmDemoDateKey,
+  pastPlanDateKeys,
   shiftToTrainingDay,
   type StorageLike,
 } from "../algorithm/demo-store";
@@ -31,6 +33,7 @@ export type LocalKnowledgeTask = DailyKnowledgeTask & {
   date: string;
   status: "pending" | "in_progress" | "completed";
   completedAt: string | null;
+  backfilled?: boolean;
 };
 
 export type KnowledgeDemoData = {
@@ -110,6 +113,7 @@ function isTask(value: unknown): value is LocalKnowledgeTask {
     && isNonNegativeInteger(value.sortOrder)
     && isDateKey(value.date)
     && ["pending", "in_progress", "completed"].includes(String(value.status))
+    && (value.backfilled === undefined || typeof value.backfilled === "boolean")
     && (value.completedAt === null || isDate(value.completedAt));
 }
 
@@ -212,11 +216,53 @@ export function ensureTodayKnowledgeTasks(
   const trainingDay = shiftToTrainingDay(today);
   const taskDate = getAlgorithmDemoDateKey(trainingDay, timeZone);
   const currentWeek = calculateAlgorithmCurrentWeek(data.planStartDate, trainingDay, timeZone);
-  const cached = data.dailyTasks[taskDate];
-  if (cached) return { data, tasks: cached, currentWeek, date: taskDate };
+  const pastDates = pastPlanDateKeys(data.planStartDate, taskDate);
+  const configuredNew = options.newCount ?? 3;
+  const configuredReview = options.reviewCount ?? 3;
+  const coreIds = new Set(questions.filter((question) => question.questionType === "main" && question.isCore6Weeks).map((question) => question.id));
+  const expectedNew = Math.min(coreIds.size, pastDates.reduce((total, pastDate) =>
+    total + knowledgeQuotasForWeek(
+      calculateAlgorithmCurrentWeek(data.planStartDate, pastDate, timeZone),
+      configuredNew,
+      configuredReview,
+    ).newQuota, 0));
+  const learned = [...coreIds].filter((id) => (data.states[id]?.attemptCount ?? 0) > 0).length;
+  const pastTasks = pastDates.flatMap((pastDate) => data.dailyTasks[pastDate] ?? []);
+  const pendingNew = pastTasks.filter((task) => task.taskType === "new" && task.status !== "completed").length;
+  let toBackfill = Math.max(0, expectedNew - learned - pendingNew);
+  const assigned = new Set(Object.values(data.dailyTasks).flat()
+    .filter((task) => task.date >= data.planStartDate && task.taskType === "new")
+    .map((task) => task.questionId));
+  let next = data;
+  for (const pastDate of pastDates) {
+    if (toBackfill === 0) break;
+    if (data.dailyTasks[pastDate] !== undefined) continue;
+    const week = calculateAlgorithmCurrentWeek(data.planStartDate, pastDate, timeZone);
+    const tasks: LocalKnowledgeTask[] = generateDailyKnowledgeTasks({
+      questions: questions.filter((question) => !assigned.has(question.id)),
+      states: Object.values(data.states),
+      currentWeek: week,
+      newCount: configuredNew,
+      reviewCount: configuredReview,
+      today,
+    }).filter((task) => task.taskType === "new").slice(0, toBackfill).map((task) => ({
+      ...task,
+      date: pastDate,
+      status: "pending",
+      completedAt: null,
+      backfilled: true,
+    }));
+    if (tasks.length === 0) continue;
+    if (next === data) next = copy(data);
+    next.dailyTasks[pastDate] = tasks;
+    for (const task of tasks) assigned.add(task.questionId);
+    toBackfill -= tasks.length;
+  }
+  const cached = next.dailyTasks[taskDate];
+  if (cached) return { data: next, tasks: cached, currentWeek, date: taskDate };
 
   const tasks: LocalKnowledgeTask[] = generateDailyKnowledgeTasks({
-    questions,
+    questions: questions.filter((question) => !assigned.has(question.id)),
     states: Object.values(data.states),
     currentWeek,
     newCount: options.newCount,
@@ -228,7 +274,7 @@ export function ensureTodayKnowledgeTasks(
     status: "pending",
     completedAt: null,
   }));
-  const next = copy(data);
+  if (next === data) next = copy(data);
   next.dailyTasks[taskDate] = tasks;
   return { data: next, tasks, currentWeek, date: taskDate };
 }

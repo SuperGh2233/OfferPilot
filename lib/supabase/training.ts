@@ -329,6 +329,7 @@ function algorithmTasks(
       date: row.task_date,
       status: row.status,
       completedAt: row.completed_at,
+      backfilled: row.metadata !== null && typeof row.metadata === "object" && !Array.isArray(row.metadata) && row.metadata.source === "backfill",
     });
   }
   return grouped;
@@ -352,6 +353,7 @@ function knowledgeTasks(
       date: row.task_date,
       status: row.status,
       completedAt: row.completed_at,
+      backfilled: row.metadata !== null && typeof row.metadata === "object" && !Array.isArray(row.metadata) && row.metadata.source === "backfill",
     });
   }
   return grouped;
@@ -498,7 +500,7 @@ export async function loadCloudTrainingSnapshot(
 
   const inserts: DailyTaskInsert[] = [];
   if (ensuredAlgorithm.data !== algorithm) {
-    for (const task of ensuredAlgorithm.tasks) {
+    for (const task of Object.values(ensuredAlgorithm.data.dailyTasks).flat().filter((task) => algorithm.dailyTasks[task.date] === undefined)) {
       inserts.push({
         user_id: userId,
         task_date: task.date,
@@ -511,12 +513,12 @@ export async function loadCloudTrainingSnapshot(
         ),
         sort_order: task.sortOrder,
         completed_at: task.completedAt,
-        metadata: { source: "deterministic_planner" },
+        metadata: { source: task.backfilled ? "backfill" : "deterministic_planner" },
       });
     }
   }
   if (ensuredKnowledge.data !== knowledge) {
-    for (const task of ensuredKnowledge.tasks) {
+    for (const task of Object.values(ensuredKnowledge.data.dailyTasks).flat().filter((task) => knowledge.dailyTasks[task.date] === undefined)) {
       inserts.push({
         user_id: userId,
         task_date: task.date,
@@ -526,7 +528,7 @@ export async function loadCloudTrainingSnapshot(
         knowledge_question_id: task.questionId,
         sort_order: task.sortOrder,
         completed_at: task.completedAt,
-        metadata: { source: "deterministic_planner" },
+        metadata: { source: task.backfilled ? "backfill" : "deterministic_planner" },
       });
     }
   }

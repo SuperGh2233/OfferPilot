@@ -43,6 +43,8 @@ describe("local SQLite training database", () => {
       expect(imported.profile.displayName).toBe("本地数据库用户");
       expect(imported.algorithm.dailyTasks["2026-09-11"]).toHaveLength(2);
       expect(imported.knowledge.dailyTasks["2026-09-11"]).toHaveLength(3);
+      expect(imported.algorithm.dailyTasks["2026-09-09"].every((task) => task.backfilled)).toBe(true);
+      expect(imported.knowledge.dailyTasks["2026-09-10"].every((task) => task.backfilled)).toBe(true);
 
       const problem = algorithmCatalog[0];
       const started = database.startAlgorithm(problem.id, now);
@@ -78,6 +80,8 @@ describe("local SQLite training database", () => {
       expect(reopened.algorithm.attempts).toHaveLength(1);
       expect(reopened.algorithm.attempts[0].aiAnalysis).toEqual(analysis);
       expect(reopened.algorithm.states[problem.id].mastery).toBe(completion.state.mastery);
+      expect(reopened.algorithm.dailyTasks["2026-09-09"]).toEqual(imported.algorithm.dailyTasks["2026-09-09"].map((task) =>
+        task.problemId === problem.id ? { ...task, status: "completed", completedAt: completion.attempt.finishedAt } : task));
 
       const canceledAttempt = database.startAlgorithm(problem.id, now);
       database.cancelAlgorithm(canceledAttempt.id, problem.id);

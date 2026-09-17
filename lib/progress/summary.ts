@@ -1,5 +1,7 @@
 import { getAlgorithmDemoDateKey, getAlgorithmTrainingDateKey } from "../algorithm/demo-store";
 import type { AlgorithmDateInput } from "../mastery/algorithm";
+import { algorithmNewQuotaForWeek } from "../planner/algorithm";
+import { knowledgeQuotasForWeek } from "../planner/knowledge";
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 export const FIRST_CYCLE_DAYS = 42;
@@ -7,7 +9,14 @@ export const FIRST_CYCLE_DAYS = 42;
 export type SummaryTask = {
   date: string;
   status: "pending" | "in_progress" | "completed";
+  completedAt?: string | null;
 };
+
+function completionDateKey(task: SummaryTask, timeZone?: string) {
+  return task.completedAt
+    ? getAlgorithmTrainingDateKey(task.completedAt, timeZone)
+    : task.date;
+}
 
 export type CyclePosition = {
   day: number;
@@ -94,7 +103,8 @@ export function calculateTrainingStreak(
   timeZone?: string,
 ) {
   const completedDates = new Set(
-    tasks.filter((task) => task.status === "completed").map((task) => task.date),
+    tasks.filter((task) => task.status === "completed")
+      .map((task) => completionDateKey(task, timeZone)),
   );
   let cursor = getAlgorithmTrainingDateKey(today, timeZone);
   if (!completedDates.has(cursor)) cursor = shiftDateKey(cursor, -1);
@@ -153,20 +163,9 @@ function assertNonNegativeInteger(value: number, name: string) {
 
 function plannedNewCountForDay(dayIndex: number, counts: TrainingPlanCounts) {
   const week = Math.floor(dayIndex / 7) + 1;
-  const algorithmTotal = counts.dailyNewAlgorithmCount + counts.dailyReviewAlgorithmCount;
-  const knowledgeTotal = counts.dailyNewKnowledgeCount + counts.dailyReviewKnowledgeCount;
-
   return {
-    algorithm: week <= 3
-      ? counts.dailyNewAlgorithmCount
-      : week <= 5
-        ? algorithmTotal - Math.round(algorithmTotal * 0.7)
-        : 0,
-    knowledge: week <= 4
-      ? counts.dailyNewKnowledgeCount
-      : week === 5
-        ? Math.min(1, knowledgeTotal)
-        : 0,
+    algorithm: algorithmNewQuotaForWeek(week, counts.dailyNewAlgorithmCount, counts.dailyReviewAlgorithmCount),
+    knowledge: knowledgeQuotasForWeek(week, counts.dailyNewKnowledgeCount, counts.dailyReviewKnowledgeCount).newQuota,
   };
 }
 
@@ -239,7 +238,8 @@ export function calculateTrainingBacklog({
   const cycleTasks = [algorithmDailyTasks, knowledgeDailyTasks].flatMap(flattenDailyTasks);
   const scheduledDates = new Set(cycleTasks.map((task) => task.date));
   const completedDates = new Set(
-    cycleTasks.filter((task) => task.status === "completed").map((task) => task.date),
+    cycleTasks.filter((task) => task.status === "completed")
+      .map((task) => completionDateKey(task, timeZone)),
   );
   const pastCycleDays = Math.min(
     FIRST_CYCLE_DAYS,

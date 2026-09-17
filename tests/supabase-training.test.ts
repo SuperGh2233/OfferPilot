@@ -230,7 +230,7 @@ describe("Supabase training adapter", () => {
     expect(completedTaskProblemIds).toContainEqual(["db-49"]);
   });
 
-  it("paginates long histories and inserts the deterministic daily task set", async () => {
+  it("paginates long histories and persists missed-day assignments once", async () => {
     const attempts: AlgorithmAttempt[] = Array.from({ length: 1_001 }, (_, index) => ({
       id: `attempt-${index}`,
       user_id: "user-1",
@@ -260,26 +260,28 @@ describe("Supabase training adapter", () => {
 
     expect(snapshot.algorithm.attempts).toHaveLength(1_001);
     expect(fake.ranges.algorithm_attempts).toEqual([[0, 999], [1_000, 1_999]]);
-    expect(fake.insertedTasks).toHaveLength(5);
+    expect(fake.insertedTasks).toHaveLength(15);
     expect(fake.insertedTasks.filter((row) =>
       (row as Record<string, unknown>).algorithm_problem_id,
-    )).toHaveLength(2);
+    )).toHaveLength(6);
     expect(fake.insertedTasks.filter((row) =>
       (row as Record<string, unknown>).knowledge_question_id,
-    )).toHaveLength(3);
+    )).toHaveLength(9);
     expect(fake.insertedTasks[0]).toMatchObject({
       user_id: "user-1",
-      task_date: "2026-09-11",
+      task_date: "2026-09-09",
       status: "pending",
-      metadata: { source: "deterministic_planner" },
+      metadata: { source: "backfill" },
     });
+    expect(fake.insertedTasks.filter((row) => (row as Record<string, unknown>).task_date === "2026-09-11")).toHaveLength(5);
 
     const repeated = await loadCloudTrainingSnapshot(
       fake as never,
       "user-1",
       new Date("2026-09-11T08:00:00.000Z"),
     );
-    expect(fake.insertedTasks).toHaveLength(5);
+    expect(fake.insertedTasks).toHaveLength(15);
+    expect(repeated.algorithm.dailyTasks["2026-09-09"][0].backfilled).toBe(true);
     expect(repeated.algorithm.dailyTasks["2026-09-11"]).toHaveLength(2);
     expect(repeated.knowledge.dailyTasks["2026-09-11"]).toHaveLength(3);
   });

@@ -6,11 +6,11 @@
 
 - 最后更新：2026-09-18
 - 当前阶段：Phase 8 已完成，V1 最终验收通过；进入 AGENTS.md 优化路线图优先级 2
-- 当前任务：**阻塞中**——每日任务重置改到凌晨 3 点已实现并通过质量门，同样待推送；八股 Recall 改为 AI 主导计分（`max(确定性, 语义)`）已实现并通过质量门，代码提交在本地，但**必须先应用迁移 `202609170001_knowledge_ai_scoring.sql` 才能部署**：新代码调用带新参数的 RPC，若代码先上线，八股 Learn/Recall 提交会返回 500。迁移需要数据库密码或 `SUPABASE_ACCESS_TOKEN`，本机均无。
+- 当前任务：**漏训日补排具体题目已完成，准备本地提交；推送阻塞**。2026-09-18 只读探测确认远端缺少 `knowledge_attempts.effective_coverage_score`，八股 AI 计分迁移 `202609170001_knowledge_ai_scoring.sql` 仍未应用；迁移前不得推送 `main` 触发自动部署。迁移完成后推送，再回到优化路线优先级 2（120 道核心八股题匹配质量）。
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7、Phase 8
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase 与 Vercel 生产部署 READY；生产 Smoke 全部通过——匿名边界（脚本）、真实登录/登出/重登、Dashboard 刷新、算法开始/取消/完成/草稿恢复/AI 代码复盘、知识 Learn/Recall/AI 语义复核、刷新与重登后持久化均验收通过；期间发现并修复 Supabase 网关间歇 504（弹性重试已部署，修复后探测 12/12 成功）。2026-09-17 只读探测确认远端 `knowledge_attempts` 尚无 `effective_coverage_score` / `ai_analysis` 两列，即迁移未应用。
-- 最近质量门：Node 22.22.2 下 `lint`、`typecheck`、`test`、`build` 全部通过；34 个测试文件、324 项测试通过（注意：本机 `npm run <script>` 包装层在沙箱下会返回 1 且吞掉输出，已改用 `npx eslint` / `npx tsc --noEmit` / `npx vitest run` / `npx next build` 直接验证，工具自身退出码为 0）
+- 最近质量门：便携 Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；34 个测试文件、328 项测试、239 个生成页面（本机 PATH 仍为 Node 20，质量命令直接使用便携 Node 24）。
 
 | 阶段 | 状态 | 核心结果 |
 | --- | --- | --- |
@@ -69,6 +69,8 @@ npm run build
 - Knowledge Planner 在 Week 5 默认调整为 1 新学 + 5 复习，Week 6 为 0 新学 + 6 复习；不足的到期复习不以未到期题补位。
 - 2026-09-13 起逾期复习上浮：当天到期复习多于复习配额时，配额自动提升为配置数量的最多 3 倍（不超过实际逾期数，显式配 0 不上浮）；Dashboard 显示逾期复习与往日遗留任务欠账。
 - 计划开始日期是遗留任务欠账的下边界；重设起点不会删除历史或掌握度，但新起点之前的未完成日任务不再计入当前计划欠账。
+- 漏训日若从未生成任务，下一次加载时按当前计划配额、当前已学状态及教学顺序为该日期**补排**具体新学题，并在界面明确标记为补排；不可伪称它们曾在当天生成。原有任务和历史 Attempt 不改写，逾期复习仍按真实到期时刻单独统计；已学或已分配的题不可重复补排。
+- 补排任务的 `date` 是原计划日期，`completedAt` 是实际完成时刻；漏训日与连续训练按实际完成的训练日计算，不因事后补题而伪造过去的签到。所有待补题完成后，单独保留的历史漏训天数不再让 Dashboard 继续显示“待补齐”警示。
 - 外部已完成算法题允许按题号、`[题号]题名` 或 LeetCode 链接批量导入；导入题以 60% 保守掌握度进入学习状态、3 天后复习，不伪造训练 Attempt，也不覆盖已有 OfferPilot 记录。
 - 2026-09-17 起八股 Recall 支持语音输入：录音在浏览器本地完成，转写走服务端百炼 `qwen3-asr-flash`（OpenAI 兼容 `/chat/completions` + `input_audio` Data URL），复用现有 `OPENAI_API_KEY` / `OPENAI_BASE_URL`，不注入浏览器；前端统一把录音转成 16kHz 单声道 WAV 再上传，原始音频不落盘、不入库，只保存用户确认后的文本。个人用量在百炼 10 小时/月免费额度内，成本约等于 0。
 - 语音输入只做八股 Recall 一处；算法训练不新增语音与笔记字段，避免扩大改动面。
@@ -284,6 +286,7 @@ npm run build
 - [x] Knowledge Recall 提交后在匹配结果前展示只读的本次原始回答，保留换行；空回答明确显示“本次选择：想不起来”，不修改已保存 Attempt。
 - [x] Dashboard 欠账准确性：计划起点后的未打开日期也能识别漏训；分开展示逾期复习、累计新学进度缺口和漏训天数，且重设起点后不继承起点前欠账。
 - [x] 欠账入口正确性：算法复习按钮直达待复习筛选，八股复习按钮直达全部到期题（不受今日配额限制），列表与 Dashboard 的到期数量一致；新学缺口可直达未学题。（2026-09-16 完成，质量门全绿）
+- [x] 正确性阻塞：漏训日补排具体新学题，欠账入口直达按原日期列出的待补题；完成后消账，重复加载无重复分配，本地 Demo/SQLite/Supabase 均持久化；不篡改已生成任务、Attempt 或独立的逾期复习。便携 Node 24 下 lint/typecheck/test/build 全通过（34 文件、328 测试、239 页面）。
 - [x] 八股 Recall 语音输入：录音、服务端转写、结果追加进回答框，复用服务端密钥边界与有界超时，不改变提交语义与 Attempt 结构。（2026-09-17 完成，真实转写验证通过）
 - [x] 八股 Recall 计分改为 AI 主导 + 确定性下界：`effectiveCoverageScore = max(确定性加权覆盖率, AI 语义覆盖)`，mastery/下次复习据此更新；Attempt 分列记录确定性覆盖、语义覆盖与实际计分覆盖率；历史 Attempt 不回填。配套迁移 `202609170001_knowledge_ai_scoring.sql`（两个可空列 + RPC 追加带默认值的参数）。（实现完成、质量门通过；**待应用迁移后部署**）
 - [x] 算法训练页 Java 编辑器 Tab 缩进：Tab/Shift+Tab 在编辑区内缩进与反缩进，不再把焦点移出输入框；Ctrl/Alt/Meta+Tab 与"Esc 后 Tab"仍可正常离开编辑器。（2026-09-17 完成）
@@ -477,3 +480,4 @@ npm run build
 | 2026-09-17 | 计分口径 | 八股 Recall 改为 AI 主导计分：新增 `combineRecallCoverage`，`effectiveCoverageScore = max(确定性加权覆盖率, AI 语义覆盖)`，mastery、下次复习与 `lastRecallCoverageScore` 全部改用该值；确定性覆盖与 AI 语义覆盖分列落库（`coverage_score` / `ai_analysis.semanticScore` / 新增 `effective_coverage_score`），历史行保持 null 且读取时回退，不回填不重算。AI 复核改到提交时同步执行：前端先调 `/api/ai/analyze-recall` 再单次落库，AI 不可用时按确定性分计分并明确告知，补救复核只补解释不改分。新增迁移 `202609170001_knowledge_ai_scoring.sql`，两个新 RPC 参数带默认值以便迁移对旧前端也兼容 | lint/typecheck 通过；34 个测试文件、316 项测试通过；`next build` 成功。**待应用迁移后部署** |
 | 2026-09-17 | 编辑器 | 算法训练页 Java 编辑器支持 Tab 缩进：新增纯函数 `lib/editor/tab-indent.ts`（光标处插入一个缩进宽度；反缩进只移除光标前真实存在的空白且不越过行首；多行选区整块伸缩并保持选区）。组件对纯插入走 `setRangeText` 以免 React 重置光标，其余情况走状态更新 + 一次性光标恢复；保留 Ctrl/Alt/Meta+Tab 与"Esc 后 Tab"的键盘退出路径 | 新增 11 项目标测试；lint/typecheck 通过；34 个测试文件、316 项测试通过；`next build` 成功 |
 | 2026-09-18 | 任务重置 | 每日任务重置时刻改为按 profile 时区**凌晨 3 点**：新增 `DAILY_RESET_HOUR`、`shiftToTrainingDay()` 与 `getAlgorithmTrainingDateKey()`；任务生成（算法/八股 ensure）、今日任务挑选（算法列表/Dashboard/八股总览）、连续天数与周期位置、欠账与缺失日统计、以及开始训练时写入的 `p_task_date` 全部改用训练日口径；确保函数的日期键与周次同时按训练日计算，避免凌晨出现"任务记在昨天、周次已翻新周"的错配。计划开始日与 profile 校验仍用无偏移的 `getAlgorithmDemoDateKey()`。到期判定与所有时间戳保持真实时刻 | 新增边界回归 5 项（00:30/02:59:59 归前一天、03:00 归当天、纯日期不偏移、周次与训练日对齐、八股侧一致）；lint/typecheck 通过；34 个测试文件、324 项测试通过；`next build` 成功 |
+| 2026-09-18 | 正确性阻塞 | 为未生成任务的漏训日按原计划日期补排具体算法/八股新学题，复用现有任务表并持久化 `backfill` 来源；按当前已学进度减去原有待完成任务，避免重复分配已学、旧日或今日已分配题。Dashboard 新学欠账入口直达原日期题单，标明“补排”；完成题目消除对应待办，逾期复习仍独立。漏训天数和连续训练改按实际完成日计算，事后补题不伪造历史签到；无待办后不再仅因历史漏训日显示警示 | 浏览器 Demo、SQLite 与 Supabase 适配层回归覆盖；便携 Node 24 下 lint/typecheck/test/build 全通过，34 个测试文件、328 项测试、239 个生成页面；2026-09-18 只读探测确认生产库仍缺 `effective_coverage_score` 列，故只本地提交、暂不推送 `main`，待 AI 计分迁移应用后再部署 |

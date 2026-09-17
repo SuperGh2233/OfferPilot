@@ -16,7 +16,7 @@ export default async function AlgorithmPage({
   const localMode = isLocalDemoMode();
   const demoMode = isBrowserDemoMode();
   const requestedFilter = (await searchParams).filter;
-  const initialFilter = requestedFilter === "due" || requestedFilter === "unlearned"
+  const initialFilter = requestedFilter === "due" || requestedFilter === "unlearned" || requestedFilter === "backlog"
     ? requestedFilter
     : "all";
 

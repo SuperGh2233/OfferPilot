@@ -88,7 +88,7 @@ function validateState(state: KnowledgePlannerState, index: number) {
   }
 }
 
-function quotas(currentWeek: number, newCount: number, reviewCount: number) {
+export function knowledgeQuotasForWeek(currentWeek: number, newCount: number, reviewCount: number) {
   const total = newCount + reviewCount;
   if (currentWeek === 5) return { newQuota: Math.min(1, total), reviewQuota: Math.max(0, total - 1) };
   if (currentWeek === 6) return { newQuota: 0, reviewQuota: total };
@@ -161,7 +161,7 @@ export function generateDailyKnowledgeTasks({
     else existingReview += 1;
   });
 
-  const plannedQuotas = quotas(currentWeek, newCount, reviewCount);
+  const plannedQuotas = knowledgeQuotasForWeek(currentWeek, newCount, reviewCount);
   const newQuota = Math.max(0, plannedQuotas.newQuota - existingNew);
   let reviewQuota = Math.max(0, plannedQuotas.reviewQuota - existingReview);
 

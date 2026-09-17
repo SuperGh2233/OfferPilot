@@ -35,6 +35,7 @@ import { importCloudAlgorithms } from "@/lib/supabase/training-client";
 type AlgorithmFilter =
   | "all"
   | "today"
+  | "backlog"
   | "due"
   | "unlearned"
   | "mastered"
@@ -51,7 +52,7 @@ type DemoSnapshot = {
 
 type AlgorithmListProps = {
   demoMode: boolean;
-  initialFilter: "all" | "due" | "unlearned";
+  initialFilter: "all" | "backlog" | "due" | "unlearned";
   problems: readonly AlgorithmCatalogProblem[];
   tags: readonly string[];
 };
@@ -59,6 +60,7 @@ type AlgorithmListProps = {
 const FILTERS: readonly { key: AlgorithmFilter; label: string }[] = [
   { key: "all", label: "全部" },
   { key: "today", label: "今日任务" },
+  { key: "backlog", label: "往日待补" },
   { key: "due", label: "待复习" },
   { key: "unlearned", label: "未学习" },
   { key: "mastered", label: "已掌握" },
@@ -247,11 +249,20 @@ export default function AlgorithmList({
     () => new Set((snapshot?.tasks ?? []).map((task) => task.problemId)),
     [snapshot?.tasks],
   );
+  const backlogById = useMemo(() => new Map(
+    Object.values(data?.dailyTasks ?? {}).flat().filter((task) =>
+      task.date >= (data?.planStartDate ?? "")
+      && task.date < (snapshot?.date ?? "")
+      && task.taskType !== "review"
+      && task.status !== "completed",
+    ).map((task) => [task.problemId, task]),
+  ), [data, snapshot?.date]);
 
   const filterCounts = useMemo(() => {
     const counts: Record<AlgorithmFilter, number> = {
       all: problems.length,
       today: todayTaskIds.size,
+      backlog: backlogById.size,
       due: 0,
       unlearned: 0,
       mastered: 0,
@@ -265,13 +276,14 @@ export default function AlgorithmList({
       if (isWeak(data, problem.id)) counts.weak += 1;
     }
     return counts;
-  }, [data, now, problems, todayTaskIds]);
+  }, [backlogById, data, now, problems, todayTaskIds]);
 
   const visibleProblems = useMemo(() => {
-    return problems.filter((problem) => {
+    const visible = problems.filter((problem) => {
       const matchesFilter =
         filter === "all" ||
         (filter === "today" && todayTaskIds.has(problem.id)) ||
+        (filter === "backlog" && backlogById.has(problem.id)) ||
         (filter === "due" && isAlgorithmDue(data, problem.id, now)) ||
         (filter === "unlearned" && !hasAttempted(data, problem.id)) ||
         (filter === "mastered" && isMastered(data, problem.id)) ||
@@ -279,7 +291,9 @@ export default function AlgorithmList({
       const matchesTag = selectedTag === "" || problem.tags.includes(selectedTag);
       return matchesFilter && matchesTag;
     });
-  }, [data, filter, now, problems, selectedTag, todayTaskIds]);
+    return filter === "backlog" ? visible.sort((left, right) =>
+      (backlogById.get(left.id)?.date ?? "").localeCompare(backlogById.get(right.id)?.date ?? "")) : visible;
+  }, [backlogById, data, filter, now, problems, selectedTag, todayTaskIds]);
 
   const learnedCount = problems.filter((problem) => hasAttempted(data, problem.id)).length;
   const masteredCount = filterCounts.mastered;
@@ -514,6 +528,7 @@ export default function AlgorithmList({
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Hot 100 题目列表">
             {visibleProblems.map((problem) => (
               <AlgorithmCard
+                backlogTask={backlogById.get(problem.id)}
                 key={problem.id}
                 problem={problem}
                 data={data}
@@ -540,12 +555,14 @@ function StatCard({ label, value, detail }: { label: string; value: number; deta
 }
 
 function AlgorithmCard({
+  backlogTask,
   data,
   isToday,
   now,
   problem,
   timeZone,
 }: {
+  backlogTask?: LocalAlgorithmTask;
   data: AlgorithmDemoData | null;
   isToday: boolean;
   now: number;
@@ -580,6 +597,7 @@ function AlgorithmCard({
         {problem.title}
       </h2>
       <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{problem.titleEn}</p>
+      {backlogTask ? <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">{backlogTask.date} · {backlogTask.backfilled ? "补排" : "原定任务"}</p> : null}
 
       <div className="mt-4 flex flex-wrap gap-1.5">
         {problem.tags.slice(0, 3).map((tag) => (

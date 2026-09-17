@@ -69,6 +69,15 @@ const VALID_TASK_TYPES: readonly AlgorithmTaskType[] = [
 // Upper bound for overdue-review uplift, as a multiple of the configured quota.
 const REVIEW_BACKLOG_MULTIPLIER = 3;
 
+export function algorithmNewQuotaForWeek(currentWeek: number, newCount: number, reviewCount: number) {
+  if (currentWeek === 6) return 0;
+  if (currentWeek === 4 || currentWeek === 5) {
+    const total = newCount + reviewCount;
+    return total - Math.round(total * 0.7);
+  }
+  return newCount;
+}
+
 function assertArray(value: unknown, name: string): asserts value is readonly unknown[] {
   if (!Array.isArray(value)) {
     throw new RangeError(`${name} must be an array`);
@@ -330,13 +339,11 @@ export function generateDailyAlgorithmTasks({
   const weaknessSet = normalizedTagSet(weaknessTags, "weaknessTags");
   const totalQuota = newCount + reviewCount;
   let reviewQuota = reviewCount;
-  let newQuota = newCount;
+  let newQuota = algorithmNewQuotaForWeek(currentWeek, newCount, reviewCount);
   if (currentWeek === 4 || currentWeek === 5) {
     reviewQuota = Math.round(totalQuota * 0.7);
-    newQuota = totalQuota - reviewQuota;
   } else if (currentWeek === 6) {
     reviewQuota = totalQuota;
-    newQuota = 0;
   }
   reviewQuota = Math.max(0, reviewQuota - existingReviewCount);
   newQuota = Math.max(0, newQuota - existingNewCount);

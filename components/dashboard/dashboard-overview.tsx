@@ -261,7 +261,16 @@ export function DashboardOverview({
     algorithmCatalogSize: algorithmProblems.length,
     knowledgeCatalogSize: coreKnowledgeQuestions.length,
   });
-  const hasBacklog = Object.values(backlog).some((count) => count > 0);
+  const todayKey = getAlgorithmTrainingDateKey(snapshot.now, snapshot.profile.timeZone);
+  const algorithmNewOwed = flattenDailyTasks(snapshot.algorithmData.dailyTasks).filter((task) =>
+    task.date >= snapshot.profile.planStartDate && task.date < todayKey
+    && task.taskType !== "review" && task.status !== "completed",
+  ).length;
+  const knowledgeNewOwed = flattenDailyTasks(snapshot.knowledgeData.dailyTasks).filter((task) =>
+    task.date >= snapshot.profile.planStartDate && task.date < todayKey
+    && task.taskType === "new" && task.status !== "completed",
+  ).length;
+  const hasBacklog = Object.entries(backlog).some(([key, count]) => key !== "missedTrainingDays" && count > 0);
 
   return (
     <div className="mt-8 flex flex-col gap-6">
@@ -319,7 +328,7 @@ export function DashboardOverview({
             </p>
           ) : null}
           <p className="mt-2 text-xs leading-5 text-amber-800/80 dark:text-amber-300/80">
-            逾期复习可在下方入口查看全部到期题；新学进度缺口是累计数量，不对应某天固定的旧题，可继续学习核心题逐步补齐。今日复习任务最多为配置数量的 3 倍。
+            逾期复习与往日待补新学分别处理。漏训日首次补排的题目会标明原日期与“补排”；今日复习任务最多为配置数量的 3 倍。
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             {backlog.algorithmOverdueReviews > 0 ? <Link
@@ -334,17 +343,17 @@ export function DashboardOverview({
             >
               去清八股复习
             </Link> : null}
-            {backlog.algorithmLearningGap > 0 ? <Link
+            {algorithmNewOwed > 0 ? <Link
               className="inline-flex h-9 items-center justify-center rounded-lg border border-amber-400 px-4 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40"
-              href="/algorithm?filter=unlearned#problems"
+              href="/algorithm?filter=backlog#problems"
             >
-              去补算法新学
+              去补算法新学（{algorithmNewOwed}）
             </Link> : null}
-            {backlog.knowledgeLearningGap > 0 ? <Link
+            {knowledgeNewOwed > 0 ? <Link
               className="inline-flex h-9 items-center justify-center rounded-lg border border-amber-400 px-4 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40"
-              href="/knowledge#new"
+              href="/knowledge#backlog"
             >
-              去补八股新学
+              去补八股新学（{knowledgeNewOwed}）
             </Link> : null}
           </div>
         </section>
