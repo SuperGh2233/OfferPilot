@@ -6,10 +6,10 @@
 
 - 最后更新：2026-09-18
 - 当前阶段：Phase 8 已完成，V1 最终验收通过；进入 AGENTS.md 优化路线图优先级 2
-- 当前任务：**漏训日补排具体题目已完成，准备本地提交；推送阻塞**。2026-09-18 只读探测确认远端缺少 `knowledge_attempts.effective_coverage_score`，八股 AI 计分迁移 `202609170001_knowledge_ai_scoring.sql` 仍未应用；迁移前不得推送 `main` 触发自动部署。迁移完成后推送，再回到优化路线优先级 2（120 道核心八股题匹配质量）。
+- 当前任务：**漏训日补排具体题目已完成，生产迁移已应用，准备推送 `main`**。2026-09-18 已应用 `202609170001_knowledge_ai_scoring.sql`，迁移记录与新增字段验证通过，远端已无待执行迁移；下一项回到优化路线优先级 2（120 道核心八股题匹配质量）。
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7、Phase 8
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
-- 云端状态：Supabase 与 Vercel 生产部署 READY；生产 Smoke 全部通过——匿名边界（脚本）、真实登录/登出/重登、Dashboard 刷新、算法开始/取消/完成/草稿恢复/AI 代码复盘、知识 Learn/Recall/AI 语义复核、刷新与重登后持久化均验收通过；期间发现并修复 Supabase 网关间歇 504（弹性重试已部署，修复后探测 12/12 成功）。2026-09-17 只读探测确认远端 `knowledge_attempts` 尚无 `effective_coverage_score` / `ai_analysis` 两列，即迁移未应用。
+- 云端状态：Supabase 与 Vercel 生产部署 READY；2026-09-14 生产 Smoke 全部通过——匿名边界（脚本）、真实登录/登出/重登、Dashboard 刷新、算法开始/取消/完成/草稿恢复/AI 代码复盘、知识 Learn/Recall/AI 语义复核、刷新与重登后持久化均验收通过；期间发现并修复 Supabase 网关间歇 504（弹性重试已部署，修复后探测 12/12 成功）。2026-09-18 已应用 AI 计分迁移，新增字段、迁移历史与题库精确计数均验证通过；新前端上线后仍需复跑 Smoke。
 - 最近质量门：便携 Node 24 下 `lint`、`typecheck`、`test`、`build` 全部通过；34 个测试文件、328 项测试、239 个生成页面（本机 PATH 仍为 Node 20，质量命令直接使用便携 Node 24）。
 
 | 阶段 | 状态 | 核心结果 |
@@ -481,3 +481,4 @@ npm run build
 | 2026-09-17 | 编辑器 | 算法训练页 Java 编辑器支持 Tab 缩进：新增纯函数 `lib/editor/tab-indent.ts`（光标处插入一个缩进宽度；反缩进只移除光标前真实存在的空白且不越过行首；多行选区整块伸缩并保持选区）。组件对纯插入走 `setRangeText` 以免 React 重置光标，其余情况走状态更新 + 一次性光标恢复；保留 Ctrl/Alt/Meta+Tab 与"Esc 后 Tab"的键盘退出路径 | 新增 11 项目标测试；lint/typecheck 通过；34 个测试文件、316 项测试通过；`next build` 成功 |
 | 2026-09-18 | 任务重置 | 每日任务重置时刻改为按 profile 时区**凌晨 3 点**：新增 `DAILY_RESET_HOUR`、`shiftToTrainingDay()` 与 `getAlgorithmTrainingDateKey()`；任务生成（算法/八股 ensure）、今日任务挑选（算法列表/Dashboard/八股总览）、连续天数与周期位置、欠账与缺失日统计、以及开始训练时写入的 `p_task_date` 全部改用训练日口径；确保函数的日期键与周次同时按训练日计算，避免凌晨出现"任务记在昨天、周次已翻新周"的错配。计划开始日与 profile 校验仍用无偏移的 `getAlgorithmDemoDateKey()`。到期判定与所有时间戳保持真实时刻 | 新增边界回归 5 项（00:30/02:59:59 归前一天、03:00 归当天、纯日期不偏移、周次与训练日对齐、八股侧一致）；lint/typecheck 通过；34 个测试文件、324 项测试通过；`next build` 成功 |
 | 2026-09-18 | 正确性阻塞 | 为未生成任务的漏训日按原计划日期补排具体算法/八股新学题，复用现有任务表并持久化 `backfill` 来源；按当前已学进度减去原有待完成任务，避免重复分配已学、旧日或今日已分配题。Dashboard 新学欠账入口直达原日期题单，标明“补排”；完成题目消除对应待办，逾期复习仍独立。漏训天数和连续训练改按实际完成日计算，事后补题不伪造历史签到；无待办后不再仅因历史漏训日显示警示 | 浏览器 Demo、SQLite 与 Supabase 适配层回归覆盖；便携 Node 24 下 lint/typecheck/test/build 全通过，34 个测试文件、328 项测试、239 个生成页面；2026-09-18 只读探测确认生产库仍缺 `effective_coverage_score` 列，故只本地提交、暂不推送 `main`，待 AI 计分迁移应用后再部署 |
+| 2026-09-18 | 生产迁移 | 用户授权后，Supabase CLI 核对链接项目为 OfferPilot、预演确认唯一待执行迁移 `202609170001_knowledge_ai_scoring.sql`，跳过 Vault/种子/角色并应用；再次查询迁移历史、`effective_coverage_score` / `ai_analysis` 字段及题库精确计数 | 迁移成功，远端 up-to-date；题库 100 / 165 / 904 / 120，精确 ID 集合一致。前端推送后待跑生产 Smoke |
