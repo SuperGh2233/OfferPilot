@@ -1,4 +1,4 @@
-import { getAlgorithmDemoDateKey, getAlgorithmTrainingDateKey } from "../algorithm/demo-store";
+import { getAlgorithmDemoDateKey, getAlgorithmTrainingDateKey, getTrainingDayStart } from "../algorithm/demo-store";
 import type { AlgorithmDateInput } from "../mastery/algorithm";
 import { algorithmNewQuotaForWeek } from "../planner/algorithm";
 import { knowledgeQuotasForWeek } from "../planner/knowledge";
@@ -235,8 +235,17 @@ export function calculateTrainingBacklog({
   if (!Number.isFinite(now)) throw new RangeError("today must be a valid date");
   const todayKey = getAlgorithmTrainingDateKey(today, timeZone);
   const planStartKey = getAlgorithmDemoDateKey(planStartDate, timeZone);
-  const countOverdue = (states: readonly BacklogReviewState[]) =>
-    isPlanPaused(pausePeriods) ? 0 : states.filter((state) => isReviewDue(state, now)).length;
+  const openPause = isPlanPaused(pausePeriods) ? pausePeriods.at(-1)! : null;
+  const pauseStartedAt = openPause
+    ? Date.parse(getTrainingDayStart(openPause.start, timeZone))
+    : null;
+  const countOverdue = (states: readonly BacklogReviewState[]) => states.filter((state) => {
+    if (!isReviewDue(state, now)) return false;
+    // Reviews that were already overdue before the break remain actionable debt.
+    // Reviews becoming due during the break are deferred when the plan resumes.
+    return pauseStartedAt === null
+      || (state.nextReviewAt !== null && Date.parse(state.nextReviewAt) < pauseStartedAt);
+  }).length;
 
   const countLeftover = (dailyTasks: Record<string, readonly SummaryTask[]>) =>
     flattenDailyTasks(dailyTasks).filter(

@@ -277,14 +277,14 @@ export function DashboardOverview({
     task.date >= snapshot.profile.planStartDate && task.date < todayKey
     && task.taskType === "new" && task.status !== "completed",
   ).length;
-  const hasBacklog = !paused && Object.entries(backlog).some(([key, count]) => key !== "missedTrainingDays" && count > 0);
+  const hasBacklog = Object.entries(backlog).some(([key, count]) => key !== "missedTrainingDays" && count > 0);
 
   return (
     <div className="mt-8 flex flex-col gap-6">
       {paused ? (
         <section className="rounded-2xl border border-sky-300 bg-sky-50 p-5 dark:border-sky-900 dark:bg-sky-950/40" role="status">
           <h2 className="font-semibold text-sky-900 dark:text-sky-200">计划已暂停</h2>
-          <p className="mt-1 text-sm text-sky-800 dark:text-sky-300">休息期间不生成新任务，暂停日不算漏训；你的历史和 Mastery 都会保留。</p>
+          <p className="mt-1 text-sm text-sky-800 dark:text-sky-300">休息期间不生成新的当日任务、暂停日不算漏训；暂停前欠下的新学、已生成任务和逾期复习仍可继续完成，历史和 Mastery 都会正常保存。</p>
           <Link className="mt-3 inline-flex rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600" href="/settings">前往恢复计划</Link>
         </section>
       ) : (
@@ -305,7 +305,7 @@ export function DashboardOverview({
               <p className="mt-2 text-sm font-medium text-emerald-300">{snapshot.profile.displayName}，今天继续稳步推进。</p>
             ) : null}
             <p className="mt-3 text-sm text-slate-300">
-              {paused ? "休息中：训练日进度已冻结，可随时在设置中恢复。" : `今天还剩 ${remaining} 项；第一周期结束后仍会继续生成到期复习。`}
+              {paused ? "休息中：训练日进度已冻结；不会新增今日任务，但可以继续清理暂停前的欠账。" : `今天还剩 ${remaining} 项；第一周期结束后仍会继续生成到期复习。`}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-5 text-sm sm:text-right">
@@ -346,7 +346,7 @@ export function DashboardOverview({
             </p>
           ) : null}
           <p className="mt-2 text-xs leading-5 text-amber-800/80 dark:text-amber-300/80">
-            逾期复习与往日待补新学分别处理。漏训日首次补排的题目会标明原日期与“补排”；今日复习任务最多为配置数量的 3 倍。
+            逾期复习与往日待补新学分别处理。暂停期间仍可清理暂停前欠账；休息期间新到期的复习不计入这里，恢复后按暂停天数顺延。漏训日首次补排的题目会标明原日期与“补排”。
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             {backlog.algorithmOverdueReviews > 0 ? <Link

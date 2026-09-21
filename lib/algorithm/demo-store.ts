@@ -486,9 +486,9 @@ export function ensureTodayAlgorithmTasks(
   const date = getAlgorithmTrainingDateKey(today, timeZone);
   const pauses = options.pausePeriods ?? [];
   const currentWeek = calculateAlgorithmCurrentWeek(data.planStartDate, date, timeZone, pauses);
-  if (isPlanPaused(pauses)) {
-    return { data, tasks: data.dailyTasks[date] ?? [], currentWeek, date };
-  }
+  const paused = isPlanPaused(pauses);
+  // A pause stops today's new plan, but debt from earlier active training days
+  // still needs to be materialized so the user can catch up while resting.
   const pastDates = pastPlanDateKeys(data.planStartDate, date, pauses);
   const configuredNew = options.newCount ?? 2;
   const configuredReview = options.reviewCount ?? 1;
@@ -533,6 +533,11 @@ export function ensureTodayAlgorithmTasks(
   const cachedTasks = nextData.dailyTasks[date];
   if (cachedTasks !== undefined) {
     return { data: nextData, tasks: cachedTasks, currentWeek, date };
+  }
+  if (paused) {
+    // Do not invent a task bucket for the paused day. Historical backfill above
+    // is intentionally preserved and can still be completed.
+    return { data: nextData, tasks: [], currentWeek, date };
   }
 
   const weaknesses = aggregateAlgorithmWeaknesses({

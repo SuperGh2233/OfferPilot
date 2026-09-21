@@ -216,9 +216,9 @@ export function ensureTodayKnowledgeTasks(
   const taskDate = getAlgorithmTrainingDateKey(today, timeZone);
   const pauses = options.pausePeriods ?? [];
   const currentWeek = calculateAlgorithmCurrentWeek(data.planStartDate, taskDate, timeZone, pauses);
-  if (isPlanPaused(pauses)) {
-    return { data, tasks: data.dailyTasks[taskDate] ?? [], currentWeek, date: taskDate };
-  }
+  const paused = isPlanPaused(pauses);
+  // A pause stops today's new plan, but debt from earlier active training days
+  // still needs to be materialized so the user can catch up while resting.
   const pastDates = pastPlanDateKeys(data.planStartDate, taskDate, pauses);
   const configuredNew = options.newCount ?? 3;
   const configuredReview = options.reviewCount ?? 3;
@@ -262,7 +262,12 @@ export function ensureTodayKnowledgeTasks(
     toBackfill -= tasks.length;
   }
   const cached = next.dailyTasks[taskDate];
-  if (cached) return { data: next, tasks: cached, currentWeek, date: taskDate };
+  if (cached !== undefined) return { data: next, tasks: cached, currentWeek, date: taskDate };
+  if (paused) {
+    // Do not invent a task bucket for the paused day. Historical backfill above
+    // is intentionally preserved and can still be completed.
+    return { data: next, tasks: [], currentWeek, date: taskDate };
+  }
 
   const tasks: LocalKnowledgeTask[] = generateDailyKnowledgeTasks({
     questions: questions.filter((question) => !assigned.has(question.id)),
