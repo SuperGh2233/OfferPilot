@@ -11,6 +11,8 @@ import {
   cancelDemoAlgorithmAttempt,
   completeDemoAlgorithmAttempt,
   ensureTodayAlgorithmTasks,
+  getAlgorithmTrainingDateKey,
+  getTrainingDayStart,
   loadAlgorithmDemoData,
   saveAlgorithmDemoData,
   startDemoAlgorithmAttempt,
@@ -25,6 +27,11 @@ import type {
   CompleteAlgorithmAttemptResult,
 } from "@/lib/algorithm/attempts";
 import type { AlgorithmPlannerProblem } from "@/lib/planner/algorithm";
+import {
+  nextTrainingTaskLabel,
+  selectNextTrainingTask,
+} from "@/lib/progress/next-task";
+import { isPlanPaused, type PlanPausePeriod } from "@/lib/profile/pause";
 import type {
   AlgorithmIndependence,
   AlgorithmMistakeTag,
@@ -179,6 +186,7 @@ export function AlgorithmTraining({
 }) {
   const [data, setData] = useState<AlgorithmDemoData | null>(null);
   const [timeZone, setTimeZone] = useState<string>(ALGORITHM_DEMO_TIME_ZONE);
+  const [pausePeriods, setPausePeriods] = useState<PlanPausePeriod[]>([]);
   const [mode, setMode] = useState<TrainingMode>("idle");
   const [clock, setClock] = useState(() => Date.now());
   const [feedbackEndedAt, setFeedbackEndedAt] = useState<number | null>(null);
@@ -254,6 +262,7 @@ export function AlgorithmTraining({
   const applyCloudSnapshot = useCallback((snapshot: CloudTrainingSnapshot) => {
     setData(snapshot.algorithm);
     setTimeZone(snapshot.profile.timeZone);
+    setPausePeriods(snapshot.profile.pausePeriods ?? []);
     setMode((current) =>
       current === "feedback" || current === "complete"
         ? current
@@ -313,6 +322,7 @@ export function AlgorithmTraining({
       }
       setData(ensured.data);
       setTimeZone(profile.timeZone);
+      setPausePeriods(profile.pausePeriods ?? []);
       setMode(ensured.data.activeAttempts[problem.id] ? "timing" : "idle");
     } catch (loadError) {
       window.setTimeout(() => setError(errorMessage(loadError)), 0);
@@ -340,6 +350,7 @@ export function AlgorithmTraining({
         if (ensured.data !== loaded) saveAlgorithmDemoData(window.localStorage, ensured.data);
         setData(ensured.data);
         setTimeZone(profile.timeZone);
+        setPausePeriods(profile.pausePeriods ?? []);
         setMode((current) => ensured.data.activeAttempts[problem.id]
           ? "timing"
           : current === "timing" ? "idle" : current);
@@ -632,6 +643,31 @@ export function AlgorithmTraining({
     setMode("idle");
   }
 
+  const pauseStartedAt = isPlanPaused(pausePeriods)
+    ? Date.parse(getTrainingDayStart(pausePeriods.at(-1)!.start, timeZone))
+    : null;
+  const nextTask = completion && data ? selectNextTrainingTask({
+    currentId: problem.id,
+    todayKey: getAlgorithmTrainingDateKey(new Date(), timeZone),
+    now: Date.now(),
+    pauseStartedAt,
+    tasks: Object.values(data.dailyTasks).flat().map((task) => ({
+      id: task.problemId,
+      date: task.date,
+      status: task.status,
+      sortOrder: task.sortOrder,
+      taskType: task.taskType,
+    })),
+    states: Object.values(data.states).map((item) => ({
+      id: item.problemId,
+      attemptCount: item.attemptCount,
+      nextReviewAt: item.nextReviewAt,
+    })),
+    catalog: plannerProblems.map((item) => ({
+      id: item.id,
+      order: item.orderIndex,
+    })),
+  }) : null;
   const mastery = currentState?.mastery ?? 0;
   const pageStatus = data === null
       ? "正在加载本地数据"
@@ -920,7 +956,19 @@ export function AlgorithmTraining({
                   </div>
                 ) : null}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <Button onClick={handleTrainAgain} type="button">再刷一次</Button>
+                  {nextTask ? (
+                    <Link
+                      className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+                      href={`/algorithm/${nextTask.id}`}
+                    >
+                      {nextTrainingTaskLabel(nextTask)}
+                    </Link>
+                  ) : (
+                    <span className="inline-flex h-9 items-center rounded-lg border border-dashed px-3 text-sm text-muted-foreground">
+                      当前没有待完成的下一题
+                    </span>
+                  )}
+                  <Button onClick={handleTrainAgain} type="button" variant="outline">再刷一次</Button>
                   <Link className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" href="/algorithm">
                     返回题目列表
                   </Link>

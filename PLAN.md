@@ -6,7 +6,7 @@
 
 - 最后更新：2026-09-21
 - 当前阶段：Phase 8 已完成；第二轮架构与性能优化（第一轮检查由用户反馈已完成，详细测试结果与生产迁移状态尚未在此连接中核验）。
-- 并行开发任务（本 Agent）：2026-09-21 修复“暂停计划后无法完成欠账”。源码已修改：暂停仍冻结当日新任务与周期推进，但会补出暂停前有效训练日的历史欠账、保留旧逾期复习入口并允许完成；新增回归用例和文档。当前连接无终端执行能力，因此本轮新增改动尚未重新跑 Node 质量门、真实账号或生产验收。
+- 并行开发任务（本 Agent）：2026-09-21 继续优化每日训练流，已修复“暂停计划后无法完成欠账”，并补上完成一题后的直接「下一题」入口。Knowledge Learn/Recall 与 Algorithm 完成页复用纯函数选择下一任务：今日未完成 → 历史欠账 → 到期复习；Knowledge Learn 在今日队列内优先另一道新学题。动态题页按 ID 强制重置本地交互状态。KnowledgeTraining 的 React purity 问题已改为组件时钟定时更新，便携 Node 24.19 下四项质量门已通过；真实账号或生产验收仍未进行。
 - 当前任务：八股答案已完成 904 道 UUID 级直接审校投影与本地验收：保留原始 JSON/CSV，使用共享清洗函数及按 UUID 审校补丁；`knowledge:audit`/`knowledge:audit:report` 已核实 904/904 人工审校、0 未审、0 候选，`seed:check` 已核对 100 算法、165 主题、904 题、120 核心题和 904 条清洗详答，lint/typecheck/test/build 已在便携 Node 24.19 下通过（38 个测试文件、369 项测试、239 个生成页面）。下一步仅为测试库备份后的数据库 Seed、真实账号 Recall/刷新历史回归与部署验收；生产题库、学习历史和生产数据库尚未修改，不能宣称生产已更新。此前手动暂停／恢复功能的源码、测试用例、SQL Migration 与用户文档已写入：Settings 切换、Dashboard 状态、算法和八股 Planner、有效周期日/漏训/连续天数、浏览器 Demo/SQLite/Supabase 持久化、复习日期延后。暂停范围按用户当地 03:00 训练日记录为 [start,end)，恢复当日重新生成任务；旧 Attempt/Mastery/任务保留。云端通过单独的事务 RPC 防重复切换；本轮仅文件读写，未能运行数据库迁移或真实端到端验收，不能推送或宣布上线。上一批增量写入仍待其独立验收。
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7、Phase 8
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
@@ -79,6 +79,17 @@
 - [ ] 执行 `npm run lint && npm run typecheck && npm run test && npm run build` 并修复失败；当前 mac-host 连接仅有文件接口，无法执行终端命令。
 - [ ] 真实账号验证同题至少两次 Recall → 提交后对比 → 浏览器刷新、退出重登、切换题目、Demo/SQLite/Supabase 三模式一致性；核实其他 Agent 的题库修订导致关键点变化时显示“不可比较”而不误报。
 - [ ] 既有暂停计划迁移与增量写入回归通过后再部署；此项不需要新的 SQL Migration，不把编写测试视为测试通过。
+
+## 2026-09-21 优化方案第 4 项：连续下一题（源码完成，待验收）
+
+- [x] 新增 `lib/progress/next-task.ts`，统一选择 Algorithm / Knowledge 的下一任务：优先当前训练日未完成项，再取最早历史 backlog，最后按 `nextReviewAt` 取到期复习；始终排除刚完成的当前题和已完成任务。
+- [x] Knowledge Learn/Recall 提交完成页接入直接导航。Learn 在同一任务层级优先 `taskType='new'`，正常连续新学显示「学习下一题」；若转入复习/欠账则使用对应文案，不伪装成新学。
+- [x] Algorithm 完成反馈页接入同一选择器；保留「再刷一次」与返回列表，不自动跳转，用户仍可先查看 AI 复盘和结果。
+- [x] 暂停兼容：组件同步 profile pausePeriods；暂停时允许已有任务/历史 backlog 继续下一题，到期兜底只接受暂停开始前已经逾期的 state，不把休息期间新到期复习提前拉进来。
+- [x] 动态 `/knowledge/[id]` 与 `/algorithm/[id]` 给训练组件加 item ID `key`，避免客户端切下一题时复用上一题 submission/completion/timer/AI 临时状态。
+- [x] 新增 `tests/next-training-task.test.ts`，覆盖今日队列排序、Learn 优先新学、最早欠账、到期兜底、暂停边界和不重复当前题；首轮运行已通过 39 个测试文件、378 项测试，lint 发现并修复组件中直接调用 `Date.now()` 的 purity 规则问题，改为组件时钟定时更新。
+- [ ] 优化路线第 4 项其余内容仍待完成：Dashboard 一键继续、今日预计工作量、日终总结。
+- [x] 重跑 `npm run lint && npm run typecheck && npm run test && npm run build`：便携 Node 24.19 下全部通过，39 个测试文件、378 项测试、239 个页面；真实账号验证 Learn → 下一题、Recall → 下一题、Algorithm → 下一题、暂停欠账 → 下一题和浏览器前进/后退状态仍待进行。
 
 ## 2026-09-20 暂停计划功能验收清单
 
@@ -635,3 +646,6 @@ npm run build
 | 2026-09-21 | 全量审校质量门类型/回归修复（未验收） | 收敛 `lib/knowledge/catalog.ts` 对全量 JSON 联合类型的显式源题目类型；更新 `knowledge-content-cleaning` 回归断言以匹配当前已审答案，并改为验证源题元数据不被投影改写。 | 修复后待重跑便携 Node 24.19 下 lint/typecheck/test/build；此前 audit report/seed check 已通过，数据库 Seed、真实 Recall 和部署仍未运行。 |
 | 2026-09-21 | 全量八股审校本地质量门通过（数据库/生产未验收） | 完成全量 904 道 UUID 审校投影；保留原始 JSON/CSV。修复题库接入的 JSON 联合类型、回归用例箭头语法和与新审校文案不一致的测试假设。 | 便携 Node 24.19 下 `knowledge:audit:report`、`seed:check`、lint、typecheck、test、build 全部通过；904/904 人工审校、0 未审、0 候选；38 个测试文件、369 项测试、239 个页面。仅文件与本地质量门已验收，数据库 Seed、真实 Recall/刷新和部署未运行。 |
 | 2026-09-21 | 暂停计划欠账可继续完成（本地质量门通过，真实环境待验收） | 修复算法/八股 `ensureToday*Tasks` 暂停时过早返回的问题：先补出暂停前有效训练日缺失的历史新学任务，再禁止创建暂停日新任务；Dashboard 暂停时不再隐藏欠账区；进度汇总仅保留暂停开始前已逾期复习，休息期间新到期项留待恢复后顺延。完成欠账仍复用原 Attempt/Mastery/任务完成链路，不新增 SQL Migration。 | `plan-pause.test.ts` 回归覆盖暂停日冻结、历史 backfill 生成、暂停期间完成算法/八股旧账及旧逾期/新到期边界。便携 Node 24.19 下 lint、typecheck、test、build 全部通过：38 个测试文件、371 项测试、239 个页面。真实账号、Supabase RLS/迁移和部署仍待验收。 |
+| 2026-09-21 | 连续下一题质量门首轮修复（待重跑） | 完成 `lib/progress/next-task.ts` 选择器、Algorithm/Knowledge 完成页入口、动态题页按 ID 重置及对应测试；首轮质量门发现 KnowledgeTraining render 直接调用 `Date.now()` 违反 React purity，改为组件时钟状态。 | 便携 Node 24.19 下 typecheck、test（39 个测试文件、378 项）和 build（239 个页面）通过；lint 因 purity 错误失败后已修复，四项需重跑。真实账号和生产验收仍未运行。 |
+| 2026-09-21 | 连续下一题 React purity 二次修复（待重跑） | 将 KnowledgeTraining 的当前时间统一由组件 `clock` 状态和 60 秒定时器提供，移除 render/提交闭包中的直接 `Date.now()` 调用。 | 便携 Node 24.19 下 typecheck、test、build 已通过；lint 首轮 purity 错误已继续修复，四项需重跑。真实账号和生产验收仍未运行。 |
+| 2026-09-21 | 连续下一题本地质量门通过（真实环境待验收） | 完成下一任务选择器、Algorithm/Knowledge 完成页入口、动态题页状态重置和 Knowledge 时钟 purity 修复；保留暂停欠账、到期复习和 Learn 新学优先语义。 | 便携 Node 24.19 下 lint、typecheck、test、build 全部通过：39 个测试文件、378 项测试、239 个页面。真实账号、Vercel 部署后的 Learn/Recall/Algorithm 跳转及生产验收仍未运行。 |

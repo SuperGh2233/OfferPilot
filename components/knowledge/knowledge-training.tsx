@@ -12,7 +12,11 @@ import {
   parseKnowledgeRecallAnalysis,
   type KnowledgeRecallAnalysis,
 } from "@/lib/ai/knowledge-recall-analysis";
-import { ALGORITHM_DEMO_TIME_ZONE } from "@/lib/algorithm/demo-store";
+import {
+  ALGORITHM_DEMO_TIME_ZONE,
+  getAlgorithmTrainingDateKey,
+  getTrainingDayStart,
+} from "@/lib/algorithm/demo-store";
 import type {
   KnowledgeAttemptPayload,
   KnowledgeStatePayload,
@@ -34,9 +38,14 @@ import { getKnowledgeRecallHistory } from "@/lib/knowledge/recall-history";
 import type { KnowledgeSelfRating } from "@/lib/mastery/knowledge";
 import type { KnowledgePlannerQuestion } from "@/lib/planner/knowledge";
 import {
+  nextTrainingTaskLabel,
+  selectNextTrainingTask,
+} from "@/lib/progress/next-task";
+import {
   loadDemoProfile,
   PROFILE_DEMO_CHANGED_EVENT,
 } from "@/lib/profile/demo-store";
+import { isPlanPaused, type PlanPausePeriod } from "@/lib/profile/pause";
 import { getTrainingStatusPresentation } from "@/lib/ui/training-status";
 import {
   recordCloudKnowledge,
@@ -87,9 +96,9 @@ function formatDate(value: string | null | undefined, timeZone: string) {
   }).format(new Date(value));
 }
 
-function statusPresentation(state: KnowledgeStatePayload | null) {
+function statusPresentation(state: KnowledgeStatePayload | null, now: number) {
   if (!state) return getTrainingStatusPresentation("unlearned");
-  if (new Date(state.nextReviewAt).getTime() <= Date.now()) return getTrainingStatusPresentation("due");
+  if (new Date(state.nextReviewAt).getTime() <= now) return getTrainingStatusPresentation("due");
   if (state.status === "mastered") return getTrainingStatusPresentation("mastered");
   if (state.mastery < 60) return getTrainingStatusPresentation("weak");
   return getTrainingStatusPresentation("learning");
@@ -108,6 +117,8 @@ export function KnowledgeTraining({
 }) {
   const [data, setData] = useState<KnowledgeDemoData | null>(null);
   const [timeZone, setTimeZone] = useState<string>(ALGORITHM_DEMO_TIME_ZONE);
+  const [pausePeriods, setPausePeriods] = useState<PlanPausePeriod[]>([]);
+  const [clock, setClock] = useState(() => Date.now());
   const [answer, setAnswer] = useState("");
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -117,9 +128,14 @@ export function KnowledgeTraining({
   const [aiStatus, setAiStatus] = useState<"idle" | "loading">("idle");
   const [aiError, setAiError] = useState<string | null>(null);
   const pendingAttemptId = useRef<string | null>(null);
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const applyCloudSnapshot = useCallback((snapshot: CloudTrainingSnapshot) => {
     setData(snapshot.knowledge);
     setTimeZone(snapshot.profile.timeZone);
+    setPausePeriods(snapshot.profile.pausePeriods ?? []);
   }, []);
   const cloud = useCloudTrainingSnapshot(!demoMode, applyCloudSnapshot);
   const state = data?.states[question.id] ?? null;
@@ -139,6 +155,7 @@ export function KnowledgeTraining({
         if (ensured.data !== loaded) saveKnowledgeDemoData(window.localStorage, ensured.data);
         setData(ensured.data);
         setTimeZone(profile.timeZone);
+        setPausePeriods(profile.pausePeriods ?? []);
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "读取本地训练数据失败。");
       }
@@ -197,7 +214,9 @@ export function KnowledgeTraining({
         selfRating,
         timeZone,
       });
-      if (persist(result.data)) setSubmission(result);
+      if (persist(result.data)) {
+        setSubmission(result);
+      }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "保存学习结果失败。");
     } finally {
@@ -317,7 +336,33 @@ export function KnowledgeTraining({
   const supplementalAnalysis = Boolean(recallResult && !recallResult.aiAnalysis && aiAnalysis);
   const showLearn = data !== null && state === null && submission === null;
   const showRecall = state !== null && submission === null;
-  const visibleStatus = statusPresentation(visibleState);
+  const visibleStatus = statusPresentation(visibleState, clock);
+  const pauseStartedAt = isPlanPaused(pausePeriods)
+    ? Date.parse(getTrainingDayStart(pausePeriods.at(-1)!.start, timeZone))
+    : null;
+  const nextTask = submission && data ? selectNextTrainingTask({
+    currentId: question.id,
+    todayKey: getAlgorithmTrainingDateKey(new Date(clock), timeZone),
+    now: clock,
+    pauseStartedAt,
+    tasks: Object.values(data.dailyTasks).flat().map((task) => ({
+      id: task.questionId,
+      date: task.date,
+      status: task.status,
+      sortOrder: task.sortOrder,
+      taskType: task.taskType,
+    })),
+    states: Object.values(data.states).map((item) => ({
+      id: item.questionId,
+      attemptCount: item.attemptCount,
+      nextReviewAt: item.nextReviewAt,
+    })),
+    catalog: plannerQuestions.map((item) => ({
+      id: item.id,
+      order: item.sourceOrder,
+    })),
+    preferredTaskType: submission.attempt.mode === "learn" ? "new" : null,
+  }) : null;
 
   return (
     <main className="min-h-screen bg-muted/30">
@@ -445,7 +490,19 @@ export function KnowledgeTraining({
                   </>
                 ) : null}
                 <AnswerPanel question={question} />
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
+                  {nextTask ? (
+                    <Link
+                      className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+                      href={`/knowledge/${nextTask.id}`}
+                    >
+                      {nextTrainingTaskLabel(nextTask, submission.attempt.mode === "learn")}
+                    </Link>
+                  ) : (
+                    <span className="inline-flex h-9 items-center rounded-lg border border-dashed px-3 text-sm text-muted-foreground">
+                      当前没有待完成的下一题
+                    </span>
+                  )}
                   <Button onClick={() => {
                     setSubmission(null);
                     setAiAnalysis(null);
@@ -453,7 +510,7 @@ export function KnowledgeTraining({
                   }} type="button" variant="outline">
                     {submission.attempt.mode === "learn" ? "进入 Recall 模式" : "再回忆一次"}
                   </Button>
-                  <Link className="inline-flex h-8 items-center justify-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/80" href="/knowledge">
+                  <Link className="inline-flex h-9 items-center justify-center rounded-lg border px-4 text-sm font-medium text-muted-foreground hover:bg-muted" href="/knowledge">
                     返回题库
                   </Link>
                 </div>

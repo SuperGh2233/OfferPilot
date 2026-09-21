@@ -48,6 +48,7 @@ export default async function KnowledgeQuestionPage({
 
   return (
     <KnowledgeTraining
+      key={question.id}
       demoMode={isBrowserDemoMode()}
       followUps={getKnowledgeFollowUps(question.id).map((followUp) => ({
         id: followUp.id,

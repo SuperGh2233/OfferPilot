@@ -24,6 +24,7 @@ export default async function AlgorithmProblemPage({
 
   return (
     <AlgorithmTraining
+      key={problem.id}
       demoMode={isBrowserDemoMode()}
       plannerProblems={algorithmCatalog.map(toAlgorithmPlannerProblem)}
       problem={problem}
