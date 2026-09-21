@@ -424,6 +424,19 @@ describe("daily task reset at 03:00", () => {
     expect(getAlgorithmTrainingDateKey("2026-09-17T23:30:00+08:00")).toBe("2026-09-17");
   });
 
+  it("uses the local wall clock across spring daylight-saving transitions", () => {
+    // LA jumps from 01:59 PST to 03:00 PDT at 10:00Z on March 8.
+    expect(getAlgorithmTrainingDateKey("2026-03-08T09:59:59Z", "America/Los_Angeles"))
+      .toBe("2026-03-07");
+    expect(getAlgorithmTrainingDateKey("2026-03-08T10:00:00Z", "America/Los_Angeles"))
+      .toBe("2026-03-08");
+    // London jumps from 00:59 GMT to 02:00 BST; 03:00 remains the cutoff.
+    expect(getAlgorithmTrainingDateKey("2026-03-29T01:00:00Z", "Europe/London"))
+      .toBe("2026-03-28");
+    expect(getAlgorithmTrainingDateKey("2026-03-29T02:00:00Z", "Europe/London"))
+      .toBe("2026-03-29");
+  });
+
   it("leaves pure date keys unshifted so plan start dates stay correct", () => {
     expect(getAlgorithmTrainingDateKey("2026-09-16")).toBe("2026-09-16");
     expect(getAlgorithmTrainingDateKey("2026-09-16T00:00:00.000Z", "UTC")).toBe("2026-09-15");

@@ -1,11 +1,33 @@
 import fullKnowledge from "../../data/knowledge/offerpilot_bagu_full.json";
 import coreKnowledge from "../../data/knowledge/offerpilot_bagu_core_6weeks.json";
+import answerReviews from "../../data/knowledge/answer_review_patches.json";
+import { applyKnowledgeContentReview } from "./content-cleaning.mjs";
 
 import type {
   KnowledgeKeywordAliases,
   KnowledgePointWeights,
 } from "./match";
 import type { KnowledgePlannerQuestion } from "../planner/knowledge";
+import type {
+  KnowledgeContentPatch,
+  ReviewableQuestion,
+} from "./content-cleaning.mjs";
+
+type KnowledgeSourceQuestion = ReviewableQuestion & {
+  topic_id: string;
+  category: string;
+  section: string;
+  topic: string;
+  question: string;
+  question_type: string;
+  importance: number;
+  difficulty: string;
+  answer_status: "available" | "container_only";
+  parent_id: string | null;
+  source_book: string;
+  source_section: string;
+  source_order: number;
+};
 
 export type KnowledgeCatalogTopic = {
   id: string;
@@ -69,7 +91,11 @@ export const knowledgeTopics: readonly KnowledgeCatalogTopic[] =
   }));
 
 export const knowledgeQuestions: readonly KnowledgeCatalogQuestion[] =
-  fullKnowledge.questions.map((question) => {
+  fullKnowledge.questions.map((sourceQuestion) => {
+    const question = applyKnowledgeContentReview(
+      sourceQuestion as unknown as KnowledgeSourceQuestion,
+      (answerReviews as unknown as Record<string, KnowledgeContentPatch>)[sourceQuestion.id],
+    );
     const core = coreById.get(question.id);
     return {
       id: question.id,

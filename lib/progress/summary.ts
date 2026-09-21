@@ -2,6 +2,13 @@ import { getAlgorithmDemoDateKey, getAlgorithmTrainingDateKey } from "../algorit
 import type { AlgorithmDateInput } from "../mastery/algorithm";
 import { algorithmNewQuotaForWeek } from "../planner/algorithm";
 import { knowledgeQuotasForWeek } from "../planner/knowledge";
+import {
+  activeTrainingDates,
+  activeTrainingDayNumber,
+  isPausedTrainingDay,
+  isPlanPaused,
+  type PlanPausePeriod,
+} from "../profile/pause";
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 export const FIRST_CYCLE_DAYS = 42;
@@ -59,13 +66,11 @@ export function calculateCyclePosition(
   planStartDate: string,
   today: AlgorithmDateInput,
   timeZone?: string,
+  pausePeriods: readonly PlanPausePeriod[] = [],
 ): CyclePosition {
   const todayKey = getAlgorithmTrainingDateKey(today, timeZone);
-  const elapsedDays = Math.floor(
-    (dateKeyToMilliseconds(todayKey) - dateKeyToMilliseconds(planStartDate))
-      / DAY_IN_MILLISECONDS,
-  );
-  const day = Math.max(1, elapsedDays + 1);
+  const day = activeTrainingDayNumber(planStartDate, todayKey, pausePeriods);
+  const elapsedDays = day - 1;
   return {
     day,
     week: Math.min(6, Math.max(1, Math.floor(Math.max(0, elapsedDays) / 7) + 1)),
@@ -79,16 +84,19 @@ export function calculateWeeklyCompletion({
   tasks,
   today,
   timeZone,
+  pausePeriods = [],
 }: {
   planStartDate: string;
   tasks: readonly SummaryTask[];
   today: AlgorithmDateInput;
   timeZone?: string;
+  pausePeriods?: readonly PlanPausePeriod[];
 }) {
-  const position = calculateCyclePosition(planStartDate, today, timeZone);
-  const weekStart = shiftDateKey(planStartDate, (position.week - 1) * 7);
-  const weekEnd = shiftDateKey(weekStart, 6);
-  const weeklyTasks = tasks.filter((task) => task.date >= weekStart && task.date <= weekEnd);
+  const position = calculateCyclePosition(planStartDate, today, timeZone, pausePeriods);
+  const todayKey = getAlgorithmTrainingDateKey(today, timeZone);
+  const activeDates = activeTrainingDates(planStartDate, shiftDateKey(todayKey, 1), pausePeriods);
+  const weekDates = new Set(activeDates.slice((position.week - 1) * 7, position.week * 7));
+  const weeklyTasks = tasks.filter((task) => weekDates.has(task.date));
   const completed = weeklyTasks.filter((task) => task.status === "completed").length;
   return {
     completed,
@@ -101,18 +109,22 @@ export function calculateTrainingStreak(
   tasks: readonly SummaryTask[],
   today: AlgorithmDateInput,
   timeZone?: string,
+  pausePeriods: readonly PlanPausePeriod[] = [],
 ) {
   const completedDates = new Set(
     tasks.filter((task) => task.status === "completed")
       .map((task) => completionDateKey(task, timeZone)),
   );
   let cursor = getAlgorithmTrainingDateKey(today, timeZone);
+  while (isPausedTrainingDay(cursor, pausePeriods)) cursor = shiftDateKey(cursor, -1);
   if (!completedDates.has(cursor)) cursor = shiftDateKey(cursor, -1);
+  while (isPausedTrainingDay(cursor, pausePeriods)) cursor = shiftDateKey(cursor, -1);
 
   let streak = 0;
   while (completedDates.has(cursor)) {
     streak += 1;
     cursor = shiftDateKey(cursor, -1);
+    while (isPausedTrainingDay(cursor, pausePeriods)) cursor = shiftDateKey(cursor, -1);
   }
   return streak;
 }
@@ -186,6 +198,7 @@ export function calculateTrainingBacklog({
   planStartDate,
   today,
   timeZone,
+  pausePeriods = [],
   dailyNewAlgorithmCount,
   dailyReviewAlgorithmCount,
   dailyNewKnowledgeCount,
@@ -202,6 +215,7 @@ export function calculateTrainingBacklog({
   planStartDate: AlgorithmDateInput;
   today: AlgorithmDateInput;
   timeZone?: string;
+  pausePeriods?: readonly PlanPausePeriod[];
 } & TrainingPlanCounts): TrainingBacklog {
   const planCounts: TrainingPlanCounts = {
     dailyNewAlgorithmCount,
@@ -221,11 +235,8 @@ export function calculateTrainingBacklog({
   if (!Number.isFinite(now)) throw new RangeError("today must be a valid date");
   const todayKey = getAlgorithmTrainingDateKey(today, timeZone);
   const planStartKey = getAlgorithmDemoDateKey(planStartDate, timeZone);
-  const planStartTimestamp = dateKeyToMilliseconds(planStartKey);
-  const todayTimestamp = dateKeyToMilliseconds(todayKey);
-
   const countOverdue = (states: readonly BacklogReviewState[]) =>
-    states.filter((state) => isReviewDue(state, now)).length;
+    isPlanPaused(pausePeriods) ? 0 : states.filter((state) => isReviewDue(state, now)).length;
 
   const countLeftover = (dailyTasks: Record<string, readonly SummaryTask[]>) =>
     flattenDailyTasks(dailyTasks).filter(
@@ -241,16 +252,13 @@ export function calculateTrainingBacklog({
     cycleTasks.filter((task) => task.status === "completed")
       .map((task) => completionDateKey(task, timeZone)),
   );
-  const pastCycleDays = Math.min(
-    FIRST_CYCLE_DAYS,
-    Math.max(0, Math.floor((todayTimestamp - planStartTimestamp) / DAY_IN_MILLISECONDS)),
-  );
+  const pastDates = activeTrainingDates(planStartKey, todayKey, pausePeriods, FIRST_CYCLE_DAYS);
 
   let missedTrainingDays = 0;
   let plannedAlgorithmNewCount = 0;
   let plannedKnowledgeNewCount = 0;
-  for (let dayIndex = 0; dayIndex < pastCycleDays; dayIndex += 1) {
-    const dateKey = shiftDateKey(planStartKey, dayIndex);
+  for (let dayIndex = 0; dayIndex < pastDates.length; dayIndex += 1) {
+    const dateKey = pastDates[dayIndex];
     const dailyPlanned = plannedNewCountForDay(dayIndex, planCounts);
     const hadPlannedWork = scheduledDates.has(dateKey)
       || dailyPlanned.algorithm + dailyPlanned.knowledge > 0;

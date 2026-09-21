@@ -5,6 +5,8 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import {
   ALGORITHM_DEMO_CHANGED_EVENT,
+  getAlgorithmTrainingDateKey,
+  getTrainingDayStart,
   loadAlgorithmDemoData,
   saveAlgorithmDemoData,
 } from "@/lib/algorithm/demo-store";
@@ -20,7 +22,8 @@ import {
   saveDemoProfile,
   type DemoProfile,
 } from "@/lib/profile/demo-store";
-import { saveCloudProfile } from "@/lib/supabase/training-client";
+import { changePlanPause, deferReviewDate, isPlanPaused, pauseDurationDays } from "@/lib/profile/pause";
+import { saveCloudProfile, setCloudPlanPaused } from "@/lib/supabase/training-client";
 import { useCloudTrainingSnapshot } from "@/lib/supabase/use-cloud-training";
 
 const TIME_ZONE_LABELS: Readonly<Record<string, string>> = {
@@ -41,6 +44,7 @@ export function SettingsForm({ demoMode }: { demoMode: boolean }) {
   const [profile, setProfile] = useState<DemoProfile | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pausing, setPausing] = useState(false);
   const cloud = useCloudTrainingSnapshot(!demoMode);
 
   useEffect(() => {
@@ -68,6 +72,61 @@ export function SettingsForm({ demoMode }: { demoMode: boolean }) {
     setMessage(null);
   }
 
+  async function togglePause() {
+    if (pausing) return;
+    setPausing(true);
+    setError(null);
+    setMessage(null);
+    try {
+      let paused: boolean;
+      if (!demoMode) {
+        paused = !isPlanPaused(cloud.snapshot?.profile.pausePeriods ?? []);
+        const result = await setCloudPlanPaused(paused);
+        cloud.setSnapshot(result.snapshot);
+        setProfile(result.profile);
+      } else {
+        const stored = loadDemoProfile(window.localStorage);
+        const prior = stored.pausePeriods ?? [];
+        paused = !isPlanPaused(prior);
+        const day = getAlgorithmTrainingDateKey(new Date(), stored.timeZone);
+        const updated = { ...stored, pausePeriods: changePlanPause(prior, paused, day) };
+        const algorithm = loadAlgorithmDemoData(window.localStorage, new Date(), stored.timeZone);
+        const knowledge = loadKnowledgeDemoData(window.localStorage, new Date(), stored.timeZone);
+        if (!paused) {
+          const last = prior.at(-1)!;
+          const days = pauseDurationDays(last.start, day);
+          const start = getTrainingDayStart(last.start, stored.timeZone);
+          for (const state of Object.values(algorithm.states)) {
+            if (state.lastAttemptAt && state.lastAttemptAt >= start) continue;
+            state.nextReviewAt = deferReviewDate(state.nextReviewAt, start, days);
+            if (state.status === "due" && Date.parse(state.nextReviewAt) > Date.now()) state.status = "learning";
+          }
+          for (const state of Object.values(knowledge.states)) {
+            if (state.lastAttemptAt && state.lastAttemptAt >= start) continue;
+            state.nextReviewAt = deferReviewDate(state.nextReviewAt, start, days);
+            if (state.status === "due" && Date.parse(state.nextReviewAt) > Date.now()) state.status = "learning";
+          }
+        }
+        if (!saveAlgorithmDemoData(window.localStorage, algorithm)
+          || !saveKnowledgeDemoData(window.localStorage, knowledge)
+          || !saveDemoProfile(window.localStorage, updated)) {
+          throw new Error("暂停状态保存失败，请检查浏览器存储空间。");
+        }
+        setProfile(updated);
+        window.dispatchEvent(new Event(PROFILE_DEMO_CHANGED_EVENT));
+        window.dispatchEvent(new Event(ALGORITHM_DEMO_CHANGED_EVENT));
+        window.dispatchEvent(new Event(KNOWLEDGE_DEMO_CHANGED_EVENT));
+      }
+      setMessage(paused
+        ? "已暂停计划。暂停期间不会生成新日任务。"
+        : "计划已恢复，将从今天继续安排训练。");
+    } catch (pauseError) {
+      setError(pauseError instanceof Error ? pauseError.message : "修改计划状态失败。");
+    } finally {
+      setPausing(false);
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -76,6 +135,10 @@ export function SettingsForm({ demoMode }: { demoMode: boolean }) {
     const nextProfile = {
       ...currentProfile,
       displayName: currentProfile.displayName.trim(),
+      // The pause toggle owns this field; stale settings forms must not undo it.
+      pausePeriods: demoMode
+        ? loadDemoProfile(window.localStorage).pausePeriods ?? []
+        : cloud.snapshot?.profile.pausePeriods ?? currentProfile.pausePeriods ?? [],
     };
     if (!demoMode) {
       try {
@@ -147,6 +210,20 @@ export function SettingsForm({ demoMode }: { demoMode: boolean }) {
               ))}
             </select>
           </Field>
+        </div>
+        <div className="mt-6 rounded-xl border bg-muted/30 p-4">
+          <p className="font-medium">{isPlanPaused(currentProfile.pausePeriods ?? []) ? "计划已暂停" : "计划进行中"}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            暂停期间不生成新任务、不计漏训、不推进 42 天周期。恢复后保留历史，暂停期间新到期的复习顺延。
+          </p>
+          <button
+            className="mt-3 h-10 rounded-lg border bg-background px-4 text-sm font-medium hover:bg-accent disabled:opacity-50"
+            disabled={pausing}
+            onClick={() => void togglePause()}
+            type="button"
+          >
+            {pausing ? "正在保存…" : isPlanPaused(currentProfile.pausePeriods ?? []) ? "恢复计划" : "暂停计划"}
+          </button>
         </div>
       </section>
 

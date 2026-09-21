@@ -25,6 +25,13 @@ import {
   type AlgorithmCodeAnalysis,
 } from "../ai/code-analysis";
 
+import {
+  activeTrainingDates,
+  activeTrainingDayNumber,
+  isPlanPaused,
+  type PlanPausePeriod,
+} from "../profile/pause";
+
 export const ALGORITHM_DEMO_STORAGE_KEY = "offerpilot:algorithm-demo:v1";
 export const ALGORITHM_DEMO_CHANGED_EVENT = "offerpilot:algorithm-changed";
 export const ALGORITHM_DEMO_STORAGE_VERSION = 1 as const;
@@ -196,30 +203,43 @@ export function getAlgorithmDemoDateKey(
  * 夜里学习不会刚过零点就被判成"昨天没完成、今天已开始"。
  */
 export const DAILY_RESET_HOUR = 3;
-const DAILY_RESET_OFFSET_MS = DAILY_RESET_HOUR * 60 * 60 * 1000;
 
 /**
- * 把时间点换算成它所属训练日的时刻（即回退到"重置前"的日历日）。
- *
- * 注意：这里只用于**日期**归属（日期键、周次、连续天数），
- * 到期判定与时间戳必须继续使用真实时刻。
- */
-export function shiftToTrainingDay(value: AlgorithmDateInput): Date {
-  return new Date(parseDate(value, "date").getTime() - DAILY_RESET_OFFSET_MS);
-}
-
-/**
- * 把"现在"映射成所属训练日的日期键。
- *
- * 与 getAlgorithmDemoDateKey 的区别：本函数带每日重置偏移，只适用于真实时间点；
- * 计划开始日之类的纯日期请继续用 getAlgorithmDemoDateKey（YYYY-MM-DD 会原样返回）。
+ * 按用户时区的墙上时间计算训练日，而不是直接从 UTC 时间戳减三小时。
+ * 夏令时前进或回拨时，一个绝对时间的三小时并不等于当地时钟三小时。
+ * 计划开始日等纯 YYYY-MM-DD 日期始终原样保留。
  */
 export function getAlgorithmTrainingDateKey(
   value: AlgorithmDateInput,
   timeZone: string = ALGORITHM_DEMO_TIME_ZONE,
 ): string {
   if (typeof value === "string" && isValidDateKey(value)) return value;
-  return getAlgorithmDemoDateKey(shiftToTrainingDay(value), timeZone);
+  const instant = parseDate(value, "date");
+  const localDate = getAlgorithmDemoDateKey(instant, timeZone);
+  const hourParts = new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    hourCycle: "h23",
+    timeZone,
+  }).formatToParts(instant);
+  const hour = Number(hourParts.find((part) => part.type === "hour")?.value);
+  if (!Number.isInteger(hour)) throw new RangeError("Unable to resolve local hour");
+  return hour < DAILY_RESET_HOUR
+    ? new Date(dateKeyToUtc(localDate) - DAY_IN_MILLISECONDS).toISOString().slice(0, 10)
+    : localDate;
+}
+
+/** Resolve the exact 03:00 boundary for a user's training day, including DST. */
+export function getTrainingDayStart(day: string, timeZone: string = ALGORITHM_DEMO_TIME_ZONE): string {
+  if (!isValidDateKey(day)) throw new RangeError("Invalid training date");
+  const midnightUtc = dateKeyToUtc(day);
+  let low = midnightUtc - 18 * 3_600_000;
+  let high = midnightUtc + 36 * 3_600_000;
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2);
+    if (getAlgorithmTrainingDateKey(new Date(middle), timeZone) >= day) high = middle;
+    else low = middle;
+  }
+  return new Date(high).toISOString();
 }
 
 function normalizeDateKey(
@@ -239,23 +259,20 @@ export function calculateAlgorithmCurrentWeek(
   planStartDate: AlgorithmDateInput,
   today: AlgorithmDateInput,
   timeZone: string = ALGORITHM_DEMO_TIME_ZONE,
+  pausePeriods: readonly PlanPausePeriod[] = [],
 ): number {
   const startKey = normalizeDateKey(planStartDate, "planStartDate", timeZone);
   const todayKey = normalizeDateKey(today, "today", timeZone);
-  const elapsedDays = Math.floor(
-    (dateKeyToUtc(todayKey) - dateKeyToUtc(startKey)) / DAY_IN_MILLISECONDS,
-  );
-  return Math.min(6, Math.max(1, Math.floor(elapsedDays / 7) + 1));
+  const day = activeTrainingDayNumber(startKey, todayKey, pausePeriods);
+  return Math.min(6, Math.max(1, Math.floor((day - 1) / 7) + 1));
 }
 
-export function pastPlanDateKeys(planStartDate: string, todayKey: string): string[] {
-  const start = dateKeyToUtc(planStartDate);
-  const end = Math.min(dateKeyToUtc(todayKey), start + 42 * DAY_IN_MILLISECONDS);
-  const dates: string[] = [];
-  for (let timestamp = start; timestamp < end; timestamp += DAY_IN_MILLISECONDS) {
-    dates.push(new Date(timestamp).toISOString().slice(0, 10));
-  }
-  return dates;
+export function pastPlanDateKeys(
+  planStartDate: string,
+  todayKey: string,
+  pausePeriods: readonly PlanPausePeriod[] = [],
+): string[] {
+  return activeTrainingDates(planStartDate, todayKey, pausePeriods);
 }
 
 export function createAlgorithmDemoData(
@@ -460,22 +477,24 @@ export function ensureTodayAlgorithmTasks(
   data: AlgorithmDemoData,
   problems: readonly AlgorithmPlannerProblem[],
   today: AlgorithmDateInput = new Date(),
-  options: { newCount?: number; reviewCount?: number; timeZone?: string } = {},
+  options: { newCount?: number; reviewCount?: number; timeZone?: string; pausePeriods?: readonly PlanPausePeriod[] } = {},
 ): EnsureTodayAlgorithmTasksResult {
   assertAlgorithmDemoData(data);
   const timeZone = options.timeZone ?? ALGORITHM_DEMO_TIME_ZONE;
-  // 训练日以凌晨 3 点重置：日期键与周次都按训练日算，避免凌晨打开应用时
-  // 出现"任务记在昨天、周次却已经翻到新一周"的错配。
-  // 下发给规划器的 today 仍用真实时刻，保证刚到期（例如 01:00）的复习不会被漏掉。
-  const trainingDay = shiftToTrainingDay(today);
-  const date = getAlgorithmDemoDateKey(trainingDay, timeZone);
-  const currentWeek = calculateAlgorithmCurrentWeek(data.planStartDate, trainingDay, timeZone);
-  const pastDates = pastPlanDateKeys(data.planStartDate, date);
+  // 按用户当地时间凌晨 3 点重置，周次与训练日使用同一个日期键。
+  // 下发给规划器的 today 仍用真实时刻，保证刚到期的复习不会被漏掉。
+  const date = getAlgorithmTrainingDateKey(today, timeZone);
+  const pauses = options.pausePeriods ?? [];
+  const currentWeek = calculateAlgorithmCurrentWeek(data.planStartDate, date, timeZone, pauses);
+  if (isPlanPaused(pauses)) {
+    return { data, tasks: data.dailyTasks[date] ?? [], currentWeek, date };
+  }
+  const pastDates = pastPlanDateKeys(data.planStartDate, date, pauses);
   const configuredNew = options.newCount ?? 2;
   const configuredReview = options.reviewCount ?? 1;
   const expectedNew = Math.min(problems.length, pastDates.reduce((total, pastDate) =>
     total + algorithmNewQuotaForWeek(
-      calculateAlgorithmCurrentWeek(data.planStartDate, pastDate, timeZone),
+      calculateAlgorithmCurrentWeek(data.planStartDate, pastDate, timeZone, pauses),
       configuredNew,
       configuredReview,
     ), 0));
@@ -490,7 +509,7 @@ export function ensureTodayAlgorithmTasks(
   for (const pastDate of pastDates) {
     if (toBackfill === 0) break;
     if (data.dailyTasks[pastDate] !== undefined) continue;
-    const week = calculateAlgorithmCurrentWeek(data.planStartDate, pastDate, timeZone);
+    const week = calculateAlgorithmCurrentWeek(data.planStartDate, pastDate, timeZone, pauses);
     const tasks: LocalAlgorithmTask[] = generateDailyAlgorithmTasks({
       problems: problems.filter((problem) => !assigned.has(problem.id)),
       states: Object.values(data.states),

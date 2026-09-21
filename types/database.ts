@@ -19,6 +19,7 @@ export type Profile = {
   display_name: string | null;
   timezone: string;
   plan_start_date: string;
+  pause_periods: Json;
   daily_new_algorithm_count: number;
   daily_review_algorithm_count: number;
   daily_new_knowledge_count: number;
@@ -195,6 +196,14 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      set_plan_paused: {
+        Args: { p_paused: boolean };
+        Returns: Profile;
+      };
+      ensure_daily_training_tasks: {
+        Args: { p_tasks: Json };
+        Returns: Json;
+      };
       start_algorithm_training_attempt: {
         Args: {
           p_attempt_id: string;

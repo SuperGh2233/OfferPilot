@@ -17,9 +17,11 @@ import {
   updateCloudProfile,
 } from "../lib/supabase/training";
 import { algorithmCatalog } from "../lib/algorithm/catalog";
+import { getKnowledgeRecallHistory } from "../lib/knowledge/recall-history";
 import type { DemoProfile } from "../lib/profile/demo-store";
 import type {
   AlgorithmAttempt,
+  KnowledgeAttempt,
   Profile,
   UserAlgorithmState,
   UserKnowledgeState,
@@ -30,6 +32,7 @@ const profile: Profile = {
   display_name: "秋招选手",
   timezone: "Asia/Shanghai",
   plan_start_date: "2026-09-09",
+  pause_periods: [],
   daily_new_algorithm_count: 2,
   daily_review_algorithm_count: 1,
   daily_new_knowledge_count: 3,
@@ -43,8 +46,54 @@ type FakeResult = { data: unknown; error: null };
 class FakeSupabase {
   readonly insertedTasks: unknown[] = [];
   readonly ranges: Record<string, [number, number][]> = {};
+  competingTask: Record<string, unknown> | null = null;
+  rpcError: { code: string; message: string } | null = null;
 
   constructor(private readonly rows: Record<string, unknown[]>) {}
+
+  async rpc(name: string, args: { p_tasks: unknown }) {
+    if (name !== "ensure_daily_training_tasks") throw new Error(`Unexpected RPC: ${name}`);
+    if (this.rpcError) return { data: null, error: this.rpcError };
+    const tasks = args.p_tasks as Record<string, unknown>[];
+    const stored = (this.rows.daily_tasks ??= []);
+    // Simulate a concurrent tab committing a different day's assignment
+    // between the snapshot SELECT and its atomic ensure RPC.
+    if (this.competingTask) {
+      stored.push(this.competingTask);
+      this.competingTask = null;
+    }
+    const groups = new Set(tasks.map((task) =>
+      `${task.task_date}:${task.algorithm_problem_id ? "algorithm" : "knowledge"}`,
+    ));
+    for (const group of groups) {
+      const selected = tasks.filter((task) =>
+        `${task.task_date}:${task.algorithm_problem_id ? "algorithm" : "knowledge"}` === group,
+      );
+      const exemplar = selected[0];
+      const isAlgorithm = Boolean(exemplar.algorithm_problem_id);
+      const alreadyAssigned = stored.some((row) => {
+        const task = row as Record<string, unknown>;
+        return task.task_date === exemplar.task_date
+          && Boolean(task.algorithm_problem_id) === isAlgorithm;
+      });
+      if (alreadyAssigned) continue;
+      for (const task of selected) {
+        this.insertedTasks.push(task);
+        stored.push({
+          id: `task-${stored.length + 1}`,
+          algorithm_problem_id: null,
+          knowledge_question_id: null,
+          completed_at: null,
+          metadata: {},
+          created_at: "2026-09-11T08:00:00.000Z",
+          updated_at: "2026-09-11T08:00:00.000Z",
+          ...task,
+        });
+      }
+    }
+    const dates = new Set(tasks.map((task) => task.task_date));
+    return { data: stored.filter((row) => dates.has((row as Record<string, unknown>).task_date)), error: null };
+  }
 
   from(table: string) {
     const filters: [string, unknown][] = [];
@@ -127,6 +176,7 @@ describe("Supabase training adapter", () => {
       displayName: "秋招选手",
       timeZone: "Asia/Shanghai",
       planStartDate: "2026-09-09",
+      pausePeriods: [],
       dailyNewAlgorithmCount: 2,
       dailyReviewKnowledgeCount: 3,
     });
@@ -284,6 +334,43 @@ describe("Supabase training adapter", () => {
     expect(repeated.algorithm.dailyTasks["2026-09-09"][0].backfilled).toBe(true);
     expect(repeated.algorithm.dailyTasks["2026-09-11"]).toHaveLength(2);
     expect(repeated.knowledge.dailyTasks["2026-09-11"]).toHaveLength(3);
+  });
+
+  it("returns the winning tab's persisted tasks instead of an uncommitted plan", async () => {
+    const fake = new FakeSupabase(cloudRows());
+    fake.competingTask = {
+      id: "competing-task",
+      user_id: "user-1",
+      task_date: "2026-09-11",
+      task_type: "new",
+      reason: "week_1_new",
+      status: "pending",
+      algorithm_problem_id: "db-1",
+      knowledge_question_id: null,
+      sort_order: 0,
+      completed_at: null,
+      metadata: { source: "deterministic_planner" },
+      created_at: "2026-09-11T08:00:00.000Z",
+      updated_at: "2026-09-11T08:00:00.000Z",
+    };
+    const snapshot = await loadCloudTrainingSnapshot(
+      fake as never, "user-1", new Date("2026-09-11T08:00:00.000Z"),
+    );
+    expect(snapshot.algorithm.dailyTasks["2026-09-11"]).toHaveLength(1);
+    expect(snapshot.algorithm.dailyTasks["2026-09-11"][0].problemId).toBe("1");
+    expect(fake.insertedTasks.filter((row) => {
+      const task = row as Record<string, unknown>;
+      return task.task_date === "2026-09-11" && task.algorithm_problem_id;
+    })).toHaveLength(0);
+  });
+
+  it("fails closed when the atomic task RPC is missing or unavailable", async () => {
+    const fake = new FakeSupabase(cloudRows());
+    fake.rpcError = { code: "PGRST202", message: "ensure_daily_training_tasks not found" };
+    await expect(loadCloudTrainingSnapshot(
+      fake as never, "user-1", new Date("2026-09-11T08:00:00.000Z"),
+    )).rejects.toThrow(/Ensure daily tasks failed/);
+    expect(fake.insertedTasks).toHaveLength(0);
   });
 
   it("rejects a 100-row cloud catalog when an expected LeetCode id is missing", async () => {
@@ -481,6 +568,35 @@ describe("Supabase training adapter", () => {
       ["finished_at", null],
     ]);
     expect(restoredTasks).toEqual({ status: "pending", completed_at: null });
+  });
+
+  it("restores the saved AI Recall history after repeated cloud snapshot loads", async () => {
+    const row: KnowledgeAttempt = {
+      id: "saved-recall", user_id: "user-1", question_id: "question-1", mode: "recall",
+      self_rating: null, answer_text: "根据 hash 定位", coverage_score: 35,
+      effective_coverage_score: 72,
+      ai_analysis: {
+        semanticScore: 72, verdict: "partial", summary: "哈希定位正确，遗漏 equals。",
+        coveredPoints: [{ index: 0, evidence: "提到了 hash" }],
+        missingPoints: [{ index: 1, guidance: "补充 equals 语义" }],
+        misconceptions: [], improvedAnswer: "hash 定位后，仍须使用 equals 判断键是否相等。",
+      },
+      matched_points: [{ index: 0, point: "hash 定位", weight: 20, matchedBy: "hash" }],
+      missing_points: [{ index: 1, point: "equals 判断", weight: 5 }],
+      mastery_before: 40, mastery_after: 55,
+      created_at: "2026-09-10T08:00:00.000Z", updated_at: "2026-09-10T08:00:00.000Z",
+    };
+    const fake = new FakeSupabase({ ...cloudRows(), knowledge_attempts: [row] });
+    const now = new Date("2026-09-11T08:00:00.000Z");
+    const first = await loadCloudTrainingSnapshot(fake as never, "user-1", now);
+    const refreshed = await loadCloudTrainingSnapshot(fake as never, "user-1", now);
+    expect(first.knowledge.attempts).toHaveLength(1);
+    expect(refreshed.knowledge.attempts).toHaveLength(1);
+    expect(refreshed.knowledge.attempts[0].aiAnalysis?.semanticScore).toBe(72);
+    expect(refreshed.knowledge.attempts[0].effectiveCoverageScore).toBe(72);
+    const history = getKnowledgeRecallHistory(refreshed.knowledge.attempts, "question-1");
+    expect(history.latest?.aiAnalysis?.missingPoints[0].guidance).toBe("补充 equals 语义");
+    expect(history.hint).toContain("equals 判断");
   });
 
   it("maps knowledge evidence and keeps structured matched points", () => {

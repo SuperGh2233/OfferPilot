@@ -142,6 +142,7 @@ export function ProgressOverview({
     snapshot.profile.planStartDate,
     snapshot.now,
     snapshot.profile.timeZone,
+    snapshot.profile.pausePeriods ?? [],
   );
 
   const tags = [...new Set(algorithmProblems.flatMap((problem) => problem.tags))];

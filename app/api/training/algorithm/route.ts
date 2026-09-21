@@ -93,10 +93,7 @@ export async function POST(request: Request) {
           problemId,
         });
       }
-      const snapshot = localMode
-        ? getLocalTrainingDatabase().loadSnapshot()
-        : await loadCloudTrainingSnapshot(context!.client, context!.userId);
-      return NextResponse.json({ snapshot });
+      return NextResponse.json({ mutation: { kind: "algorithm_cancel", attemptId, problemId } });
     }
 
     if (action === "save_ai_analysis") {
@@ -115,20 +112,15 @@ export async function POST(request: Request) {
             problemId,
             aiAnalysis: body.aiAnalysis,
           });
-      const snapshot = localMode
-        ? getLocalTrainingDatabase().loadSnapshot()
-        : await loadCloudTrainingSnapshot(context!.client, context!.userId);
-      return NextResponse.json({ attempt, snapshot });
+      return NextResponse.json({ mutation: { kind: "algorithm_analysis", attempt } });
     }
 
     if (action === "start") {
+      const startedAt = new Date();
       const attempt = localMode
-        ? getLocalTrainingDatabase().startAlgorithm(problemId)
-        : await startCloudAlgorithmAttempt(context!.client, context!.userId, problemId);
-      const snapshot = localMode
-        ? getLocalTrainingDatabase().loadSnapshot()
-        : await loadCloudTrainingSnapshot(context!.client, context!.userId);
-      return NextResponse.json({ attempt, snapshot });
+        ? getLocalTrainingDatabase().startAlgorithm(problemId, startedAt)
+        : await startCloudAlgorithmAttempt(context!.client, context!.userId, problemId, startedAt);
+      return NextResponse.json({ mutation: { kind: "algorithm_start", attempt, taskTime: startedAt.toISOString() } });
     }
     if (action !== "complete") {
       throw new RangeError("action 必须是 start、cancel、complete、save_ai_analysis 或 import_completed。");
@@ -197,10 +189,7 @@ export async function POST(request: Request) {
     const completion = localMode
       ? getLocalTrainingDatabase().completeAlgorithm(input)
       : await completeCloudAlgorithmAttempt(context!.client, context!.userId, input);
-    const snapshot = localMode
-      ? getLocalTrainingDatabase().loadSnapshot()
-      : await loadCloudTrainingSnapshot(context!.client, context!.userId);
-    return NextResponse.json({ completion, snapshot });
+    return NextResponse.json({ mutation: { kind: "algorithm_complete", completion } });
   } catch (error) {
     return trainingError(error);
   }

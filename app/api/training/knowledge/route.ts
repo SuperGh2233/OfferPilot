@@ -7,10 +7,7 @@ import {
 import { getLocalTrainingDatabase } from "../../../../lib/local-database";
 import type { KnowledgeSelfRating } from "../../../../lib/mastery/knowledge";
 import { isLocalDatabaseMode } from "../../../../lib/supabase/env";
-import {
-  loadCloudTrainingSnapshot,
-  recordCloudKnowledgeAttempt,
-} from "../../../../lib/supabase/training";
+import { recordCloudKnowledgeAttempt } from "../../../../lib/supabase/training";
 import {
   authenticatedTrainingContext,
   requestObject,
@@ -76,10 +73,7 @@ export async function POST(request: Request) {
     const result = localMode
       ? getLocalTrainingDatabase().recordKnowledge(input)
       : await recordCloudKnowledgeAttempt(context!.client, context!.userId, input);
-    const snapshot = localMode
-      ? getLocalTrainingDatabase().loadSnapshot()
-      : await loadCloudTrainingSnapshot(context!.client, context!.userId);
-    return NextResponse.json({ result, snapshot });
+    return NextResponse.json({ mutation: { kind: "knowledge_record", result } });
   } catch (error) {
     return trainingError(error);
   }

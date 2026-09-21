@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 
 import { Button } from "@/components/ui/button";
 import { RecallResult } from "@/components/knowledge/recall-result";
+import { RecallHistoryPanel } from "@/components/knowledge/recall-history-panel";
 import { RecallScoreComparison } from "@/components/knowledge/recall-score-comparison";
 import { VoiceAnswerButton } from "@/components/knowledge/voice-answer-button";
 import {
@@ -29,6 +30,7 @@ import {
   saveKnowledgeDemoData,
   type KnowledgeDemoData,
 } from "@/lib/knowledge/demo-store";
+import { getKnowledgeRecallHistory } from "@/lib/knowledge/recall-history";
 import type { KnowledgeSelfRating } from "@/lib/mastery/knowledge";
 import type { KnowledgePlannerQuestion } from "@/lib/planner/knowledge";
 import {
@@ -132,6 +134,7 @@ export function KnowledgeTraining({
           newCount: profile.dailyNewKnowledgeCount,
           reviewCount: profile.dailyReviewKnowledgeCount,
           timeZone: profile.timeZone,
+          pausePeriods: profile.pausePeriods ?? [],
         });
         if (ensured.data !== loaded) saveKnowledgeDemoData(window.localStorage, ensured.data);
         setData(ensured.data);
@@ -183,8 +186,8 @@ export function KnowledgeTraining({
           attemptedAt: new Date().toISOString(),
           selfRating,
         });
-        cloud.setSnapshot(result.snapshot);
-        setSubmission(result.result);
+        cloud.applyMutation(result.mutation);
+        setSubmission(result.mutation.result);
         pendingAttemptId.current = null;
         return;
       }
@@ -231,8 +234,8 @@ export function KnowledgeTraining({
           answerText,
           aiAnalysis: recallAiAnalysis,
         });
-        cloud.setSnapshot(result.snapshot);
-        setSubmission(result.result);
+        cloud.applyMutation(result.mutation);
+        setSubmission(result.mutation.result);
         setAnswer("");
         pendingAttemptId.current = null;
         return;
@@ -308,6 +311,10 @@ export function KnowledgeTraining({
 
   const visibleState = submission?.state ?? state;
   const recallResult = submission?.attempt.mode === "recall" ? submission.attempt : null;
+  // 云端增量合并或页面刷新后均从已保存的 Attempt 重建历史，不依赖临时 React state。
+  const recallHistory = data ? getKnowledgeRecallHistory(data.attempts, question.id, recallResult) : null;
+  const currentAnalysis = recallResult?.aiAnalysis ?? aiAnalysis;
+  const supplementalAnalysis = Boolean(recallResult && !recallResult.aiAnalysis && aiAnalysis);
   const showLearn = data !== null && state === null && submission === null;
   const showRecall = state !== null && submission === null;
   const visibleStatus = statusPresentation(visibleState);
@@ -404,14 +411,16 @@ export function KnowledgeTraining({
                     <div className="rounded-2xl border bg-card p-5 shadow-sm">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                          <p className="font-semibold">AI 语义复核{aiAnalysis ? "" : "（本次未能用于计分）"}</p>
+                          <p className="font-semibold">AI 语义复核{supplementalAnalysis ? "（补做，未计分）" : currentAnalysis ? "（本次已保存）" : "（本次未能用于计分）"}</p>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            {aiAnalysis
-                              ? "提交时已同步复核，本次计分与 Mastery 按下方口径更新。"
-                              : "本次提交时复核不可用，已按确定性覆盖率计分；补救复核只补充解释，不改动已记录的分数。"}
+                            {supplementalAnalysis
+                              ? "这是提交后的补做解释，没有写入历史 Attempt，也不改变本次分数、Mastery 或复习日期。"
+                              : currentAnalysis
+                                ? "提交时已同步复核，AI 结果已随本次 Attempt 保存并参与计分。"
+                                : "本次提交时复核不可用，已按确定性覆盖率计分；补救复核只补充解释，不改动已记录的分数。"}
                           </p>
                         </div>
-                        {aiAnalysis ? null : (
+                        {currentAnalysis ? null : (
                           <Button
                             disabled={!recallResult.answerText?.trim() || aiStatus === "loading"}
                             onClick={() => void handleAiRetry()}
@@ -423,9 +432,10 @@ export function KnowledgeTraining({
                         )}
                       </div>
                       {aiError ? <p aria-live="assertive" className="mt-3 text-sm text-destructive">{aiError}</p> : null}
-                      {aiAnalysis ? (
+                      {currentAnalysis ? (
                         <RecallAiPanel
-                          analysis={aiAnalysis}
+                          analysis={currentAnalysis}
+                          supplemental={supplementalAnalysis}
                           coverageScore={recallResult.coverageScore}
                           effectiveCoverageScore={recallResult.effectiveCoverageScore}
                           question={question}
@@ -448,6 +458,10 @@ export function KnowledgeTraining({
                   </Link>
                 </div>
               </section>
+            ) : null}
+
+            {recallHistory?.latest ? (
+              <RecallHistoryPanel history={recallHistory} timeZone={timeZone} expanded={Boolean(recallResult)} />
             ) : null}
 
             {error ?? cloud.error ? <p aria-live="assertive" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error ?? cloud.error}</p> : null}
@@ -532,23 +546,29 @@ const verdictLabels: Record<KnowledgeRecallAnalysis["verdict"], string> = {
 
 function RecallAiPanel({
   analysis,
+  supplemental = false,
   coverageScore,
   effectiveCoverageScore,
   question,
 }: {
   analysis: KnowledgeRecallAnalysis;
+  supplemental?: boolean;
   coverageScore: number | null | undefined;
   effectiveCoverageScore: number | null | undefined;
   question: KnowledgeTrainingQuestion;
 }) {
   return (
     <div className="mt-4 space-y-4 border-t pt-4 text-sm">
-      <RecallScoreComparison
-        coverageScore={coverageScore}
-        effectiveCoverageScore={effectiveCoverageScore}
-        semanticScore={analysis.semanticScore}
-        verdictLabel={verdictLabels[analysis.verdict]}
-      />
+      {supplemental ? (
+        <p className="rounded-xl bg-muted p-4 leading-6">本次实际计分仍为 {effectiveCoverageScore ?? coverageScore ?? 0}%；补做 AI 语义覆盖率为 {analysis.semanticScore}%，仅供理解和自查，未改变历史分数。</p>
+      ) : (
+        <RecallScoreComparison
+          coverageScore={coverageScore}
+          effectiveCoverageScore={effectiveCoverageScore}
+          semanticScore={analysis.semanticScore}
+          verdictLabel={verdictLabels[analysis.verdict]}
+        />
+      )}
       <div className="rounded-xl bg-muted p-4">
         <p className="font-medium">复核结论</p>
         <p className="mt-1 leading-6 text-muted-foreground">{analysis.summary}</p>

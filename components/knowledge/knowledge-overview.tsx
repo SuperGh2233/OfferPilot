@@ -107,6 +107,7 @@ export function KnowledgeOverview({
       newCount: profile.dailyNewKnowledgeCount,
       reviewCount: profile.dailyReviewKnowledgeCount,
       timeZone: profile.timeZone,
+      pausePeriods: profile.pausePeriods ?? [],
     });
     if (ensured.data !== loaded) saveKnowledgeDemoData(window.localStorage, ensured.data);
     setDemoSnapshot({

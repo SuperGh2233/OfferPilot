@@ -11,6 +11,8 @@
     "test": "vitest run",
     "seed": "node --env-file-if-exists=.env.local scripts/seed.mjs",
     "seed:check": "node scripts/seed.mjs --dry-run",
+    "knowledge:audit": "node scripts/audit-knowledge.mjs",
+    "knowledge:audit:report": "node scripts/audit-knowledge.mjs --report",
     "supabase:verify": "node --env-file-if-exists=.env.local scripts/verify-supabase.mjs",
     "supabase:verify-rls": "node --env-file-if-exists=.env.local scripts/verify-supabase-rls.mjs",
     "smoke": "node scripts/smoke.mjs",

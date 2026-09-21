@@ -31,6 +31,7 @@ import {
   PROFILE_DEMO_CHANGED_EVENT,
   type DemoProfile,
 } from "@/lib/profile/demo-store";
+import { isPlanPaused } from "@/lib/profile/pause";
 import {
   calculateCyclePosition,
   calculateTrainingBacklog,
@@ -109,6 +110,7 @@ export function DashboardOverview({
       newCount: profile.dailyNewAlgorithmCount,
       reviewCount: profile.dailyReviewAlgorithmCount,
       timeZone: profile.timeZone,
+      pausePeriods: profile.pausePeriods ?? [],
     });
     if (algorithmEnsured.data !== algorithmLoaded) {
       saveAlgorithmDemoData(window.localStorage, algorithmEnsured.data);
@@ -119,6 +121,7 @@ export function DashboardOverview({
       newCount: profile.dailyNewKnowledgeCount,
       reviewCount: profile.dailyReviewKnowledgeCount,
       timeZone: profile.timeZone,
+      pausePeriods: profile.pausePeriods ?? [],
     });
     if (knowledgeEnsured.data !== knowledgeLoaded) {
       saveKnowledgeDemoData(window.localStorage, knowledgeEnsured.data);
@@ -184,6 +187,7 @@ export function DashboardOverview({
     return <p className="mt-8 text-sm text-muted-foreground">正在汇总今天的训练…</p>;
   }
 
+  const paused = isPlanPaused(snapshot.profile.pausePeriods ?? []);
   const algorithmCounts = taskCounts(snapshot.algorithmTasks, "new");
   const knowledgeCounts = taskCounts(snapshot.knowledgeTasks, "new");
   const algorithmStates = Object.values(snapshot.algorithmData.states);
@@ -201,14 +205,16 @@ export function DashboardOverview({
     snapshot.profile.planStartDate,
     snapshot.now,
     snapshot.profile.timeZone,
+    snapshot.profile.pausePeriods ?? [],
   );
   const weekly = calculateWeeklyCompletion({
     planStartDate: snapshot.profile.planStartDate,
     tasks: allTasks,
     today: snapshot.now,
     timeZone: snapshot.profile.timeZone,
+    pausePeriods: snapshot.profile.pausePeriods ?? [],
   });
-  const streak = calculateTrainingStreak(allTasks, snapshot.now, snapshot.profile.timeZone);
+  const streak = calculateTrainingStreak(allTasks, snapshot.now, snapshot.profile.timeZone, snapshot.profile.pausePeriods ?? []);
   const algorithmWeaknesses = aggregateAlgorithmWeaknesses({
     attempts: snapshot.algorithmData.attempts.map((attempt) => ({
       mistakeTags: attempt.mistakeTags,
@@ -252,6 +258,7 @@ export function DashboardOverview({
     planStartDate: snapshot.profile.planStartDate,
     today: snapshot.now,
     timeZone: snapshot.profile.timeZone,
+    pausePeriods: snapshot.profile.pausePeriods ?? [],
     dailyNewAlgorithmCount: snapshot.profile.dailyNewAlgorithmCount,
     dailyReviewAlgorithmCount: snapshot.profile.dailyReviewAlgorithmCount,
     dailyNewKnowledgeCount: snapshot.profile.dailyNewKnowledgeCount,
@@ -270,10 +277,21 @@ export function DashboardOverview({
     task.date >= snapshot.profile.planStartDate && task.date < todayKey
     && task.taskType === "new" && task.status !== "completed",
   ).length;
-  const hasBacklog = Object.entries(backlog).some(([key, count]) => key !== "missedTrainingDays" && count > 0);
+  const hasBacklog = !paused && Object.entries(backlog).some(([key, count]) => key !== "missedTrainingDays" && count > 0);
 
   return (
     <div className="mt-8 flex flex-col gap-6">
+      {paused ? (
+        <section className="rounded-2xl border border-sky-300 bg-sky-50 p-5 dark:border-sky-900 dark:bg-sky-950/40" role="status">
+          <h2 className="font-semibold text-sky-900 dark:text-sky-200">计划已暂停</h2>
+          <p className="mt-1 text-sm text-sky-800 dark:text-sky-300">休息期间不生成新任务，暂停日不算漏训；你的历史和 Mastery 都会保留。</p>
+          <Link className="mt-3 inline-flex rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600" href="/settings">前往恢复计划</Link>
+        </section>
+      ) : (
+        <div className="flex justify-end">
+          <Link className="text-sm text-muted-foreground underline-offset-4 hover:underline" href="/settings">有事需要暂停计划？</Link>
+        </div>
+      )}
       <section className="overflow-hidden rounded-3xl bg-slate-950 p-6 text-white shadow-sm sm:p-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -287,7 +305,7 @@ export function DashboardOverview({
               <p className="mt-2 text-sm font-medium text-emerald-300">{snapshot.profile.displayName}，今天继续稳步推进。</p>
             ) : null}
             <p className="mt-3 text-sm text-slate-300">
-              今天还剩 {remaining} 项；第一周期结束后仍会继续生成到期复习。
+              {paused ? "休息中：训练日进度已冻结，可随时在设置中恢复。" : `今天还剩 ${remaining} 项；第一周期结束后仍会继续生成到期复习。`}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-5 text-sm sm:text-right">
@@ -299,7 +317,7 @@ export function DashboardOverview({
           <div className="h-full rounded-full bg-emerald-400" style={{ width: `${cycle.progress}%` }} />
         </div>
         <p className="mt-2 text-xs text-slate-400">
-          第一周期进度 {cycle.progress}% · 本周已完成 {weekly.completed}/{weekly.total} 个已生成任务
+          第一周期进度 {cycle.progress}% · 本周已完成 {weekly.completed}/{weekly.total} 个已生成任务{paused ? " · 计划暂停中" : ""}
         </p>
       </section>
 

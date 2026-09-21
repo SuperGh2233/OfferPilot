@@ -29,7 +29,14 @@ describe("profile demo store", () => {
       dailyReviewAlgorithmCount: 1,
       dailyNewKnowledgeCount: 3,
       dailyReviewKnowledgeCount: 3,
+      pausePeriods: [],
     });
+  });
+
+  it("upgrades a saved profile that predates the pause feature", () => {
+    const old = { ...createDemoProfile("2026-09-09") } as Record<string, unknown>;
+    delete old.pausePeriods;
+    expect(loadDemoProfile(storage(JSON.stringify(old))).pausePeriods).toEqual([]);
   });
 
   it("round-trips a valid profile", () => {

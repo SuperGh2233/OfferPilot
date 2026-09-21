@@ -10,6 +10,8 @@ import {
   completeDemoAlgorithmAttempt,
   createAlgorithmDemoData,
   ensureTodayAlgorithmTasks,
+  getAlgorithmTrainingDateKey,
+  getTrainingDayStart,
   saveAlgorithmDemoData,
   startDemoAlgorithmAttempt,
   type AlgorithmDemoData,
@@ -34,6 +36,7 @@ import {
   saveDemoProfile,
   type DemoProfile,
 } from "./profile/demo-store";
+import { changePlanPause, deferReviewDate, isPlanPaused, pauseDurationDays } from "./profile/pause";
 import type {
   CloudTrainingSnapshot,
   CompleteCloudAlgorithmInput,
@@ -137,6 +140,7 @@ export class LocalTrainingDatabase {
         newCount: state.profile.dailyNewAlgorithmCount,
         reviewCount: state.profile.dailyReviewAlgorithmCount,
         timeZone: state.profile.timeZone,
+        pausePeriods: state.profile.pausePeriods ?? [],
       },
     );
     const knowledge = ensureTodayKnowledgeTasks(
@@ -147,6 +151,7 @@ export class LocalTrainingDatabase {
         newCount: state.profile.dailyNewKnowledgeCount,
         reviewCount: state.profile.dailyReviewKnowledgeCount,
         timeZone: state.profile.timeZone,
+        pausePeriods: state.profile.pausePeriods ?? [],
       },
     );
     if (algorithm.data !== state.algorithm || knowledge.data !== state.knowledge) {
@@ -316,16 +321,47 @@ export class LocalTrainingDatabase {
       : { attempt: result.attempt, state: result.state };
   }
 
+  setPlanPaused(paused: boolean, now = new Date()) {
+    if (typeof paused !== "boolean") throw new RangeError("Invalid pause state");
+    const state = this.readState() ?? freshState(now);
+    const before = state.profile.pausePeriods ?? [];
+    const today = getAlgorithmTrainingDateKey(now, state.profile.timeZone);
+    if (paused === isPlanPaused(before)) return state.profile;
+    const periods = changePlanPause(before, paused, today);
+    if (!paused) {
+      const last = before[before.length - 1];
+      const days = pauseDurationDays(last.start, today);
+      // The profile's training day starts at 03:00, including DST changes.
+      const pauseStart = getTrainingDayStart(last.start, state.profile.timeZone);
+      const shiftState = <T extends { nextReviewAt: string; lastAttemptAt: string | null; status: string }>(states: Record<string, T>): Record<string, T> =>
+        Object.fromEntries(Object.entries(states).map(([id, entry]) => {
+          if (entry.lastAttemptAt && entry.lastAttemptAt >= pauseStart) return [id, entry];
+          const nextReviewAt = deferReviewDate(entry.nextReviewAt, pauseStart, days);
+          return [id, {
+            ...entry,
+            nextReviewAt,
+            status: (entry.status === "due" && Date.parse(nextReviewAt) > now.getTime()
+              ? "learning" : entry.status) as T["status"],
+          }];
+        }));
+      state.algorithm = { ...state.algorithm, states: shiftState(state.algorithm.states) };
+      state.knowledge = { ...state.knowledge, states: shiftState(state.knowledge.states) };
+    }
+    state.profile = { ...state.profile, pausePeriods: periods };
+    this.writeState(state);
+    return state.profile;
+  }
+
   updateProfile(profile: DemoProfile) {
     const state = this.readState() ?? freshState(new Date());
     const candidate = {
       ...state,
-      profile,
+      profile: { ...profile, pausePeriods: state.profile.pausePeriods ?? [] },
       algorithm: { ...state.algorithm, planStartDate: profile.planStartDate },
       knowledge: { ...state.knowledge, planStartDate: profile.planStartDate },
     };
     this.writeState(candidate);
-    return profile;
+    return candidate.profile;
   }
 }
 

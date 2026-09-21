@@ -62,6 +62,7 @@ import {
   type DemoProfile,
   type DemoTimeZone,
 } from "../profile/demo-store";
+import { isPlanPauseHistory } from "../profile/pause";
 import type {
   AlgorithmAttempt,
   AlgorithmProblem,
@@ -224,6 +225,7 @@ export function profileFromRow(row: Profile): DemoProfile {
     displayName: row.display_name ?? "",
     timeZone,
     planStartDate: row.plan_start_date,
+    pausePeriods: isPlanPauseHistory(row.pause_periods) ? row.pause_periods : [],
     dailyNewAlgorithmCount: row.daily_new_algorithm_count,
     dailyReviewAlgorithmCount: row.daily_review_algorithm_count,
     dailyNewKnowledgeCount: row.daily_new_knowledge_count,
@@ -389,10 +391,24 @@ async function loadProfile(
   return profileFromRow(required(inserted.data, "profile"));
 }
 
-async function insertTasks(client: Client, rows: DailyTaskInsert[]) {
-  if (rows.length === 0) return;
-  const result = await client.from("daily_tasks").insert(rows);
-  if (result.error?.code !== "23505") fail("Create daily tasks failed", result.error);
+async function persistPlannedTasks(client: Client, rows: DailyTaskInsert[]): Promise<DailyTask[] | null> {
+  if (rows.length === 0) return null;
+  // A regular batch INSERT is all-or-nothing on 23505; ignoring that error
+  // would return tasks the database never saved. The RPC serializes each
+  // user/date/resource assignment and returns the actual committed rows.
+  const result = await client.rpc("ensure_daily_training_tasks", {
+    p_tasks: rows as unknown as Json,
+  });
+  fail("Ensure daily tasks failed", result.error);
+  const persisted: Json = required(result.data, "persisted daily tasks");
+  if (!Array.isArray(persisted) || !persisted.every((row) =>
+    row !== null && typeof row === "object" && !Array.isArray(row)
+    && typeof row.id === "string" && typeof row.user_id === "string"
+    && typeof row.task_date === "string"
+  )) {
+    throw new Error("Ensure daily tasks returned invalid persisted rows");
+  }
+  return persisted as unknown as DailyTask[];
 }
 
 export async function loadCloudTrainingSnapshot(
@@ -485,6 +501,7 @@ export async function loadCloudTrainingSnapshot(
       newCount: profile.dailyNewAlgorithmCount,
       reviewCount: profile.dailyReviewAlgorithmCount,
       timeZone: profile.timeZone,
+      pausePeriods: profile.pausePeriods,
     },
   );
   const ensuredKnowledge = ensureTodayKnowledgeTasks(
@@ -495,6 +512,7 @@ export async function loadCloudTrainingSnapshot(
       newCount: profile.dailyNewKnowledgeCount,
       reviewCount: profile.dailyReviewKnowledgeCount,
       timeZone: profile.timeZone,
+      pausePeriods: profile.pausePeriods,
     },
   );
 
@@ -532,7 +550,17 @@ export async function loadCloudTrainingSnapshot(
       });
     }
   }
-  await insertTasks(client, inserts);
+  const persistedTasks = await persistPlannedTasks(client, inserts);
+  if (persistedTasks !== null) {
+    const actualAlgorithm = algorithmTasks(persistedTasks, localByDatabaseId);
+    const actualKnowledge = knowledgeTasks(persistedTasks);
+    // Another tab may have committed different assignments first. Return
+    // exactly what was persisted for affected dates, never the stale plan.
+    for (const date of new Set(inserts.map((row) => row.task_date))) {
+      ensuredAlgorithm.data.dailyTasks[date] = actualAlgorithm[date] ?? [];
+      ensuredKnowledge.data.dailyTasks[date] = actualKnowledge[date] ?? [];
+    }
+  }
   return {
     algorithm: ensuredAlgorithm.data,
     knowledge: ensuredKnowledge.data,
@@ -910,6 +938,18 @@ export async function recordCloudKnowledgeAttempt(
   });
   fail("Record knowledge attempt failed", rpc.error);
   return result;
+}
+
+export async function setCloudPlanPaused(
+  client: Client,
+  userId: string,
+  paused: boolean,
+): Promise<DemoProfile> {
+  if (typeof paused !== "boolean") throw new RangeError("Invalid pause state");
+  await loadProfile(client, userId, new Date());
+  const result = await client.rpc("set_plan_paused", { p_paused: paused });
+  fail("Change plan pause state failed", result.error);
+  return profileFromRow(required(result.data, "updated pause profile"));
 }
 
 export async function updateCloudProfile(

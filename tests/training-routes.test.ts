@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   loadCloudTrainingSnapshot: vi.fn(),
   recordCloudKnowledgeAttempt: vi.fn(),
   saveCloudAlgorithmAnalysis: vi.fn(),
+  setCloudPlanPaused: vi.fn(),
   startCloudAlgorithmAttempt: vi.fn(),
   updateCloudProfile: vi.fn(),
 }));
@@ -32,6 +33,7 @@ vi.mock("../lib/supabase/training", async (importOriginal) => {
     loadCloudTrainingSnapshot: mocks.loadCloudTrainingSnapshot,
     recordCloudKnowledgeAttempt: mocks.recordCloudKnowledgeAttempt,
     saveCloudAlgorithmAnalysis: mocks.saveCloudAlgorithmAnalysis,
+    setCloudPlanPaused: mocks.setCloudPlanPaused,
     startCloudAlgorithmAttempt: mocks.startCloudAlgorithmAttempt,
     updateCloudProfile: mocks.updateCloudProfile,
   };
@@ -39,7 +41,7 @@ vi.mock("../lib/supabase/training", async (importOriginal) => {
 
 import { POST as algorithmPost } from "../app/api/training/algorithm/route";
 import { POST as knowledgePost } from "../app/api/training/knowledge/route";
-import { PUT as profilePut } from "../app/api/training/profile/route";
+import { PATCH as profilePatch, PUT as profilePut } from "../app/api/training/profile/route";
 import { GET as snapshotGet } from "../app/api/training/snapshot/route";
 
 const context = { client: {}, userId: "user-1" };
@@ -73,6 +75,7 @@ describe("cloud training routes", () => {
       algorithmPost(unreadableRequest.clone()),
       knowledgePost(unreadableRequest.clone()),
       profilePut(unreadableRequest.clone()),
+      profilePatch(unreadableRequest.clone()),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(401);
@@ -85,6 +88,21 @@ describe("cloud training routes", () => {
     expect(mocks.startCloudAlgorithmAttempt).not.toHaveBeenCalled();
     expect(mocks.recordCloudKnowledgeAttempt).not.toHaveBeenCalled();
     expect(mocks.updateCloudProfile).not.toHaveBeenCalled();
+  });
+
+  it("pauses a plan only for the authenticated user and rejects malformed state", async () => {
+    mocks.setCloudPlanPaused.mockResolvedValue({ pausePeriods: [{ start: "2026-09-20", end: null }] });
+    const response = await profilePatch(jsonRequest("http://localhost/api/training/profile", {
+      paused: true, userId: "another-user",
+    }, "PATCH"));
+    expect(response.status).toBe(200);
+    expect(mocks.setCloudPlanPaused).toHaveBeenCalledWith(context.client, "user-1", true);
+    expect(await response.json()).toMatchObject({ profile: { pausePeriods: [{ end: null }] } });
+    const invalid = await profilePatch(jsonRequest("http://localhost/api/training/profile", {
+      paused: "yes",
+    }, "PATCH"));
+    expect(invalid.status).toBe(400);
+    expect(mocks.setCloudPlanPaused).toHaveBeenCalledTimes(1);
   });
 
   it("starts an algorithm attempt using the authenticated user only", async () => {
@@ -101,7 +119,12 @@ describe("cloud training routes", () => {
       context.client,
       "user-1",
       "1",
+      expect.any(Date),
     );
+    await expect(response.json()).resolves.toMatchObject({
+      mutation: { kind: "algorithm_start", attempt: { id: "attempt-1" }, taskTime: expect.any(String) },
+    });
+    expect(mocks.loadCloudTrainingSnapshot).not.toHaveBeenCalled();
   });
 
   it("cancels an algorithm attempt using the authenticated user only", async () => {
@@ -120,6 +143,10 @@ describe("cloud training routes", () => {
       "user-1",
       { attemptId, problemId: "1" },
     );
+    await expect(response.json()).resolves.toEqual({
+      mutation: { kind: "algorithm_cancel", attemptId, problemId: "1" },
+    });
+    expect(mocks.loadCloudTrainingSnapshot).not.toHaveBeenCalled();
   });
 
   it("imports validated Hot 100 ids using the authenticated user only", async () => {
@@ -159,6 +186,23 @@ describe("cloud training routes", () => {
     expect(mocks.completeCloudAlgorithmAttempt).not.toHaveBeenCalled();
   });
 
+  it("completes an algorithm with a delta response rather than reloading history", async () => {
+    const completion = { attempt: { id: attemptId, problemId: "1" }, state: { mastery: 70 } };
+    mocks.completeCloudAlgorithmAttempt.mockResolvedValue(completion);
+    const response = await algorithmPost(
+      jsonRequest("http://localhost/api/training/algorithm", {
+        action: "complete", attemptId, problemId: "1",
+        finishedAt: new Date().toISOString(), result: "first_ac",
+        independence: "independent", waCount: 0, mistakeTags: [],
+      }),
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      mutation: { kind: "algorithm_complete", completion },
+    });
+    expect(mocks.loadCloudTrainingSnapshot).not.toHaveBeenCalled();
+  });
+
   it("saves validated AI analysis on the authenticated completed attempt", async () => {
     const aiAnalysis = {
       solutionType: "other",
@@ -186,6 +230,8 @@ describe("cloud training routes", () => {
       "user-1",
       { attemptId, problemId: "1", aiAnalysis },
     );
+    await expect(response.json()).resolves.toMatchObject({ mutation: { kind: "algorithm_analysis" } });
+    expect(mocks.loadCloudTrainingSnapshot).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid Learn rating before persistence", async () => {
@@ -229,6 +275,8 @@ describe("cloud training routes", () => {
       "user-1",
       expect.objectContaining({ answerText: "发生 resize", aiAnalysis }),
     );
+    await expect(response.json()).resolves.toMatchObject({ mutation: { kind: "knowledge_record" } });
+    expect(mocks.loadCloudTrainingSnapshot).not.toHaveBeenCalled();
   });
 
   it("keeps a recall submission without an AI review on the deterministic score", async () => {

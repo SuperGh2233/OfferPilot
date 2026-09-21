@@ -10,6 +10,7 @@ import {
   saveKnowledgeDemoData,
 } from "../lib/knowledge/demo-store";
 import type { StorageLike } from "../lib/algorithm/demo-store";
+import { getKnowledgeRecallHistory } from "../lib/knowledge/recall-history";
 
 class MemoryStorage implements StorageLike {
   values = new Map<string, string>();
@@ -45,6 +46,21 @@ describe("knowledge demo store", () => {
       createKnowledgeDemoData("2026-09-09", "America/Los_Angeles")
         .planStartDate,
     ).toBe("2026-09-09");
+  });
+
+  it("keeps knowledge assignments on the local 03:00 boundary during DST", () => {
+    const initial = createKnowledgeDemoData("2026-03-07", "America/Los_Angeles");
+    const before = ensureTodayKnowledgeTasks(
+      initial, questions, new Date("2026-03-08T09:59:59Z"),
+      { timeZone: "America/Los_Angeles" },
+    );
+    expect(before.date).toBe("2026-03-07");
+    const after = ensureTodayKnowledgeTasks(
+      before.data, questions, new Date("2026-03-08T10:00:00Z"),
+      { timeZone: "America/Los_Angeles" },
+    );
+    expect(after.date).toBe("2026-03-08");
+    expect(after.currentWeek).toBe(1);
   });
 
   it("generates and caches today's tasks", () => {
@@ -118,6 +134,32 @@ describe("knowledge demo store", () => {
     expect(recalled.data.attempts).toHaveLength(2);
     expect(saveKnowledgeDemoData(storage, recalled.data)).toBe(true);
     expect(loadKnowledgeDemoData(storage, day(4))).toEqual(recalled.data);
+  });
+
+  it("restores a recorded AI analysis and next-review hint after browser-storage reload", () => {
+    const storage = new MemoryStorage();
+    const learned = learnDemoKnowledgeQuestion({
+      data: createKnowledgeDemoData(day(1)), questionId: "q1", selfRating: 3,
+      attemptedAt: day(1), id: "learn-history",
+    });
+    const recalled = recallDemoKnowledgeQuestion({
+      data: learned.data, questionId: "q1", answerText: "HashMap 根据 hash 定位桶",
+      keyPoints: ["根据 hash 定位桶", "通过 equals 比较 key"],
+      aiAnalysis: {
+        semanticScore: 70, verdict: "partial", summary: "缺少 equals。",
+        coveredPoints: [{ index: 0, evidence: "提到 hash 定位" }],
+        missingPoints: [{ index: 1, guidance: "补上 equals 的键比较" }],
+        misconceptions: [], improvedAnswer: "先 hash 定位，再 equals 判断。",
+      },
+      attemptedAt: day(4), id: "recall-history",
+    });
+    expect(saveKnowledgeDemoData(storage, recalled.data)).toBe(true);
+    const restored = loadKnowledgeDemoData(storage, day(5));
+    const history = getKnowledgeRecallHistory(restored.attempts, "q1");
+    expect(history.latest?.id).toBe("recall-history");
+    expect(history.latest?.aiAnalysis?.semanticScore).toBe(70);
+    expect(history.hint).toContain("通过 equals 比较 key");
+    expect(history.hint).toContain("补上 equals 的键比较");
   });
 
   it("completes every pending task for a question without rewriting completed history", () => {

@@ -11,6 +11,7 @@ import type {
 import type { KnowledgeSelfRating } from "../mastery/knowledge";
 import type { AlgorithmDateInput } from "../mastery/algorithm";
 import type { KnowledgeRecallAnalysis } from "../ai/knowledge-recall-analysis";
+import { isPlanPaused, type PlanPausePeriod } from "../profile/pause";
 import {
   generateDailyKnowledgeTasks,
   knowledgeQuotasForWeek,
@@ -21,8 +22,8 @@ import {
   ALGORITHM_DEMO_TIME_ZONE,
   calculateAlgorithmCurrentWeek,
   getAlgorithmDemoDateKey,
+  getAlgorithmTrainingDateKey,
   pastPlanDateKeys,
-  shiftToTrainingDay,
   type StorageLike,
 } from "../algorithm/demo-store";
 
@@ -207,22 +208,24 @@ export function ensureTodayKnowledgeTasks(
   data: KnowledgeDemoData,
   questions: readonly KnowledgePlannerQuestion[],
   today: AlgorithmDateInput = new Date(),
-  options: { newCount?: number; reviewCount?: number; timeZone?: string } = {},
+  options: { newCount?: number; reviewCount?: number; timeZone?: string; pausePeriods?: readonly PlanPausePeriod[] } = {},
 ) {
   if (!isData(data)) throw new RangeError("knowledge demo data is invalid");
   const timeZone = options.timeZone ?? ALGORITHM_DEMO_TIME_ZONE;
-  // 与算法侧一致：日期键与周次按训练日（凌晨 3 点重置）计算，
-  // 下发给规划器的 today 仍是真实时刻。
-  const trainingDay = shiftToTrainingDay(today);
-  const taskDate = getAlgorithmDemoDateKey(trainingDay, timeZone);
-  const currentWeek = calculateAlgorithmCurrentWeek(data.planStartDate, trainingDay, timeZone);
-  const pastDates = pastPlanDateKeys(data.planStartDate, taskDate);
+  // 训练日期与周次按当地墙上时间 03:00 重置；Planner 到期判断仍使用真实时刻。
+  const taskDate = getAlgorithmTrainingDateKey(today, timeZone);
+  const pauses = options.pausePeriods ?? [];
+  const currentWeek = calculateAlgorithmCurrentWeek(data.planStartDate, taskDate, timeZone, pauses);
+  if (isPlanPaused(pauses)) {
+    return { data, tasks: data.dailyTasks[taskDate] ?? [], currentWeek, date: taskDate };
+  }
+  const pastDates = pastPlanDateKeys(data.planStartDate, taskDate, pauses);
   const configuredNew = options.newCount ?? 3;
   const configuredReview = options.reviewCount ?? 3;
   const coreIds = new Set(questions.filter((question) => question.questionType === "main" && question.isCore6Weeks).map((question) => question.id));
   const expectedNew = Math.min(coreIds.size, pastDates.reduce((total, pastDate) =>
     total + knowledgeQuotasForWeek(
-      calculateAlgorithmCurrentWeek(data.planStartDate, pastDate, timeZone),
+      calculateAlgorithmCurrentWeek(data.planStartDate, pastDate, timeZone, pauses),
       configuredNew,
       configuredReview,
     ).newQuota, 0));
@@ -237,7 +240,7 @@ export function ensureTodayKnowledgeTasks(
   for (const pastDate of pastDates) {
     if (toBackfill === 0) break;
     if (data.dailyTasks[pastDate] !== undefined) continue;
-    const week = calculateAlgorithmCurrentWeek(data.planStartDate, pastDate, timeZone);
+    const week = calculateAlgorithmCurrentWeek(data.planStartDate, pastDate, timeZone, pauses);
     const tasks: LocalKnowledgeTask[] = generateDailyKnowledgeTasks({
       questions: questions.filter((question) => !assigned.has(question.id)),
       states: Object.values(data.states),

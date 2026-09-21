@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { createClient } from "@supabase/supabase-js";
+import { applyKnowledgeContentReview } from "../lib/knowledge/content-cleaning.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const readJson = async (path) =>
@@ -17,10 +18,11 @@ const categoryWeek = {
   Redis: 4,
 };
 
-const [hot100, knowledge, core] = await Promise.all([
+const [hot100, knowledge, core, answerReviews] = await Promise.all([
   readJson("data/algorithm/hot100.json"),
   readJson("data/knowledge/offerpilot_bagu_full.json"),
   readJson("data/knowledge/offerpilot_bagu_core_6weeks.json"),
+  readJson("data/knowledge/answer_review_patches.json"),
 ]);
 const coreIds = new Set(core.questions.map((question) => question.id));
 const coreById = new Map(core.questions.map((question) => [question.id, question]));
@@ -34,7 +36,9 @@ const topics = knowledge.topics.map((topic) => ({
   ...topic,
   recommended_week: categoryWeek[topic.category],
 }));
-const questions = knowledge.questions.map((question) => ({
+const questions = knowledge.questions.map((original) => {
+  const question = applyKnowledgeContentReview(original, answerReviews[original.id]);
+  return ({
   ...question,
   key_point_weights: Object.fromEntries(
     question.key_points.map((_, index) => [String(index), index === 0 ? 20 : 5]),
@@ -42,7 +46,8 @@ const questions = knowledge.questions.map((question) => ({
   is_core_6weeks: coreIds.has(question.id),
   scheduled: Boolean(coreById.get(question.id)?.scheduled),
   core_followups: coreById.get(question.id)?.core_followups ?? [],
-}));
+  });
+});
 const mainQuestions = questions.filter(
   (question) => question.question_type === "main",
 );
@@ -58,9 +63,13 @@ if (!unique(questions.map((question) => question.id))) {
   throw new Error("Duplicate knowledge question IDs");
 }
 
+const reviewedCount = knowledge.questions.filter((item) => answerReviews[item.id]).length;
+const cleanedCount = knowledge.questions.filter((item, index) => item.full_answer !== questions[index].full_answer).length;
+if (Object.keys(answerReviews).length !== reviewedCount) throw new Error("Answer reviews reference unknown question IDs");
 console.log(
   `Validated ${hot100.problems.length} algorithms, ${topics.length} topics, ` +
-    `${questions.length} questions, ${coreIds.size} core questions.`,
+    `${questions.length} questions, ${coreIds.size} core questions; ` +
+    `${reviewedCount} human-reviewed and ${cleanedCount} cleaned long answers.`,
 );
 
 if (process.argv.includes("--dry-run")) process.exit(0);

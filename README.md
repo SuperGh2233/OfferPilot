@@ -10,7 +10,11 @@ OfferPilot 是一个可每天使用的个人秋招训练系统，围绕两条闭
 - Phase 8 的导航、深色模式、响应式基础、状态语义、Loading/Error/404 和可访问性已完成。
 - 本地 Demo 可使用服务器端 SQLite 单文件持久化；生产环境使用真实 Supabase Auth、PostgreSQL 与 RLS。
 - Supabase Migration、两次 Seed、精确题库校验和双用户 RLS 隔离已通过；真实注册账号已创建并确认。
-- Vercel 生产站点已发布到 [offerpilot-dun.vercel.app](https://offerpilot-dun.vercel.app)，生产登录与训练闭环仍需最终人工验收。
+- Vercel 生产站点已发布到 [offerpilot-dun.vercel.app](https://offerpilot-dun.vercel.app)。2026-09-14 旧版已通过真实账号训练闭环；2026-09-18 AI 计分版通过匿名 Smoke，但新版认证态复测仍待完成。
+- 第一轮时区与任务并发修复：用户反馈已完成测试，但当前连接未独立核对测试报告、Supabase 迁移或部署状态。
+- 第二轮性能改造进行中：算法开始/取消/完成/AI 复盘及八股 Learn/Recall 已改为返回增量结果，浏览器合并本次 Attempt、State 和任务状态；不再每次写入重拉全量历史。首次加载、导入和设置保存目前仍使用完整 Snapshot；本轮代码尚待质量门和真实账号验收。
+- 优化方案第 3 项已编写（未验收）：八股训练页可从历史 Attempt 恢复已保存的 AI 语义复核，比较同题相邻两次 Recall 的连续遗漏、新遗漏和补齐点，并展示一条有针对性的下次复习提示；不新建数据库字段、不修改 Mastery，测试用例尚待执行。
+- 2026-09-20 新增手动暂停计划代码：Settings 一键暂停/恢复，Dashboard 显示暂停状态；休息日不生成新任务、不计漏训、不占 42 个有效训练日，历史、Mastery 和已有任务保留；恢复后按休息天数延后符合条件的复习日期。浏览器 Demo、SQLite、Supabase 均有适配代码；**Migration `202609200002_plan_pause.sql` 尚未验证或应用，不得在应用迁移前部署这些代码。**
 
 详细执行进度以 [PLAN.md](PLAN.md) 为准。
 
@@ -68,7 +72,19 @@ npm run dev
 | `OPENAI_BASE_URL` | OpenAI 兼容网关地址 | 服务器 |
 | `OPENAI_MODEL` | AI 模型名称 | 服务器 |
 
-没有 `OPENAI_API_KEY` 时，“AI 分析代码”和“AI 分析回答”会显示配置错误；训练反馈、得分和 mastery 仍可保存。八股 AI 复核只解释语义覆盖，不回写确定性关键词分数或 mastery。
+没有 `OPENAI_API_KEY` 时，“AI 分析代码”和“AI 分析回答”会显示配置错误；训练反馈、得分和 mastery 仍可保存。八股 Recall 采用 `effectiveCoverageScore = max(确定性关键词覆盖率, 提交时的 AI 语义分)` 参与 TypeScript mastery 与复习计算；原始关键词分仍独立保存。AI 不可用时退化为确定性分，提交后补做的 AI 分析不改历史得分。当前 V1 信任用户维护自己的分数：训练接口对客户端提供的 AI JSON 仅做结构校验，普通用户也有本人数据的 RLS 写权限，因此不提供不可篡改成绩的安全保证。
+
+## 八股 Recall 历史对比（优化方案第 3 项）
+
+在一道已做过 Recall 的八股题训练页，展开「回忆历史对比」可查看最近一次已落库的 AI 复核；提交第二次及后续 Recall 后，可对照上一次查看「连续两次遗漏」「这次新遗漏」「这次补上了」，并获得一条聚焦遗漏或误区的下次复习提示。未保存 AI 结果的记录采用确定性关键点进行对比；若只有一次含 AI，两个 Attempt 统一按确定性口径比较，避免混用标准。若原参考关键点已被修订，无法准确对应的点单独提示而不算作新遗忘。提示由历史 Attempt 派生，不额外发 AI 请求，不写新表，也不回改历史分数、Mastery 或复习日期。
+
+刷新页面后，历史信息由浏览器 Demo/SQLite 或 Supabase Snapshot 中已经持久化的 Attempt 重建；补做 AI 复核若发生在提交之后，只作临时解释、不计分也不冒充已保存的分析。该功能目前仅完成源码和回归用例编写，尚未执行 Node 质量门、真实账号刷新和上线验证。
+
+## 暂停与恢复计划
+
+在 Settings → 个人计划中点击「暂停计划」，恢复时点击同一位置的「恢复计划」；Dashboard 显示当前状态和设置入口。暂停自当前 profile 时区的训练日（凌晨 3 点重置）生效，恢复日重新进入计划；同一天暂停/恢复不会跳过这一天。暂停日期不会成为漏训、补排新题或消耗六周周期天数；已有任务和训练历史不会被删除，已逾期于暂停之前的复习也不会被抹掉。暂停前安排且在休息期间到期的复习按完整暂停训练日数顺延；暂停期间主动学习产生的复习不重复顺延。当前为手动恢复，不设自动到期；暂停不强制禁止用户主动练习。
+
+部署顺序：先备份测试数据库，并应用、检查 `supabase/migrations/202609200002_plan_pause.sql`；验证登录用户能切换自己的暂停状态，匿名/其他用户无法控制；再运行完整质量门、双标签页暂停/恢复测试及真实账号训练闭环，通过后部署代码。仅完成源文件编写不等于生产可用。
 
 ## Supabase 初始化
 
@@ -82,7 +98,7 @@ npx supabase db push --dry-run
 npx supabase db push
 ```
 
-Migration 位于 `supabase/migrations/`，包含 9 张表、训练事务、索引、触发器、约束和 RLS。不要在生产控制台手改一份无法追踪的不同 Schema。目录数据由后面的 JavaScript Seed 脚本导入，因此 `supabase/config.toml` 关闭了 CLI 自带的 `seed.sql` 步骤。
+Migration 位于 `supabase/migrations/`，包含 9 张表、训练事务、索引、触发器、约束和 RLS。`202609200001_daily_task_idempotency.sql` 新增 `ensure_daily_training_tasks(jsonb)`：以用户、日期和训练类型为单位事务加锁，保存首次完整排题并返回数据库实际任务。**本次代码发布前必须先备份数据库、在测试环境验证并应用此迁移**，否则新版本加载训练 Snapshot 时会因 RPC 不存在而失败；迁移本身不会删除已有任务。不要在生产控制台手改一份无法追踪的不同 Schema。目录数据由后面的 JavaScript Seed 脚本导入，因此 `supabase/config.toml` 关闭了 CLI 自带的 `seed.sql` 步骤。
 
 3. 在 Authentication 的 URL Configuration 中加入本地地址和最终 Vercel 地址。邮箱验证启用时，Confirm signup 邮件链接使用：
 
@@ -140,7 +156,7 @@ npm run smoke -- https://你的域名
 npm run smoke -- http://localhost:3000 demo
 ```
 
-生产验收还需人工走通注册、邮箱确认、登录、退出，以及 Algorithm/Knowledge 各一次完整训练闭环。
+本轮修复发布前须先运行 `npm run lint && npm run typecheck && npm run test && npm run build`，并在测试数据库验证并发打开两次 Dashboard 的实际落库任务与页面一致、洛杉矶夏令时凌晨 3 点前后日期归属正确。应用新 Migration 后再部署代码，使用真实账号走通 Algorithm/Knowledge 完整训练闭环及刷新持久化，最后运行生产 Smoke；当前连接未执行这些验收。
 
 ## 常见问题与恢复
 
@@ -165,7 +181,28 @@ Hot 100 来自力扣官方“LeetCode 热题 100”学习计划，静态快照�
 
 八股目录完整保留 165 个 Topic、394 道主问题和 510 道追问。六周默认新知识只从 120 道核心主问题生成，follow-up 不占每日新题额度。
 
+### 八股答案审校与清洗（2026-09-20，待验收）
+
+原始 `offerpilot_bagu_full.json`、核心 JSON 及对应 CSV **保留原样**，禁止为了修文案直接修改原始快照。`data/knowledge/answer_review_patches.json` 按稳定 UUID 保存人工核对的答案、关键点和别名修订；`lib/knowledge/content-cleaning.mjs` 只在确认包含作者推广尾巴时裁切整段，避免用“公众号/PDF/链接”等单词全局删除技术内容。运行时 `lib/knowledge/catalog.ts` 和云端 `scripts/seed.mjs` 使用相同的清洗函数，已经存在的 Attempt、Mastery、题目 ID 均不删除或回算。
+
+已直接阅读并定向修订 **33/904 道**：包括抽象类/HashSet/Stream/JVM 首批四题，追加 float 位数、ThreadLocal 弱引用、HashMap 树化、Bean 生命周期、Spring Boot 自动配置版本、MySQL 聚簇索引与班级排名、Redis 事务与断线等，修正短答、面试答、详答和计分关键点，移除部分资料作者经历与宣传尾巴。**其余 871 道尚未逐题审核，不能认定已清洗完成。** 详细审查记录见 `data/knowledge/ANSWER_REVIEW_LOG.md`。以下命令仅用于补充检查，不能替代直接阅读：
+
+```bash
+npm run knowledge:audit
+npm run knowledge:audit:report  # 生成 output/knowledge-audit.json
+npm run seed:check
+npm run lint && npm run typecheck && npm run test && npm run build
+```
+
+测试通过并确认已有数据备份后，先在测试 Supabase 执行 `npm run seed`，检查 33 道已改题的 short/interview/full/key_points 与数据库一致、数量仍是 904/120、登录态 Recall 评分和旧历史仍可用，再评估生产重跑 Seed。Seed 是按稳定 ID upsert，会更新同 ID 的题库字段，**不能把 `seed:check` 的通过误当成已经更新生产数据库**。本轮尚未运行上述命令或远端写入。
+
 V1 不单独建立 weakness 表：算法弱项由错误标签与可选 AI 分析聚合，只参与统计和推荐，不直接修改 mastery。
+
+## 增量训练写入（2026-09-20，待验证）
+
+`/api/training/algorithm` 的 start/cancel/complete/save_ai_analysis 和 `/api/training/knowledge` 的 Learn/Recall 返回 `{ mutation }`。前端使用 `applyTrainingMutation()` 在现有快照上合并结果，不丢失历史、不重复追加同一 Attempt；发生日期切换或跨页重新进入时仍可重新从后端加载。导入、设置保存暂时保留完整快照响应，避免在尚未验证前改变复杂业务链。
+
+这只是**写入后的全量回读优化**，并没有解决首次加载全量历史的问题；下一步需要根据 Dashboard/Progress/题目详情的实际数据依赖拆分历史分页与汇总接口。完成质量门、登录态回归及真实网络负载测量前，不宣称已取得具体性能提升。
 
 ## 质量门
 

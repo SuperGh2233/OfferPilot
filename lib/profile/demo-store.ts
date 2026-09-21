@@ -4,6 +4,7 @@ import {
   type StorageLike,
 } from "../algorithm/demo-store";
 import type { AlgorithmDateInput } from "../mastery/algorithm";
+import { isPlanPauseHistory, type PlanPausePeriod } from "./pause";
 
 export const PROFILE_DEMO_STORAGE_KEY = "offerpilot:profile-demo:v1";
 export const PROFILE_DEMO_CHANGED_EVENT = "offerpilot:profile-changed";
@@ -27,6 +28,7 @@ export type DemoProfile = {
   dailyReviewAlgorithmCount: number;
   dailyNewKnowledgeCount: number;
   dailyReviewKnowledgeCount: number;
+  pausePeriods: PlanPausePeriod[];
 };
 
 function isDateKey(value: unknown): value is string {
@@ -54,7 +56,8 @@ function isProfile(value: unknown): value is DemoProfile {
     && isCount(profile.dailyNewAlgorithmCount)
     && isCount(profile.dailyReviewAlgorithmCount)
     && isCount(profile.dailyNewKnowledgeCount)
-    && isCount(profile.dailyReviewKnowledgeCount);
+    && isCount(profile.dailyReviewKnowledgeCount)
+    && (profile.pausePeriods === undefined || isPlanPauseHistory(profile.pausePeriods));
 }
 
 function normalizePlanStartDate(value: AlgorithmDateInput) {
@@ -75,6 +78,7 @@ export function createDemoProfile(
     dailyReviewAlgorithmCount: 1,
     dailyNewKnowledgeCount: 3,
     dailyReviewKnowledgeCount: 3,
+    pausePeriods: [],
   };
 }
 
@@ -86,7 +90,9 @@ export function loadDemoProfile(
     const raw = storage.getItem(PROFILE_DEMO_STORAGE_KEY);
     if (!raw) return createDemoProfile(fallbackPlanStartDate);
     const parsed: unknown = JSON.parse(raw);
-    return isProfile(parsed) ? parsed : createDemoProfile(fallbackPlanStartDate);
+    return isProfile(parsed)
+      ? { ...parsed, pausePeriods: parsed.pausePeriods ?? [] }
+      : createDemoProfile(fallbackPlanStartDate);
   } catch {
     return createDemoProfile(fallbackPlanStartDate);
   }

@@ -23,6 +23,34 @@ const analysis: AlgorithmCodeAnalysis = {
 };
 
 describe("local SQLite training database", () => {
+  it("persists pause/resume across restarts without scheduling missed days off", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "offerpilot-pause-"));
+    const path = join(directory, "offerpilot.sqlite");
+    let database = new LocalTrainingDatabase(path);
+    try {
+      const initial = database.loadSnapshot(new Date("2026-09-09T04:00:00Z"));
+      expect(initial.algorithm.dailyTasks["2026-09-09"]).toHaveLength(2);
+      expect(database.setPlanPaused(true, new Date("2026-09-10T04:00:00Z")).pausePeriods)
+        .toEqual([{ start: "2026-09-10", end: null }]);
+      database.close();
+      database = new LocalTrainingDatabase(path);
+      const during = database.loadSnapshot(new Date("2026-09-12T04:00:00Z"));
+      expect(during.profile.pausePeriods[0].end).toBeNull();
+      expect(during.algorithm.dailyTasks["2026-09-12"]).toBeUndefined();
+      expect(during.knowledge.dailyTasks["2026-09-12"]).toBeUndefined();
+      database.setPlanPaused(false, new Date("2026-09-13T04:00:00Z"));
+      const resumed = database.loadSnapshot(new Date("2026-09-13T04:00:00Z"));
+      expect(resumed.profile.pausePeriods).toEqual([{ start: "2026-09-10", end: "2026-09-13" }]);
+      expect(Object.keys(resumed.algorithm.dailyTasks).sort()).toEqual(["2026-09-09", "2026-09-13"]);
+      expect(Object.keys(resumed.knowledge.dailyTasks).sort()).toEqual(["2026-09-09", "2026-09-13"]);
+      expect(database.setPlanPaused(false, new Date("2026-09-13T04:00:00Z")).pausePeriods)
+        .toEqual(resumed.profile.pausePeriods);
+    } finally {
+      database.close();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it("imports browser data and keeps idempotent training state across restarts", async () => {
     const directory = await mkdtemp(join(tmpdir(), "offerpilot-sqlite-"));
     const path = join(directory, "offerpilot.sqlite");

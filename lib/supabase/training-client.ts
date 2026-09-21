@@ -1,11 +1,6 @@
-import type { CompleteAlgorithmAttemptResult } from "../algorithm/attempts";
 import {
   loadAlgorithmDemoData,
 } from "../algorithm/demo-store";
-import type {
-  KnowledgeAttemptPayload,
-  KnowledgeStatePayload,
-} from "../knowledge/attempts";
 import { loadKnowledgeDemoData } from "../knowledge/demo-store";
 import { loadDemoProfile, type DemoProfile } from "../profile/demo-store";
 import type {
@@ -15,6 +10,11 @@ import type {
   RecordCloudKnowledgeInput,
   SaveCloudAlgorithmAnalysisInput,
 } from "./training";
+import type { TrainingMutation } from "./training-mutation";
+
+type MutationResponse<K extends TrainingMutation["kind"]> = {
+  mutation: Extract<TrainingMutation, { kind: K }>;
+};
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
@@ -59,10 +59,7 @@ export async function loadCloudSnapshot() {
 }
 
 export async function startCloudAttempt(problemId: string) {
-  return request<{
-    attempt: CloudTrainingSnapshot["algorithm"]["attempts"][number];
-    snapshot: CloudTrainingSnapshot;
-  }>("/api/training/algorithm", {
+  return request<MutationResponse<"algorithm_start">>("/api/training/algorithm", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "start", problemId }),
@@ -70,7 +67,7 @@ export async function startCloudAttempt(problemId: string) {
 }
 
 export async function cancelCloudAttempt(input: CancelCloudAlgorithmInput) {
-  return request<{ snapshot: CloudTrainingSnapshot }>("/api/training/algorithm", {
+  return request<MutationResponse<"algorithm_cancel">>("/api/training/algorithm", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "cancel", ...input }),
@@ -78,10 +75,7 @@ export async function cancelCloudAttempt(input: CancelCloudAlgorithmInput) {
 }
 
 export async function completeCloudAttempt(input: CompleteCloudAlgorithmInput) {
-  return request<{
-    completion: CompleteAlgorithmAttemptResult;
-    snapshot: CloudTrainingSnapshot;
-  }>("/api/training/algorithm", {
+  return request<MutationResponse<"algorithm_complete">>("/api/training/algorithm", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "complete", ...input }),
@@ -89,10 +83,7 @@ export async function completeCloudAttempt(input: CompleteCloudAlgorithmInput) {
 }
 
 export async function saveCloudAlgorithmAnalysis(input: SaveCloudAlgorithmAnalysisInput) {
-  return request<{
-    attempt: CloudTrainingSnapshot["algorithm"]["attempts"][number];
-    snapshot: CloudTrainingSnapshot;
-  }>("/api/training/algorithm", {
+  return request<MutationResponse<"algorithm_analysis">>("/api/training/algorithm", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "save_ai_analysis", ...input }),
@@ -112,18 +103,22 @@ export async function importCloudAlgorithms(problemIds: readonly string[]) {
 }
 
 export async function recordCloudKnowledge(input: RecordCloudKnowledgeInput) {
-  return request<{
-    result: {
-      attempt: KnowledgeAttemptPayload;
-      state: KnowledgeStatePayload;
-      attemptScore?: number;
-    };
-    snapshot: CloudTrainingSnapshot;
-  }>("/api/training/knowledge", {
+  return request<MutationResponse<"knowledge_record">>("/api/training/knowledge", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
+}
+
+export async function setCloudPlanPaused(paused: boolean) {
+  return request<{ profile: DemoProfile; snapshot: CloudTrainingSnapshot }>(
+    "/api/training/profile",
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paused }),
+    },
+  );
 }
 
 export async function saveCloudProfile(profile: DemoProfile) {

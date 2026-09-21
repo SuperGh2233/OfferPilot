@@ -302,6 +302,7 @@ export function AlgorithmTraining({
           newCount: profile.dailyNewAlgorithmCount,
           reviewCount: profile.dailyReviewAlgorithmCount,
           timeZone: profile.timeZone,
+          pausePeriods: profile.pausePeriods ?? [],
         },
       );
       if (ensured.data !== loaded && !saveAlgorithmDemoData(window.localStorage, ensured.data)) {
@@ -333,6 +334,7 @@ export function AlgorithmTraining({
             newCount: profile.dailyNewAlgorithmCount,
             reviewCount: profile.dailyReviewAlgorithmCount,
             timeZone: profile.timeZone,
+            pausePeriods: profile.pausePeriods ?? [],
           },
         );
         if (ensured.data !== loaded) saveAlgorithmDemoData(window.localStorage, ensured.data);
@@ -414,7 +416,7 @@ export function AlgorithmTraining({
     try {
       if (!demoMode) {
         const started = await startCloudAttempt(problem.id);
-        cloud.setSnapshot(started.snapshot);
+        cloud.applyMutation(started.mutation);
         setMode("timing");
         setClock(Date.now());
         return;
@@ -458,7 +460,7 @@ export function AlgorithmTraining({
           attemptId: activeAttempt.id,
           problemId: problem.id,
         });
-        cloud.setSnapshot(canceled.snapshot);
+        cloud.applyMutation(canceled.mutation);
       } else {
         const canceled = cancelDemoAlgorithmAttempt({
           data,
@@ -532,9 +534,9 @@ export function AlgorithmTraining({
           problemId: problem.id,
           aiAnalysis: analysis,
         });
-        cloud.setSnapshot(saved.snapshot);
-        setCompletion((current) => current?.attempt.id === saved.attempt.id
-          ? { ...current, attempt: saved.attempt }
+        cloud.applyMutation(saved.mutation);
+        setCompletion((current) => current?.attempt.id === saved.mutation.attempt.id
+          ? { ...current, attempt: saved.mutation.attempt }
           : current);
         return;
       }
@@ -584,8 +586,8 @@ export function AlgorithmTraining({
           code: submittedCode,
           aiAnalysis: null,
         });
-        cloud.setSnapshot(completed.snapshot);
-        setCompletion(completed.completion);
+        cloud.applyMutation(completed.mutation);
+        setCompletion(completed.mutation.completion);
         setMode("complete");
         setFeedbackEndedAt(null);
         clearCodeDraft(activeAttempt.id);

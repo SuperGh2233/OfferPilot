@@ -178,6 +178,7 @@ export default function AlgorithmList({
         newCount: profile.dailyNewAlgorithmCount,
         reviewCount: profile.dailyReviewAlgorithmCount,
         timeZone: profile.timeZone,
+        pausePeriods: profile.pausePeriods ?? [],
       },
     );
     if (ensured.data !== loaded) {

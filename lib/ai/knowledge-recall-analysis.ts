@@ -206,7 +206,7 @@ export async function analyzeKnowledgeRecall(
             "只返回 JSON 对象，字段必须严格为 semanticScore、verdict、summary、coveredPoints、missingPoints、misconceptions、improvedAnswer。",
             "semanticScore 为 0 到 100 的整数；verdict 只能是 excellent、mostly_correct、partial、incorrect。",
             "coveredPoints 每项只有 index、evidence；missingPoints 每项只有 index、guidance；index 使用参考关键点前的数字。",
-            "所有说明使用简洁中文。AI 结果只用于复盘，不评价或修改 mastery。",
+            "所有说明使用简洁中文。请根据回答真实的语义覆盖给出 semanticScore，不因鼓励性措辞虚高评分；mastery 和复习间隔由应用的 TypeScript 规则计算，模型不得输出或指示修改它们。",
           ].join("\n"),
         },
         {
