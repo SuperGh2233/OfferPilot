@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { RecallResult } from "@/components/knowledge/recall-result";
 import { RecallHistoryPanel } from "@/components/knowledge/recall-history-panel";
 import { RecallScoreComparison } from "@/components/knowledge/recall-score-comparison";
+import { UnderstandingCoach } from "@/components/knowledge/understanding-coach";
 import { VoiceAnswerButton } from "@/components/knowledge/voice-answer-button";
 import {
   parseKnowledgeRecallAnalysis,
@@ -395,7 +396,7 @@ export function KnowledgeTraining({
               <>
                 <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Learn · 首次学习</p>
-                  <AnswerPanel question={question} />
+                  <AnswerPanel question={question} showUnderstandingCoach />
                   <div className="mt-6 border-t pt-5">
                     <p className="text-sm font-semibold">看完后，你现在理解到什么程度？</p>
                     <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -563,7 +564,11 @@ export function KnowledgeTraining({
   );
 }
 
-function AnswerPanel({ question, collapsed = false }: { question: KnowledgeTrainingQuestion; collapsed?: boolean }) {
+function AnswerPanel({ question, collapsed = false, showUnderstandingCoach = false }: {
+  question: KnowledgeTrainingQuestion;
+  collapsed?: boolean;
+  showUnderstandingCoach?: boolean;
+}) {
   const content = (
     <div className="space-y-4">
       <div className="rounded-xl bg-muted p-4">
@@ -586,6 +591,12 @@ function AnswerPanel({ question, collapsed = false }: { question: KnowledgeTrain
           </ul>
         ) : <p className="mt-2 text-sm text-muted-foreground">本题暂无结构化关键点。</p>}
       </div>
+      {showUnderstandingCoach ? (
+        <UnderstandingCoach
+          key={question.id}
+          questionId={question.id}
+        />
+      ) : null}
     </div>
   );
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { RecallResult } from "../components/knowledge/recall-result";
 import { RecallScoreComparison } from "../components/knowledge/recall-score-comparison";
+import { UnderstandingCoach } from "../components/knowledge/understanding-coach";
 import type { KnowledgeAttemptPayload } from "../lib/knowledge/attempts";
 
 function recallAttempt(answerText: string): KnowledgeAttemptPayload {
@@ -91,5 +92,15 @@ describe("Knowledge Recall score comparison", () => {
 
     expect(html).toContain("0%");
     expect(html).toContain("50%");
+  });
+});
+
+describe("Knowledge understanding coach", () => {
+  it("renders a closed, on-demand entry without explanation content initially", () => {
+    const html = renderToStaticMarkup(<UnderstandingCoach questionId="question-1" />);
+
+    expect(html).toContain("看了答案还是不懂？让 AI 换一种讲法");
+    expect(html).toContain("哪里卡住了（可选）");
+    expect(html).not.toContain("先抓住核心");
   });
 });

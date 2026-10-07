@@ -12,6 +12,7 @@
 | Path | Status | Read when |
 | --- | --- | --- |
 | [`docs/plans/active/PLAN-20261007-speech-stability.md`](plans/active/PLAN-20261007-speech-stability.md) | active | Implementing or accepting the FunASR-backed transcription path. |
+| [`docs/plans/active/PLAN-20261008-knowledge-understanding-coach.md`](plans/active/PLAN-20261008-knowledge-understanding-coach.md) | active | Implementing the on-demand explanation flow for Knowledge answers the user still does not understand. |
 
 ## Architecture and specifications
 
