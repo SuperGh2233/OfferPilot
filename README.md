@@ -84,6 +84,38 @@ npm run dev
 
 Knowledge 的 Learn/Recall 和 Algorithm 的完成结果页都会直接给出下一步入口，不再要求先返回列表。选择顺序为：当前训练日仍未完成的任务 → 更早的历史欠账 → 没有任务行但已经到期的复习。Knowledge 刚完成 Learn 时，会在当前队列内优先选择另一道 `new` 新学题，因此正常连续学习时按钮显示「学习下一题」；如果转入复习、欠账或到期项，则按钮改为对应的「继续下一题」「继续补欠账」或「继续到期复习」。暂停计划时同样可以沿此入口偿还暂停前欠账，但不会把休息期间才新到期的复习提前放进队列。切换动态题目时会按题目 ID 重置页面本地状态，避免上一题的提交结果、计时或 AI 状态串到下一题。
 
+## Knowledge Graph Sprint 1：面试能力地图
+
+第一版知识图谱不使用在线 AI 重新理解 904 道题，而是复用题库已经存在且稳定的 `category`、`topic_id`、`sourceOrder` 元数据。运行时从同一份 catalog 派生 7 个领域节点、165 个 Topic 节点和 904 条 question→category/topic 映射，因此不会产生另一份容易和题库漂移的知识数据。领域顺序保持当前训练体系，Topic 顺序使用该 Topic 题目的最早来源顺序；Sprint 1 只建立「领域 → Topic → 题目」层级，真正的 prerequisite DAG 和前置知识解锁留到 Sprint 2。
+
+Dashboard 的「面试能力地图」直接从现有 `user_knowledge_state` / Demo state 聚合，不新增 Mastery 表。每个领域同时显示整体能力分和已学习覆盖率：未学习题在整体能力中按 0 贡献，因此只学少量高分题不会把整个领域误判为已经掌握；页面另外列出当前已学习 Topic 中较弱的几个节点。该派生逻辑对浏览器 Demo、SQLite 与 Supabase 共用同一 Snapshot 结构，不需要新 Migration，也不会改变 Attempt、Recall、复习日期或当前 Planner。
+
+本轮新增回归覆盖 904 道题全映射、7/165/172 节点数量、稳定 ID/重建、Mastery 聚合以及能力地图 SSR。Sprint 1 已在便携 Node 24.19 下通过 lint/typecheck/test/build；真实账号 Dashboard 和生产部署仍需单独验收。
+
+## Knowledge Graph Sprint 2：前置知识 DAG 与递进 Planner
+
+Sprint 2 在全部 165 个 Topic 上建立 prerequisite DAG，但不会为了“每个节点都有父节点”而强行串联无关知识。根 Topic 可以直接学习；有明确依赖的 Topic 才设置前置，例如 `HashMap ← Map + equals/hashCode`、`ConcurrentHashMap ← HashMap + CAS + synchronized`、`MVCC ← 隔离级别 + InnoDB`、`Spring 事务 ← AOP + Bean`。图构建会校验所有引用并执行拓扑排序，出现缺失 Topic、自依赖或环会直接失败。
+
+Planner 只对**新学题**启用门控：前置 Topic 至少有一条六周核心 main 题达到 Mastery 45（“基本理解”）才算基础掌握；Mastery 15/30 不解锁后继。没有六周核心 main 题的 Topic 不作为阻塞条件，避免图谱细分节点让学习计划死锁。到期 Review 永远按原来的时间、Mastery 与 backlog 规则执行，不受 prerequisite 限制。多个可学 Topic 同时存在时，先按教学周，再优先较浅 DAG 层级，再使用 importance/sourceOrder 排序。
+
+如果某天初次排题时因为前置未满足只排出 1/3 道新题，完成基础题后会重新检查 readiness，并只补足当天尚未使用的 quota；已经完成的题仍计入每日额度，因此不会因为解锁而把 3 道扩成 4、5 道。Dashboard 新增「当前学习路径」，同时显示现在可以继续学的核心 Topic 和仍被哪些前置知识锁住。
+
+浏览器 Demo/SQLite 直接复用同一 Planner；Supabase 为同日补位新增 `202609220001_knowledge_dag_replenishment.sql`。首次当天整桶排题仍使用原 `ensure_daily_training_tasks`，新 RPC `append_knowledge_training_tasks` 只允许向已经存在的 Knowledge 日桶追加 pending 任务，并使用 advisory lock、服务端 sort_order 和原有同日题目唯一索引保证并发幂等。**部署 Sprint 2 代码前必须先在测试库备份、dry-run 并应用这条 Migration。**
+
+Sprint 2 已在便携 Node 24.19 下通过 lint/typecheck/test/build（40 个测试文件、390 项测试、239 个页面），达到本地质量门；但测试 Supabase Migration、双标签页、刷新/重登、RLS 和真实账号验收仍未执行，因此仍不能视为生产完成。
+
+## Sprint 3：图谱驱动模拟面试
+
+`/interview` 提供第一版图谱驱动模拟面试。开始面试时会基于当前 KnowledgeState 与 prerequisite DAG 冻结本场 5 道题，选题优先级为：已经到期的已学题 → Mastery 较低的薄弱已学题 → 前置知识已满足但尚未学习的核心挑战题 → 普通保持熟练题；同一 Topic 默认只抽一题，不足 5 题时才允许同 Topic 补位。这样模拟面试既覆盖真实薄弱点，也不会完全退化成日常复习列表。
+
+每题支持文本回答和已有语音转写。模拟面试不会调用日常 Learn/Recall 写入链路，不创建 Attempt，不改变 Mastery、复习日期或 daily task；它首先是一个评估模式。确定性评分直接复用现有 `matchKnowledgeKeyPoints`，整场结束后生成总分、领域分、Topic 强弱、遗漏关键点和图谱回补建议。对于低分 Topic，如果其 prerequisite 目前仍未满足，报告会优先建议回补前置节点；否则直接建议复习当前 Topic。
+
+Dashboard 已增加「图谱驱动模拟面试」入口。Sprint 3 现在也接入了可选 AI 面试官增强层：主问题提交后会先冻结原有确定性分数，再生成**一条**追问；模型优先围绕确定性匹配确认的遗漏关键点追问，关键点已覆盖时才追问项目场景和适用边界。AI 配置缺失、超时、网络失败或返回无效结构时自动使用本地确定性追问，因此不会卡住整场面试。追问回答只保存在当前页面内存，不重新计算主问题分数，也不会写 Attempt、Mastery、复习日期或 daily task。
+
+整场结束后，报告页会在原有确定性总分/领域分/Topic 弱点之上展示「AI 辅助解读（不计分）」：AI 只能基于现有报告总结 strengths、improvements、nextStep，不能新增或修改分数；请求失败时立即保留确定性总结。两条新 API 都复用现有登录边界和 server-only OpenAI-compatible 配置，限制请求大小并使用结构化输出校验。Interview Session 仍然只存在内存中，刷新页面会丢失当前场次，这是当前 Sprint 3 的明确设计而不是持久化缺陷。
+
+Sprint 3 AI 增强源码与回归已经写入，但本轮新增代码尚未重新执行项目级 lint/typecheck/test/build，也未做真实账号 AI 正常/失败/Abort/重复点击验收；在这些门槛通过前不能视为本地验收完成，更不能部署。是否持久化整场面试历史将在源码验收后单独决定。
+
 ## 暂停与恢复计划
 
 在 Settings → 个人计划中点击「暂停计划」，恢复时点击同一位置的「恢复计划」；Dashboard 显示当前状态和设置入口。暂停自当前 profile 时区的训练日（凌晨 3 点重置）生效，恢复日重新进入计划；同一天暂停/恢复不会跳过这一天。暂停日期不会成为漏训、补排新题或消耗六周周期天数，也不会生成新的暂停日任务；但暂停前已经欠下的新学进度会继续按原计划日期补排，已有未完成任务和暂停前已经逾期的复习仍会在 Dashboard 显示并允许完成。完成这些欠账会正常保存 Attempt、Mastery 和任务状态，但完成发生在暂停日不会伪造成原计划日期的签到，也不会推进训练周期。暂停前安排且在休息期间才到期的复习按完整暂停训练日数顺延；暂停期间主动学习产生的复习不重复顺延。当前为手动恢复，不设自动到期；暂停不强制禁止用户主动练习。
@@ -102,7 +134,7 @@ npx supabase db push --dry-run
 npx supabase db push
 ```
 
-Migration 位于 `supabase/migrations/`，包含 9 张表、训练事务、索引、触发器、约束和 RLS。`202609200001_daily_task_idempotency.sql` 新增 `ensure_daily_training_tasks(jsonb)`：以用户、日期和训练类型为单位事务加锁，保存首次完整排题并返回数据库实际任务。**本次代码发布前必须先备份数据库、在测试环境验证并应用此迁移**，否则新版本加载训练 Snapshot 时会因 RPC 不存在而失败；迁移本身不会删除已有任务。不要在生产控制台手改一份无法追踪的不同 Schema。目录数据由后面的 JavaScript Seed 脚本导入，因此 `supabase/config.toml` 关闭了 CLI 自带的 `seed.sql` 步骤。
+Migration 位于 `supabase/migrations/`，包含 9 张表、训练事务、索引、触发器、约束和 RLS。`202609200001_daily_task_idempotency.sql` 新增 `ensure_daily_training_tasks(jsonb)`，负责首次完整排题；`202609220001_knowledge_dag_replenishment.sql` 新增 `append_knowledge_training_tasks(jsonb)`，仅负责 prerequisite 解锁后的同日 Knowledge quota 补位。两者都必须在对应代码发布前先备份数据库、在测试环境 dry-run/验证并应用，否则训练 Snapshot 可能因 RPC 不存在而失败。Migration 不删除已有任务；不要在生产控制台手改一份无法追踪的不同 Schema。目录数据由后面的 JavaScript Seed 脚本导入，因此 `supabase/config.toml` 关闭了 CLI 自带的 `seed.sql` 步骤。
 
 3. 在 Authentication 的 URL Configuration 中加入本地地址和最终 Vercel 地址。邮箱验证启用时，Confirm signup 邮件链接使用：
 

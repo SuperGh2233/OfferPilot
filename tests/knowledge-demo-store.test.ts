@@ -72,6 +72,64 @@ describe("knowledge demo store", () => {
     expect(second.data).toBe(first.data);
   });
 
+  it("fills unused same-day quota after learning unlocks a prerequisite-gated topic", () => {
+    const catalog = [
+      {
+        id: "foundation",
+        topicId: "topic-foundation",
+        prerequisiteTopicIds: [],
+        topicDepth: 0,
+        questionType: "main" as const,
+        isCore6Weeks: true,
+        recommendedWeek: 1,
+        importance: 3,
+        sourceOrder: 1,
+      },
+      {
+        id: "advanced",
+        topicId: "topic-advanced",
+        prerequisiteTopicIds: ["topic-foundation"],
+        topicDepth: 1,
+        questionType: "main" as const,
+        isCore6Weeks: true,
+        recommendedWeek: 1,
+        importance: 5,
+        sourceOrder: 2,
+      },
+    ];
+    const first = ensureTodayKnowledgeTasks(
+      createKnowledgeDemoData(day(1)),
+      catalog,
+      day(1),
+      { newCount: 2, reviewCount: 0 },
+    );
+    expect(first.tasks.map((task) => task.questionId)).toEqual(["foundation"]);
+
+    const learned = learnDemoKnowledgeQuestion({
+      data: first.data,
+      questionId: "foundation",
+      selfRating: 4,
+      attemptedAt: day(1),
+      id: "unlock-foundation",
+    });
+    const replenished = ensureTodayKnowledgeTasks(
+      learned.data,
+      catalog,
+      day(1),
+      { newCount: 2, reviewCount: 0 },
+    );
+    expect(replenished.tasks.map((task) => [task.questionId, task.status])).toEqual([
+      ["foundation", "completed"],
+      ["advanced", "pending"],
+    ]);
+    expect(ensureTodayKnowledgeTasks(
+      replenished.data,
+      catalog,
+      day(1),
+      { newCount: 2, reviewCount: 0 },
+    ).data).toBe(replenished.data);
+  });
+
   it("uses profile task quotas for a new day", () => {
     const result = ensureTodayKnowledgeTasks(
       createKnowledgeDemoData(day(1)),

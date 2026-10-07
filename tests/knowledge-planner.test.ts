@@ -157,6 +157,86 @@ describe("generateDailyKnowledgeTasks", () => {
     expect(tasks).toEqual([]);
   });
 
+  it("gates new learning until prerequisite topic reaches basic mastery", () => {
+    const foundation = question("foundation", { topicId: "topic-foundation", topicDepth: 0 });
+    const advanced = question("advanced", {
+      topicId: "topic-advanced",
+      prerequisiteTopicIds: ["topic-foundation"],
+      topicDepth: 1,
+      importance: 5,
+    });
+    const questions = [foundation, advanced];
+
+    expect(generateDailyKnowledgeTasks({
+      questions,
+      states: [],
+      currentWeek: 1,
+      newCount: 2,
+      reviewCount: 0,
+      today,
+    }).map(({ questionId }) => questionId)).toEqual(["foundation"]);
+
+    expect(generateDailyKnowledgeTasks({
+      questions,
+      states: [state("foundation", {
+        mastery: 44,
+        nextReviewAt: "2026-09-10T08:00:00.000Z",
+      })],
+      currentWeek: 1,
+      newCount: 2,
+      reviewCount: 0,
+      today,
+    })).toEqual([]);
+
+    expect(generateDailyKnowledgeTasks({
+      questions,
+      states: [state("foundation", {
+        mastery: 45,
+        nextReviewAt: "2026-09-10T08:00:00.000Z",
+      })],
+      currentWeek: 1,
+      newCount: 2,
+      reviewCount: 0,
+      today,
+    }).map(({ questionId }) => questionId)).toEqual(["advanced"]);
+  });
+
+  it("never blocks an already-due review because of prerequisite status", () => {
+    const questions = [
+      question("foundation", { topicId: "topic-foundation" }),
+      question("advanced", {
+        topicId: "topic-advanced",
+        prerequisiteTopicIds: ["topic-foundation"],
+        topicDepth: 1,
+      }),
+    ];
+    const tasks = generateDailyKnowledgeTasks({
+      questions,
+      states: [state("advanced", { mastery: 30 })],
+      currentWeek: 1,
+      newCount: 0,
+      reviewCount: 1,
+      today,
+    });
+    expect(tasks.map(({ questionId, taskType }) => [questionId, taskType]))
+      .toEqual([["advanced", "review"]]);
+  });
+
+  it("prefers shallower ready topics before importance within the same teaching week", () => {
+    const tasks = generateDailyKnowledgeTasks({
+      questions: [
+        question("deep", { topicId: "deep-topic", topicDepth: 3, importance: 5 }),
+        question("foundation", { topicId: "foundation-topic", topicDepth: 0, importance: 2 }),
+      ],
+      states: [],
+      currentWeek: 1,
+      newCount: 1,
+      reviewCount: 0,
+      today,
+    });
+    expect(tasks[0].questionId).toBe("foundation");
+  });
+
   it("keeps inputs unchanged and rejects invalid duplicate data", () => {
     const questions = [question("q1")];
     const states: KnowledgePlannerState[] = [];

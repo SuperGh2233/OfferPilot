@@ -204,6 +204,10 @@ export interface Database {
         Args: { p_tasks: Json };
         Returns: Json;
       };
+      append_knowledge_training_tasks: {
+        Args: { p_tasks: Json };
+        Returns: Json;
+      };
       start_algorithm_training_attempt: {
         Args: {
           p_attempt_id: string;

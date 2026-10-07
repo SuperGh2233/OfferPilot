@@ -7,6 +7,8 @@ import type {
   KnowledgeKeywordAliases,
   KnowledgePointWeights,
 } from "./match";
+import { buildKnowledgeGraph } from "../knowledge-graph/model";
+import { buildKnowledgeTopicDependencyGraph } from "../knowledge-graph/dependencies";
 import type { KnowledgePlannerQuestion } from "../planner/knowledge";
 import type {
   KnowledgeContentPatch,
@@ -126,6 +128,12 @@ export const knowledgeQuestions: readonly KnowledgeCatalogQuestion[] =
     };
   });
 
+export const knowledgeGraph = buildKnowledgeGraph(knowledgeTopics, knowledgeQuestions);
+export const knowledgeTopicDependencyGraph = buildKnowledgeTopicDependencyGraph(knowledgeTopics);
+const dependencyNodeByTopicId = new Map(
+  knowledgeTopicDependencyGraph.nodes.map((node) => [node.topicId, node]),
+);
+
 const questionsById = new Map(
   knowledgeQuestions.map((question) => [question.id, question]),
 );
@@ -143,6 +151,9 @@ export function toKnowledgePlannerQuestion(
 ): KnowledgePlannerQuestion {
   return {
     id: question.id,
+    topicId: question.topicId,
+    prerequisiteTopicIds: dependencyNodeByTopicId.get(question.topicId)?.prerequisiteTopicIds ?? [],
+    topicDepth: dependencyNodeByTopicId.get(question.topicId)?.depth ?? 0,
     questionType: question.questionType,
     isCore6Weeks: question.isCore6Weeks,
     recommendedWeek: CATEGORY_WEEK[question.category] ?? null,

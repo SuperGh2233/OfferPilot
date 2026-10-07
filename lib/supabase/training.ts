@@ -391,6 +391,17 @@ async function loadProfile(
   return profileFromRow(required(inserted.data, "profile"));
 }
 
+function parsePersistedDailyTasks(value: Json, label: string) {
+  if (!Array.isArray(value) || !value.every((row) =>
+    row !== null && typeof row === "object" && !Array.isArray(row)
+    && typeof row.id === "string" && typeof row.user_id === "string"
+    && typeof row.task_date === "string"
+  )) {
+    throw new Error(`${label} returned invalid persisted rows`);
+  }
+  return value as unknown as DailyTask[];
+}
+
 async function persistPlannedTasks(client: Client, rows: DailyTaskInsert[]): Promise<DailyTask[] | null> {
   if (rows.length === 0) return null;
   // A regular batch INSERT is all-or-nothing on 23505; ignoring that error
@@ -400,15 +411,25 @@ async function persistPlannedTasks(client: Client, rows: DailyTaskInsert[]): Pro
     p_tasks: rows as unknown as Json,
   });
   fail("Ensure daily tasks failed", result.error);
-  const persisted: Json = required(result.data, "persisted daily tasks");
-  if (!Array.isArray(persisted) || !persisted.every((row) =>
-    row !== null && typeof row === "object" && !Array.isArray(row)
-    && typeof row.id === "string" && typeof row.user_id === "string"
-    && typeof row.task_date === "string"
-  )) {
-    throw new Error("Ensure daily tasks returned invalid persisted rows");
-  }
-  return persisted as unknown as DailyTask[];
+  return parsePersistedDailyTasks(
+    required(result.data, "persisted daily tasks"),
+    "Ensure daily tasks",
+  );
+}
+
+async function appendKnowledgePlannedTasks(
+  client: Client,
+  rows: DailyTaskInsert[],
+): Promise<DailyTask[] | null> {
+  if (rows.length === 0) return null;
+  const result = await client.rpc("append_knowledge_training_tasks", {
+    p_tasks: rows as unknown as Json,
+  });
+  fail("Append Knowledge daily tasks failed", result.error);
+  return parsePersistedDailyTasks(
+    required(result.data, "appended Knowledge daily tasks"),
+    "Append Knowledge daily tasks",
+  );
 }
 
 export async function loadCloudTrainingSnapshot(
@@ -517,6 +538,7 @@ export async function loadCloudTrainingSnapshot(
   );
 
   const inserts: DailyTaskInsert[] = [];
+  const knowledgeAppends: DailyTaskInsert[] = [];
   if (ensuredAlgorithm.data !== algorithm) {
     for (const task of Object.values(ensuredAlgorithm.data.dailyTasks).flat().filter((task) => algorithm.dailyTasks[task.date] === undefined)) {
       inserts.push({
@@ -536,8 +558,11 @@ export async function loadCloudTrainingSnapshot(
     }
   }
   if (ensuredKnowledge.data !== knowledge) {
-    for (const task of Object.values(ensuredKnowledge.data.dailyTasks).flat().filter((task) => knowledge.dailyTasks[task.date] === undefined)) {
-      inserts.push({
+    const existingKnowledgeTaskKeys = new Set(
+      Object.values(knowledge.dailyTasks).flat().map((task) => `${task.date}\u0000${task.questionId}`),
+    );
+    for (const task of Object.values(ensuredKnowledge.data.dailyTasks).flat()) {
+      const row: DailyTaskInsert = {
         user_id: userId,
         task_date: task.date,
         task_type: task.taskType,
@@ -547,7 +572,17 @@ export async function loadCloudTrainingSnapshot(
         sort_order: task.sortOrder,
         completed_at: task.completedAt,
         metadata: { source: task.backfilled ? "backfill" : "deterministic_planner" },
-      });
+      };
+      if (knowledge.dailyTasks[task.date] === undefined) {
+        inserts.push(row);
+      } else if (!existingKnowledgeTaskKeys.has(`${task.date}\u0000${task.questionId}`)) {
+        knowledgeAppends.push({
+          ...row,
+          status: "pending",
+          completed_at: null,
+          metadata: { source: "knowledge_dag_replenishment" },
+        });
+      }
     }
   }
   const persistedTasks = await persistPlannedTasks(client, inserts);
@@ -558,6 +593,14 @@ export async function loadCloudTrainingSnapshot(
     // exactly what was persisted for affected dates, never the stale plan.
     for (const date of new Set(inserts.map((row) => row.task_date))) {
       ensuredAlgorithm.data.dailyTasks[date] = actualAlgorithm[date] ?? [];
+      ensuredKnowledge.data.dailyTasks[date] = actualKnowledge[date] ?? [];
+    }
+  }
+
+  const appendedTasks = await appendKnowledgePlannedTasks(client, knowledgeAppends);
+  if (appendedTasks !== null) {
+    const actualKnowledge = knowledgeTasks(appendedTasks);
+    for (const date of new Set(knowledgeAppends.map((row) => row.task_date))) {
       ensuredKnowledge.data.dailyTasks[date] = actualKnowledge[date] ?? [];
     }
   }

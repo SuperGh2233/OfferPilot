@@ -1,7 +1,14 @@
+import {
+  knowledgePrerequisitesSatisfied,
+  satisfiedKnowledgeTopics,
+} from "../knowledge-graph/readiness";
 import type { AlgorithmDateInput } from "../mastery/algorithm";
 
 export type KnowledgePlannerQuestion = {
   id: string;
+  topicId?: string;
+  prerequisiteTopicIds?: readonly string[];
+  topicDepth?: number;
   questionType: "main" | "follow_up";
   isCore6Weeks: boolean;
   recommendedWeek: number | null;
@@ -34,6 +41,7 @@ export type GenerateDailyKnowledgeTasksInput = {
   questions: readonly KnowledgePlannerQuestion[];
   states: readonly KnowledgePlannerState[];
   existingTasks?: readonly ExistingKnowledgeTask[];
+  excludedQuestionIds?: readonly string[];
   currentWeek: number;
   newCount?: number;
   reviewCount?: number;
@@ -75,6 +83,13 @@ function validateQuestion(question: KnowledgePlannerQuestion, index: number) {
     throw new RangeError(`questions[${index}].importance must be greater than 0`);
   }
   assertNonNegativeInteger(question.sourceOrder, `questions[${index}].sourceOrder`);
+  if (question.topicId !== undefined) assertNonEmpty(question.topicId, `questions[${index}].topicId`);
+  if (question.topicDepth !== undefined) {
+    assertNonNegativeInteger(question.topicDepth, `questions[${index}].topicDepth`);
+  }
+  for (const [dependencyIndex, topicId] of (question.prerequisiteTopicIds ?? []).entries()) {
+    assertNonEmpty(topicId, `questions[${index}].prerequisiteTopicIds[${dependencyIndex}]`);
+  }
 }
 
 function validateState(state: KnowledgePlannerState, index: number) {
@@ -114,6 +129,7 @@ export function generateDailyKnowledgeTasks({
   questions,
   states,
   existingTasks = [],
+  excludedQuestionIds = [],
   currentWeek,
   newCount = 3,
   reviewCount = 3,
@@ -122,6 +138,7 @@ export function generateDailyKnowledgeTasks({
   if (!Array.isArray(questions)) throw new RangeError("questions must be an array");
   if (!Array.isArray(states)) throw new RangeError("states must be an array");
   if (!Array.isArray(existingTasks)) throw new RangeError("existingTasks must be an array");
+  if (!Array.isArray(excludedQuestionIds)) throw new RangeError("excludedQuestionIds must be an array");
   if (!Number.isSafeInteger(currentWeek) || currentWeek < 1 || currentWeek > 6) {
     throw new RangeError("currentWeek must be between 1 and 6");
   }
@@ -144,6 +161,12 @@ export function generateDailyKnowledgeTasks({
     }
     statesById.set(state.questionId, state);
   });
+
+  const excludedIds = new Set<string>();
+  for (const [index, questionId] of excludedQuestionIds.entries()) {
+    assertNonEmpty(questionId, `excludedQuestionIds[${index}]`);
+    excludedIds.add(questionId);
+  }
 
   const existingIds = new Set<string>();
   let existingNew = 0;
@@ -169,6 +192,7 @@ export function generateDailyKnowledgeTasks({
     .map((question, index) => ({ question, state: statesById.get(question.id), index }))
     .filter(({ question, state }) =>
       !existingIds.has(question.id)
+      && !excludedIds.has(question.id)
       && state !== undefined
       && state.attemptCount > 0
       && state.nextReviewAt !== null
@@ -201,20 +225,24 @@ export function generateDailyKnowledgeTasks({
     }));
 
   const teachingWeek = Math.min(currentWeek, 4);
+  const satisfiedTopics = satisfiedKnowledgeTopics(questions, states);
   const newTasks = questions
     .map((question, index) => ({ question, index }))
     .filter(({ question }) => {
       const state = statesById.get(question.id);
       return !existingIds.has(question.id)
+        && !excludedIds.has(question.id)
         && question.questionType === "main"
         && question.isCore6Weeks
         && question.recommendedWeek !== null
         && question.recommendedWeek <= teachingWeek
+        && knowledgePrerequisitesSatisfied(question.prerequisiteTopicIds, satisfiedTopics)
         && (state === undefined || state.attemptCount === 0);
     })
     .sort((left, right) =>
       Number(right.question.recommendedWeek === teachingWeek)
       - Number(left.question.recommendedWeek === teachingWeek)
+      || (left.question.topicDepth ?? 0) - (right.question.topicDepth ?? 0)
       || right.question.importance - left.question.importance
       || left.question.recommendedWeek! - right.question.recommendedWeek!
       || left.question.sourceOrder - right.question.sourceOrder

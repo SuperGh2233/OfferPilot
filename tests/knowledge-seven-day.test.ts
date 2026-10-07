@@ -8,9 +8,13 @@ import {
 } from "../lib/knowledge/attempts";
 import {
   knowledgeQuestions,
-  knowledgeTopics,
+  knowledgeTopicDependencyGraph,
   toKnowledgePlannerQuestion,
 } from "../lib/knowledge/catalog";
+import {
+  knowledgePrerequisitesSatisfied,
+  satisfiedKnowledgeTopics,
+} from "../lib/knowledge-graph/readiness";
 import { calculateKnowledgeTopicMastery } from "../lib/mastery/knowledge";
 import {
   generateDailyKnowledgeTasks,
@@ -106,26 +110,23 @@ describe("knowledge seven-day cycle", () => {
     expect(attempts.some(({ coverageScore }) => coverageScore === 100)).toBe(true);
   });
 
-  it("raises mastery for the five target topics with the real catalog over seven days", () => {
-    const topicNames = ["HashMap", "线程池", "JVM", "MySQL", "Redis"] as const;
-    const selectedQuestions = topicNames.map((topicName) => {
-      const topic = knowledgeTopics.find(({ name }) => name === topicName);
-      expect(topic, `${topicName} topic`).toBeDefined();
-      const question = knowledgeQuestions.find((candidate) =>
-        candidate.topicId === topic!.id
-        && candidate.questionType === "main"
-        && candidate.isCore6Weeks,
-      );
-      expect(question, `${topicName} core question`).toBeDefined();
-      return question!;
-    });
-    const plannerQuestions = selectedQuestions.map(toKnowledgePlannerQuestion);
+  it("respects real-catalog prerequisite gates while continuing learn and review work over seven days", () => {
+    const plannerQuestions = knowledgeQuestions.map(toKnowledgePlannerQuestion);
+    const catalogById = new Map(knowledgeQuestions.map((question) => [question.id, question]));
+    const dependencyByTopicId = new Map(
+      knowledgeTopicDependencyGraph.nodes.map((node) => [node.topicId, node]),
+    );
     const states: Record<string, KnowledgeStatePayload> = {};
-    const masteryAfterLearn = new Map<string, number>();
-    const taskIdsByDay: string[][] = [];
+    const learnedTopicIds = new Set<string>();
+    let reviewTaskCount = 0;
+    let nonRootLearnCount = 0;
 
     for (let day = 1; day <= 7; day += 1) {
       const today = atDay(day);
+      const satisfiedBefore = satisfiedKnowledgeTopics(
+        plannerQuestions,
+        Object.values(states),
+      );
       const tasks = generateDailyKnowledgeTasks({
         questions: plannerQuestions,
         states: Object.values(states),
@@ -134,11 +135,33 @@ describe("knowledge seven-day cycle", () => {
         reviewCount: 5,
         today,
       });
-      taskIdsByDay.push(tasks.map(({ questionId }) => questionId));
+
+      expect(generateDailyKnowledgeTasks({
+        questions: plannerQuestions,
+        states: Object.values(states),
+        existingTasks: tasks,
+        currentWeek: 4,
+        newCount: 5,
+        reviewCount: 5,
+        today,
+      })).toEqual([]);
 
       for (const task of tasks) {
-        const question = selectedQuestions.find(({ id }) => id === task.questionId)!;
+        const plannerQuestion = plannerQuestions.find(({ id }) => id === task.questionId)!;
+        const question = catalogById.get(task.questionId)!;
+
         if (task.taskType === "new") {
+          expect(
+            knowledgePrerequisitesSatisfied(
+              plannerQuestion.prerequisiteTopicIds,
+              satisfiedBefore,
+            ),
+            `new task ${question.topic}/${question.question} must have satisfied prerequisites`,
+          ).toBe(true);
+          learnedTopicIds.add(question.topicId);
+          if ((dependencyByTopicId.get(question.topicId)?.depth ?? 0) > 0) {
+            nonRootLearnCount += 1;
+          }
           states[question.id] = recordKnowledgeLearn({
             id: `real-day-${day}-${question.id}`,
             userId: "local-user",
@@ -146,55 +169,28 @@ describe("knowledge seven-day cycle", () => {
             attemptedAt: today,
             selfRating: 4,
           }).state;
-        } else {
-          states[question.id] = recordKnowledgeRecall({
-            id: `real-day-${day}-${question.id}`,
-            userId: "local-user",
-            questionId: question.id,
-            attemptedAt: today,
-            answerText: question.keyPoints.join(" "),
-            keyPoints: question.keyPoints,
-            keywordAliases: question.keywordAliases,
-            keyPointWeights: question.keyPointWeights,
-            previousState: states[question.id],
-          }).state;
+          continue;
         }
-      }
 
-      if (day === 1) {
-        for (const topicName of topicNames) {
-          const topic = knowledgeTopics.find(({ name }) => name === topicName)!;
-          masteryAfterLearn.set(topicName, calculateKnowledgeTopicMastery(
-            knowledgeQuestions
-              .filter(({ topicId }) => topicId === topic.id)
-              .map((question) => ({
-                mastery: states[question.id]?.mastery ?? null,
-                importance: question.importance,
-                questionType: question.questionType,
-              })),
-          ));
-        }
+        reviewTaskCount += 1;
+        states[question.id] = recordKnowledgeRecall({
+          id: `real-day-${day}-${question.id}`,
+          userId: "local-user",
+          questionId: question.id,
+          attemptedAt: today,
+          answerText: question.keyPoints.join(" "),
+          keyPoints: question.keyPoints,
+          keywordAliases: question.keywordAliases,
+          keyPointWeights: question.keyPointWeights,
+          previousState: states[question.id],
+        }).state;
       }
     }
 
-    expect(new Set(taskIdsByDay[0])).toEqual(new Set(selectedQuestions.map(({ id }) => id)));
-    expect(taskIdsByDay[1]).toEqual([]);
-    expect(taskIdsByDay[2]).toEqual([]);
-    expect(new Set(taskIdsByDay[3])).toEqual(new Set(selectedQuestions.map(({ id }) => id)));
-    expect(taskIdsByDay.slice(4)).toEqual([[], [], []]);
-
-    for (const topicName of topicNames) {
-      const topic = knowledgeTopics.find(({ name }) => name === topicName)!;
-      const finalMastery = calculateKnowledgeTopicMastery(
-        knowledgeQuestions
-          .filter(({ topicId }) => topicId === topic.id)
-          .map((question) => ({
-            mastery: states[question.id]?.mastery ?? null,
-            importance: question.importance,
-            questionType: question.questionType,
-          })),
-      );
-      expect(finalMastery, topicName).toBeGreaterThan(masteryAfterLearn.get(topicName)!);
-    }
+    expect(learnedTopicIds.size).toBeGreaterThan(5);
+    expect(nonRootLearnCount).toBeGreaterThan(0);
+    expect(reviewTaskCount).toBeGreaterThan(0);
+    expect(Object.values(states).filter((state) => state.attemptCount > 0).length)
+      .toBeGreaterThan(5);
   });
 });

@@ -242,7 +242,8 @@ export function ensureTodayKnowledgeTasks(
     if (data.dailyTasks[pastDate] !== undefined) continue;
     const week = calculateAlgorithmCurrentWeek(data.planStartDate, pastDate, timeZone, pauses);
     const tasks: LocalKnowledgeTask[] = generateDailyKnowledgeTasks({
-      questions: questions.filter((question) => !assigned.has(question.id)),
+      questions,
+      excludedQuestionIds: [...assigned],
       states: Object.values(data.states),
       currentWeek: week,
       newCount: configuredNew,
@@ -262,7 +263,32 @@ export function ensureTodayKnowledgeTasks(
     toBackfill -= tasks.length;
   }
   const cached = next.dailyTasks[taskDate];
-  if (cached !== undefined) return { data: next, tasks: cached, currentWeek, date: taskDate };
+  if (cached !== undefined) {
+    if (paused) return { data: next, tasks: cached, currentWeek, date: taskDate };
+    // A prerequisite-gated day may initially contain fewer new tasks than the
+    // configured quota. After a foundation topic is learned, fill only the
+    // previously unused quota; completed tasks still count, so daily workload
+    // never grows beyond the configured plan.
+    const additions: LocalKnowledgeTask[] = generateDailyKnowledgeTasks({
+      questions,
+      excludedQuestionIds: [...assigned],
+      states: Object.values(next.states),
+      existingTasks: cached,
+      currentWeek,
+      newCount: options.newCount,
+      reviewCount: options.reviewCount,
+      today,
+    }).map((task) => ({
+      ...task,
+      date: taskDate,
+      status: "pending",
+      completedAt: null,
+    }));
+    if (additions.length === 0) return { data: next, tasks: cached, currentWeek, date: taskDate };
+    if (next === data) next = copy(data);
+    next.dailyTasks[taskDate] = [...cached, ...additions];
+    return { data: next, tasks: next.dailyTasks[taskDate], currentWeek, date: taskDate };
+  }
   if (paused) {
     // Do not invent a task bucket for the paused day. Historical backfill above
     // is intentionally preserved and can still be completed.
@@ -270,7 +296,8 @@ export function ensureTodayKnowledgeTasks(
   }
 
   const tasks: LocalKnowledgeTask[] = generateDailyKnowledgeTasks({
-    questions: questions.filter((question) => !assigned.has(question.id)),
+    questions,
+    excludedQuestionIds: [...assigned],
     states: Object.values(data.states),
     currentWeek,
     newCount: options.newCount,

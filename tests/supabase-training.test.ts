@@ -17,6 +17,10 @@ import {
   updateCloudProfile,
 } from "../lib/supabase/training";
 import { algorithmCatalog } from "../lib/algorithm/catalog";
+import {
+  knowledgeQuestions,
+  knowledgeTopicDependencyGraph,
+} from "../lib/knowledge/catalog";
 import { getKnowledgeRecallHistory } from "../lib/knowledge/recall-history";
 import type { DemoProfile } from "../lib/profile/demo-store";
 import type {
@@ -52,10 +56,48 @@ class FakeSupabase {
   constructor(private readonly rows: Record<string, unknown[]>) {}
 
   async rpc(name: string, args: { p_tasks: unknown }) {
-    if (name !== "ensure_daily_training_tasks") throw new Error(`Unexpected RPC: ${name}`);
+    if (name !== "ensure_daily_training_tasks" && name !== "append_knowledge_training_tasks") {
+      throw new Error(`Unexpected RPC: ${name}`);
+    }
     if (this.rpcError) return { data: null, error: this.rpcError };
     const tasks = args.p_tasks as Record<string, unknown>[];
     const stored = (this.rows.daily_tasks ??= []);
+
+    if (name === "append_knowledge_training_tasks") {
+      const dates = new Set(tasks.map((task) => task.task_date));
+      for (const task of tasks) {
+        const alreadyStored = stored.some((row) => {
+          const existing = row as Record<string, unknown>;
+          return existing.task_date === task.task_date
+            && existing.knowledge_question_id === task.knowledge_question_id;
+        });
+        if (alreadyStored) continue;
+        const maxSort = stored
+          .filter((row) => (row as Record<string, unknown>).task_date === task.task_date
+            && Boolean((row as Record<string, unknown>).knowledge_question_id))
+          .reduce<number>(
+            (max, row) => Math.max(max, Number((row as Record<string, unknown>).sort_order ?? -1)),
+            -1,
+          );
+        const persisted = {
+          id: `task-${stored.length + 1}`,
+          algorithm_problem_id: null,
+          knowledge_question_id: null,
+          completed_at: null,
+          metadata: {},
+          created_at: "2026-09-11T08:00:00.000Z",
+          updated_at: "2026-09-11T08:00:00.000Z",
+          ...task,
+          sort_order: maxSort + 1,
+        };
+        this.insertedTasks.push(task);
+        stored.push(persisted);
+      }
+      return {
+        data: stored.filter((row) => dates.has((row as Record<string, unknown>).task_date)),
+        error: null,
+      };
+    }
     // Simulate a concurrent tab committing a different day's assignment
     // between the snapshot SELECT and its atomic ensure RPC.
     if (this.competingTask) {
@@ -310,30 +352,79 @@ describe("Supabase training adapter", () => {
 
     expect(snapshot.algorithm.attempts).toHaveLength(1_001);
     expect(fake.ranges.algorithm_attempts).toEqual([[0, 999], [1_000, 1_999]]);
-    expect(fake.insertedTasks).toHaveLength(15);
-    expect(fake.insertedTasks.filter((row) =>
+    const algorithmInserted = fake.insertedTasks.filter((row) =>
       (row as Record<string, unknown>).algorithm_problem_id,
-    )).toHaveLength(6);
-    expect(fake.insertedTasks.filter((row) =>
+    );
+    const knowledgeInserted = fake.insertedTasks.filter((row) =>
       (row as Record<string, unknown>).knowledge_question_id,
-    )).toHaveLength(9);
-    expect(fake.insertedTasks[0]).toMatchObject({
+    );
+    expect(algorithmInserted).toHaveLength(6);
+    expect(knowledgeInserted.length).toBeGreaterThan(0);
+    expect(fake.insertedTasks).toHaveLength(algorithmInserted.length + knowledgeInserted.length);
+    expect(fake.insertedTasks).toContainEqual(expect.objectContaining({
       user_id: "user-1",
       task_date: "2026-09-09",
       status: "pending",
       metadata: { source: "backfill" },
-    });
-    expect(fake.insertedTasks.filter((row) => (row as Record<string, unknown>).task_date === "2026-09-11")).toHaveLength(5);
+    }));
 
+    const firstInsertCount = fake.insertedTasks.length;
     const repeated = await loadCloudTrainingSnapshot(
       fake as never,
       "user-1",
       new Date("2026-09-11T08:00:00.000Z"),
     );
-    expect(fake.insertedTasks).toHaveLength(15);
+    expect(fake.insertedTasks).toHaveLength(firstInsertCount);
     expect(repeated.algorithm.dailyTasks["2026-09-09"][0].backfilled).toBe(true);
     expect(repeated.algorithm.dailyTasks["2026-09-11"]).toHaveLength(2);
-    expect(repeated.knowledge.dailyTasks["2026-09-11"]).toHaveLength(3);
+    expect(Object.values(repeated.knowledge.dailyTasks).flat().length).toBeGreaterThan(0);
+  });
+
+  it("atomically appends same-day Knowledge tasks when prerequisite gating left quota unused", async () => {
+    const dependencyByTopic = new Map(
+      knowledgeTopicDependencyGraph.nodes.map((node) => [node.topicId, node]),
+    );
+    const rootQuestion = knowledgeQuestions.find((question) =>
+      question.isCore6Weeks
+      && question.questionType === "main"
+      && (question.category === "Java基础" || question.category === "Java集合")
+      && (dependencyByTopic.get(question.topicId)?.prerequisiteTopicIds.length ?? 0) === 0,
+    );
+    expect(rootQuestion).toBeDefined();
+
+    const rows: Record<string, unknown[]> = cloudRows();
+    rows.daily_tasks = [{
+      id: "existing-knowledge-task",
+      user_id: "user-1",
+      task_date: "2026-09-09",
+      task_type: "new",
+      reason: "week_1_new",
+      status: "pending",
+      algorithm_problem_id: null,
+      knowledge_question_id: rootQuestion!.id,
+      sort_order: 0,
+      completed_at: null,
+      metadata: { source: "deterministic_planner" },
+      created_at: "2026-09-09T08:00:00.000Z",
+      updated_at: "2026-09-09T08:00:00.000Z",
+    }];
+    const fake = new FakeSupabase(rows);
+
+    const snapshot = await loadCloudTrainingSnapshot(
+      fake as never,
+      "user-1",
+      new Date("2026-09-09T08:00:00.000Z"),
+    );
+
+    const appended = fake.insertedTasks.filter((row) =>
+      (row as Record<string, unknown>).metadata
+      && ((row as Record<string, unknown>).metadata as Record<string, unknown>).source
+        === "knowledge_dag_replenishment",
+    );
+    expect(appended.length).toBeGreaterThan(0);
+    expect(snapshot.knowledge.dailyTasks["2026-09-09"].length).toBeGreaterThan(1);
+    expect(new Set(snapshot.knowledge.dailyTasks["2026-09-09"].map((task) => task.questionId)).size)
+      .toBe(snapshot.knowledge.dailyTasks["2026-09-09"].length);
   });
 
   it("returns the winning tab's persisted tasks instead of an uncommitted plan", async () => {

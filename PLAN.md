@@ -4,9 +4,9 @@
 
 ## 当前状态
 
-- 最后更新：2026-09-21
+- 最后更新：2026-09-27
 - 当前阶段：Phase 8 已完成；第二轮架构与性能优化（第一轮检查由用户反馈已完成，详细测试结果与生产迁移状态尚未在此连接中核验）。
-- 并行开发任务（本 Agent）：2026-09-21 继续优化每日训练流，已修复“暂停计划后无法完成欠账”，并补上完成一题后的直接「下一题」入口。Knowledge Learn/Recall 与 Algorithm 完成页复用纯函数选择下一任务：今日未完成 → 历史欠账 → 到期复习；Knowledge Learn 在今日队列内优先另一道新学题。动态题页按 ID 强制重置本地交互状态。KnowledgeTraining 的 React purity 问题已改为组件时钟定时更新，便携 Node 24.19 下四项质量门已通过；真实账号或生产验收仍未进行。
+- 并行开发任务（本 Agent）：Sprint 3 `/interview` 已接入 AI 追问和 AI 报告解读，同时保持确定性评分冻结和零训练数据写入。修复 Demo 初载 lint、Vitest `@/` 路径解析和 ESM 配置、AI 总结等待期间的确定性 fallback 标识；便携 Node 24.19 下四项质量门全部通过（45 个测试文件、411 项测试、242 个页面）。真实账号验收、Sprint 2 的 Supabase Migration 和部署仍未执行。
 - 当前任务：八股答案已完成 904 道 UUID 级直接审校投影与本地验收：保留原始 JSON/CSV，使用共享清洗函数及按 UUID 审校补丁；`knowledge:audit`/`knowledge:audit:report` 已核实 904/904 人工审校、0 未审、0 候选，`seed:check` 已核对 100 算法、165 主题、904 题、120 核心题和 904 条清洗详答，lint/typecheck/test/build 已在便携 Node 24.19 下通过（38 个测试文件、369 项测试、239 个生成页面）。下一步仅为测试库备份后的数据库 Seed、真实账号 Recall/刷新历史回归与部署验收；生产题库、学习历史和生产数据库尚未修改，不能宣称生产已更新。此前手动暂停／恢复功能的源码、测试用例、SQL Migration 与用户文档已写入：Settings 切换、Dashboard 状态、算法和八股 Planner、有效周期日/漏训/连续天数、浏览器 Demo/SQLite/Supabase 持久化、复习日期延后。暂停范围按用户当地 03:00 训练日记录为 [start,end)，恢复当日重新生成任务；旧 Attempt/Mastery/任务保留。云端通过单独的事务 RPC 防重复切换；本轮仅文件读写，未能运行数据库迁移或真实端到端验收，不能推送或宣布上线。上一批增量写入仍待其独立验收。
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7、Phase 8
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
@@ -90,6 +90,53 @@
 - [x] 新增 `tests/next-training-task.test.ts`，覆盖今日队列排序、Learn 优先新学、最早欠账、到期兜底、暂停边界和不重复当前题；首轮运行已通过 39 个测试文件、378 项测试，lint 发现并修复组件中直接调用 `Date.now()` 的 purity 规则问题，改为组件时钟定时更新。
 - [ ] 优化路线第 4 项其余内容仍待完成：Dashboard 一键继续、今日预计工作量、日终总结。
 - [x] 重跑 `npm run lint && npm run typecheck && npm run test && npm run build`：便携 Node 24.19 下全部通过，39 个测试文件、378 项测试、239 个页面；真实账号验证 Learn → 下一题、Recall → 下一题、Algorithm → 下一题、暂停欠账 → 下一题和浏览器前进/后退状态仍待进行。
+
+## 2026-09-21 Knowledge Graph Sprint 1（本地质量门通过，真实环境待验收）
+
+- [x] 新增 `lib/knowledge-graph/model.ts`：直接从现有 catalog 元数据派生知识图谱，不复制/改写答案数据。固定领域顺序沿用当前训练体系：Java基础 → Java集合 → Java并发 → JVM → Spring → MySQL → Redis；Topic 顺序取所属题目的最早 `sourceOrder`，因此第一版顺序可审计、可复现。
+- [x] 生成稳定节点与映射：7 个 category 节点 + 165 个 topic 节点 = 172 个 KnowledgeNode；904 道题各自映射到 1 个 category 与 1 个 topic，节点 ID 使用 `category:<name>` / `topic:<existing-topic-uuid>`，不依赖在线 AI。
+- [x] `lib/knowledge/catalog.ts` 正式导出 `knowledgeGraph`，现有 904 题仍是唯一事实源；未新增 JSON 副本、数据库表或 Migration，避免题库与图谱双份漂移。
+- [x] 新增 `lib/knowledge-graph/mastery.ts`：从现有 question state 向上聚合领域/Topic 能力。未学习题按 0 贡献到整体能力，同时单独返回覆盖率和已学习题平均 mastery，避免“只做一题就把整个领域判成高分”。
+- [x] Dashboard 新增 `KnowledgeAbilityMap`：展示 7 个领域的整体能力、已学习/总题数、覆盖率及当前较弱 Topic；Demo、SQLite、Supabase 都直接从现有 Snapshot 派生，无第二套用户状态。
+- [x] 新增 `tests/knowledge-graph.test.tsx`：覆盖 904/165/7 完整性、172 稳定节点、question 映射唯一性、确定性重建、未学习=0、加权聚合及能力地图 SSR 渲染。
+- [x] Sprint 1 明确不修改 Planner 出题算法和复习间隔；当前训练顺序仍保持现有 Planner 行为。真正的 prerequisite / dependency DAG、前置知识解锁与路径推荐留到 Sprint 2，避免在没有依赖证据前改变学习调度。
+- [x] 重新运行 `npm run lint && npm run typecheck && npm run test && npm run build`：便携 Node 24.19 下全部通过，40 个测试文件、383 项测试、239 个页面；仅完成本地质量门，真实 Dashboard 页面、账号数据和生产部署仍待验收。
+- [x] 2026-09-22 用户已明确授权进入 Sprint 2；Sprint 1 基线保持不变，Sprint 2 变更记录见下节。
+- [ ] 真实 Dashboard 验证：未学习账号、部分学习账号、已学习多个领域账号，以及 Demo/SQLite/Supabase 三模式能力数据一致性；与 Sprint 2 路径显示一并验收。
+
+## 2026-09-22 Knowledge Graph Sprint 2（本地质量门通过，待迁移与真实验收）
+
+- [x] 新增 `lib/knowledge-graph/dependencies.ts`：165 个现有 Topic 全部进入 DAG；只为有真实学习依赖的 Topic 建边，其余作为根节点，不机械串成长链。边覆盖 Java 基础→集合→并发、JVM 内存/GC/类加载、Spring IoC/AOP/事务、MySQL 索引/事务/MVCC/日志/高可用、Redis 数据结构/持久化/高可用/缓存等主链，并在构建时执行缺失 Topic、自依赖和环检测。
+- [x] 新增 `lib/knowledge-graph/readiness.ts`：前置 Topic 的解锁标准为“至少一条六周核心 main 题已学习且 Mastery ≥ 45”；没有核心 main 题的 prerequisite 仅参与图谱表达，不阻塞六周训练，避免不可完成依赖造成死锁。
+- [x] `toKnowledgePlannerQuestion` 注入 `topicId / prerequisiteTopicIds / topicDepth`；Knowledge Planner 对**新学题**先校验 prerequisite，再按教学周、DAG 深度、importance、sourceOrder 排序。已到期 Review 完全绕过 prerequisite gate，避免高级题已学后因基础分下降而无法复习。
+- [x] 新增 `excludedQuestionIds`，将“不能重复分配”与“仍需参与前置判断”拆开；已分配/已学前置题仍参与 DAG readiness，但不会再次生成任务。
+- [x] `ensureTodayKnowledgeTasks` 支持同日解锁补位：如果初次因 prerequisite 锁定导致当天 new quota 未用满，学完基础 Topic 后再次 ensure 只补足剩余 quota；已完成题仍计入当日 quota，不扩大每日工作量。暂停计划时不补暂停日新任务。
+- [x] 新增 `components/dashboard/knowledge-learning-path.tsx`：Dashboard 展示当前可学核心 Topic，以及被哪些 prerequisite 阻塞；Planner 的“为什么现在不出这题”变为可解释状态。
+- [x] 新增 `202609220001_knowledge_dag_replenishment.sql` 与数据库类型：首次整桶排题继续走 `ensure_daily_training_tasks`；同日 DAG 解锁补位单独走 `append_knowledge_training_tasks`，按 user/date/knowledge advisory lock 串行化，只允许向已存在的 Knowledge 桶追加 pending 任务，由服务端重新编号 sort_order，并依赖原有 same-day/question 唯一索引幂等。
+- [x] Supabase adapter 区分首次 insert 与同日 append，append 后使用数据库实际返回任务覆盖客户端日期桶；双标签页仍以数据库提交结果为准。
+- [x] 回归用例已写入：165 Topic DAG 全覆盖与拓扑无环、ConcurrentHashMap 的 HashMap/CAS/synchronized 前置、Mastery 44 不解锁/45 解锁、Review 不受 gate、低深度优先、同日解锁补位幂等、Dashboard ready/blocked 解释、Supabase append 去重。
+- [x] 首轮本地失败项已修源码：Dashboard status 联合类型收窄；Supabase Fake `reduce<number>`；`knowledge-seven-day.test.ts` 从旧“固定高级 Topic 同日出现”断言改为真实 catalog prerequisite invariant（每个 new task 出现时前置已满足，并继续覆盖 7 日 Learn/Review）。
+- [x] 修复后重新执行 `npm run lint && npm run typecheck && npm run test && npm run build`：便携 Node 24.19 下四项全部通过，40 个测试文件、390 项测试、239 个页面；Sprint 2 已达到本地质量门通过，仍需测试 Supabase Migration 和真实账号验收。
+- [ ] 先备份测试 Supabase，dry-run 并应用 `202609220001_knowledge_dag_replenishment.sql`；验证匿名/其他用户不能追加任务、已有日桶才能 append、双标签页同时解锁只产生唯一题目。
+- [ ] 真实账号验收：基础 Topic <45 时后继不出现；达到 45 后同日补位并可“学习下一题”；刷新/重登后任务保持；Review 仍按到期出现；暂停期间不生成新的暂停日任务。
+- [x] 2026-09-22 用户明确要求在 Sprint 2 本地质量门通过后启动 Sprint 3 源码开发；Sprint 2 的 Migration/真实验收仍作为上线前独立门槛保留。
+
+## 2026-09-22 Sprint 3：图谱驱动模拟面试与能力报告（源码开发中）
+
+- [x] 新增确定性 Interview Planner：默认 5 题，优先级为到期复习 → 薄弱已学 → prerequisite 已满足的挑战题 → 普通 retention；同一 Topic 默认只取 1 题，不足时才允许重复 Topic。
+- [x] 面试回答复用现有 `matchKnowledgeKeyPoints` 做确定性覆盖评分，不直接调用现有 Recall 写入链路，不修改 Attempt/Mastery/Review；跳过按 0 分计入本场报告。
+- [x] 新增 `/interview` 页面：开始后冻结本场 5 题，逐题文本/现有语音转写回答、进度、跳过/提交，整场结束前不展示参考答案；Dashboard 已增加入口。
+- [x] 新增图谱驱动能力报告：总分、领域分、Topic 强弱、遗漏关键点、建议回补 Topic；弱题若存在未满足前置节点，优先建议补前置，否则建议补当前 Topic。
+- [x] AI 面试官增强已接入：主问题提交后先冻结确定性 `InterviewResponse.score`，再调用 `/api/ai/interview-followup` 生成单条追问；AI 配置缺失、超时、无效 schema、网络异常时使用确定性遗漏点追问。客户端会再次校验 `focusPointIndex` 必须属于本题真实 missingPoints；主问题提交有同步 ref 锁防双击。追问回答仅保存在当前页面内存，不重新计分、不写 Mastery，并在报告页以「追问记录（不计分）」回看。
+- [x] 报告页接入 `/api/ai/interview-summary`：仅把本场确定性报告作为展示输入，返回 strengths/improvements/nextStep；AI 失败时 `fallbackInterviewSummary` 立即可用，模型不能新增分数或修改 Attempt/Mastery/Review。
+- [x] 新增 `ai-coach.ts` / `ai-coach-client.ts` / `ai-coach-server.ts`，包含严格结构化输出、缺失点索引校验、20 秒超时、重复追问防护、请求体边界和 Abort/stale 请求保护；服务端仍复用现有 OpenAI-compatible 配置与 server-only secret。
+- [x] 新增 `interview-session.test.ts`、`interview-ui.test.tsx`、`interview-ai-coach.test.ts`、`interview-ai-client.test.ts`、`interview-ai-route.test.ts`，覆盖选题/DAG、确定性评分、AI fallback/schema/timeout、客户端异常/Abort、API 输入边界和 UI fallback；实际测试通过。
+- [x] 修复质量门首轮发现的测试/React lint 问题：Demo 本地数据加载改为异步 effect 初载；新增 `vitest.config.mts` 从项目根 alias `@` 到根路径，保证 UI 测试可解析与应用相同的 imports。
+- [x] AI 总结卡在请求期间继续显示确定性 fallback，并明确标记“生成中 · 确定性总结已显示”；Vitest ESM 配置改为 `.mts`，避免 native config loader 的 CommonJS/ESM 警告。
+- [x] 静态零写入审计：`components/interview` / `lib/interview` 未引用 `recordKnowledge*`、`applyMutation`、daily task 写入或 mastery 写入路径。
+- [x] 重新运行 Node 24 `npm run lint && npm run typecheck && npm run test && npm run build`：便携 Node 24.19 全部通过；45 个测试文件、411 项测试、242 个页面。Sprint 3 本地质量门通过。
+- [ ] 真实账号验收：AI 正常/无 key/超时/断网、主问题跳过、追问跳过、重复点击、重启面试时取消 stale 请求、刷新丢失当前内存 Session 的预期行为。
+- [ ] Sprint 3 源码验收后，再单独决定是否持久化 Interview Session；本轮不先加数据库表。
 
 ## 2026-09-20 暂停计划功能验收清单
 
@@ -649,3 +696,9 @@ npm run build
 | 2026-09-21 | 连续下一题质量门首轮修复（待重跑） | 完成 `lib/progress/next-task.ts` 选择器、Algorithm/Knowledge 完成页入口、动态题页按 ID 重置及对应测试；首轮质量门发现 KnowledgeTraining render 直接调用 `Date.now()` 违反 React purity，改为组件时钟状态。 | 便携 Node 24.19 下 typecheck、test（39 个测试文件、378 项）和 build（239 个页面）通过；lint 因 purity 错误失败后已修复，四项需重跑。真实账号和生产验收仍未运行。 |
 | 2026-09-21 | 连续下一题 React purity 二次修复（待重跑） | 将 KnowledgeTraining 的当前时间统一由组件 `clock` 状态和 60 秒定时器提供，移除 render/提交闭包中的直接 `Date.now()` 调用。 | 便携 Node 24.19 下 typecheck、test、build 已通过；lint 首轮 purity 错误已继续修复，四项需重跑。真实账号和生产验收仍未运行。 |
 | 2026-09-21 | 连续下一题本地质量门通过（真实环境待验收） | 完成下一任务选择器、Algorithm/Knowledge 完成页入口、动态题页状态重置和 Knowledge 时钟 purity 修复；保留暂停欠账、到期复习和 Learn 新学优先语义。 | 便携 Node 24.19 下 lint、typecheck、test、build 全部通过：39 个测试文件、378 项测试、239 个页面。真实账号、Vercel 部署后的 Learn/Recall/Algorithm 跳转及生产验收仍未运行。 |
+| 2026-09-22 | Knowledge Graph Sprint 1 本地验收通过（Sprint 2 暂不启动） | 验证 7 Category、165 Topic、172 稳定节点、904 Question 映射和现有 KnowledgeState 能力聚合；确认未新增数据库表/Migration，未修改题库答案审校投影，Dashboard 能力地图和 SSR 测试纳入构建。 | 便携 Node 24.19 下 lint、typecheck、test、build 全部通过：40 个测试文件、383 项测试、239 个页面。真实账号 Dashboard、SQLite/Supabase 数据回归和部署仍未运行；当时未开始 prerequisite DAG。 |
+| 2026-09-22 | Knowledge Graph Sprint 2 本地质量门通过（迁移/真实环境待验收） | 建立 165 Topic prerequisite DAG（源文件审计：158 个有显式依赖的节点、177 条边、7 根、0 缺失引用、165/165 拓扑遍历、无环）；Planner 新学题按前置 Mastery≥45 解锁并优先浅层节点，Review 不受 gate。同日未用满 quota 在前置学会后补位；Dashboard 显示 ready/blocked 路径。新增 Supabase 原子 append RPC migration，首次整桶语义保持不变。 | 便携 Node 24.19 下 lint、typecheck、test、build 全部通过：40 个测试文件、390 项测试、239 个页面。`202609220001_knowledge_dag_replenishment.sql` 未应用，真实双标签页/RLS/刷新验收未运行。 |
+| 2026-09-27 | Sprint 3 质量门问题修复（待重跑） | `InterviewSimulator` Demo 加载移出 effect 同步阶段并采用可清理的零延时初始化；新增 `vitest.config.ts` 配置 tsconfig 同源的 `@` 根别名，使 interview UI 测试能够解析复用的语音输入/组件模块。 | 修复后尚未运行 lint/typecheck/test/build；Sprint 2 Migration 与真实账号验收仍未进行。 |
+| 2026-09-27 | Sprint 3 UI fallback / Vitest ESM 修复（待重跑） | AI 总结请求期间仍显示 deterministic fallback 并明确状态；将测试 alias 配置改为 `vitest.config.mts` 以适配 Vite native loader。 | 修复后待重跑四项质量门；Sprint 2 Migration 与真实账号验收仍未进行。 |
+| 2026-09-27 | Sprint 3 本地质量门通过（真实账号/数据库待验收） | `InterviewSimulator` Demo 初载改为 effect 异步调度；新增 `vitest.config.mts` 配置 `@` 根别名；AI 总结等待期间保持确定性结果可见并显示“生成中 · 确定性总结已显示”。 | 便携 Node 24.19 下 lint、typecheck、test、build 全部通过；45 个测试文件、411 项测试、242 个页面。真实账号回归、Sprint 2 Migration、部署尚未执行。 |
+| 2026-09-22 | Sprint 3 模拟面试核心 MVP 源码完成（待质量门） | 新增 `/interview`、确定性 5 题 Interview Planner、到期/薄弱/已解锁挑战/retention 优先级、Topic 去重、文本与语音回答、关键点覆盖评分、图谱回补建议、整场能力报告和 Dashboard 入口；模拟面试不写 Attempt/Mastery/Review。 | 新增 `interview-session.test.ts`、`interview-ui.test.tsx`；AI 面试官追问/总结与 Session 持久化尚未实现；本轮新增代码尚未运行 lint/typecheck/test/build。 |

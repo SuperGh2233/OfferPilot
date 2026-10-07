@@ -20,6 +20,15 @@ import {
   type KnowledgeDemoData,
   type LocalKnowledgeTask,
 } from "@/lib/knowledge/demo-store";
+import { KnowledgeAbilityMap } from "@/components/dashboard/knowledge-ability-map";
+import {
+  KnowledgeLearningPath,
+  type KnowledgeLearningPathItem,
+} from "@/components/dashboard/knowledge-learning-path";
+import { buildKnowledgeTopicDependencyGraph } from "@/lib/knowledge-graph/dependencies";
+import { aggregateKnowledgeGraphMastery } from "@/lib/knowledge-graph/mastery";
+import { buildKnowledgeGraph } from "@/lib/knowledge-graph/model";
+import { evaluateKnowledgeTopicPath } from "@/lib/knowledge-graph/readiness";
 import { calculateKnowledgeTopicMastery } from "@/lib/mastery/knowledge";
 import {
   aggregateAlgorithmWeaknesses,
@@ -172,6 +181,14 @@ export function DashboardOverview({
       profile: cloud.snapshot.profile,
     };
   }, [cloud.snapshot]);
+  const knowledgeGraph = useMemo(
+    () => buildKnowledgeGraph(topics, knowledgeQuestions),
+    [knowledgeQuestions, topics],
+  );
+  const dependencyGraph = useMemo(
+    () => buildKnowledgeTopicDependencyGraph(topics),
+    [topics],
+  );
   const snapshot = demoMode ? demoSnapshot : cloudSnapshot;
 
   if (cloud.error) {
@@ -278,6 +295,54 @@ export function DashboardOverview({
     && task.taskType === "new" && task.status !== "completed",
   ).length;
   const hasBacklog = Object.entries(backlog).some(([key, count]) => key !== "missedTrainingDays" && count > 0);
+  const knowledgeAbility = aggregateKnowledgeGraphMastery({
+    graph: knowledgeGraph,
+    questions: knowledgeQuestions.map((question) => ({
+      id: question.id,
+      importance: question.importance,
+      questionType: question.questionType,
+    })),
+    states: Object.values(snapshot.knowledgeData.states),
+  });
+  const knowledgeCategoryAbility = knowledgeAbility.filter((node) => node.kind === "category");
+  const knowledgeTopicAbility = knowledgeAbility.filter((node) => node.kind === "topic");
+  const dependencyByTopicId = new Map(
+    dependencyGraph.nodes.map((node) => [node.topicId, node]),
+  );
+  const topicById = new Map(topics.map((topic) => [topic.id, topic]));
+  const coreTopicIds = new Set(
+    knowledgeQuestions
+      .filter((question) => question.isCore6Weeks && question.questionType === "main")
+      .map((question) => question.topicId),
+  );
+  const pathStatus = evaluateKnowledgeTopicPath({
+    topicIds: dependencyGraph.topologicalTopicIds,
+    prerequisiteTopicIdsByTopic: new Map(
+      dependencyGraph.nodes.map((node) => [node.topicId, node.prerequisiteTopicIds]),
+    ),
+    questions: knowledgeQuestions,
+    states: Object.values(snapshot.knowledgeData.states),
+  });
+  const learningPathItems = pathStatus
+    .filter((item) => coreTopicIds.has(item.topicId) && item.status !== "learned")
+    .map<KnowledgeLearningPathItem>((item) => {
+      const topic = topicById.get(item.topicId)!;
+      const dependency = dependencyByTopicId.get(item.topicId)!;
+      return {
+        topicId: item.topicId,
+        name: topic.name,
+        category: topic.category,
+        depth: dependency.depth,
+        status: item.status === "blocked" ? "blocked" : "ready",
+        missingPrerequisiteNames: item.missingPrerequisiteTopicIds
+          .map((topicId) => topicById.get(topicId)?.name ?? topicId),
+      };
+    })
+    .sort((left, right) =>
+      Number(left.status === "blocked") - Number(right.status === "blocked")
+      || left.depth - right.depth
+      || left.name.localeCompare(right.name, "zh-CN"),
+    );
 
   return (
     <div className="mt-8 flex flex-col gap-6">
@@ -398,6 +463,33 @@ export function DashboardOverview({
           title="Knowledge"
         />
       </section>
+
+      <section className="rounded-2xl border bg-card p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Sprint 3 · Mock Interview
+            </p>
+            <h2 className="mt-1 text-xl font-semibold">图谱驱动模拟面试</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              根据当前 Mastery、到期状态和 prerequisite DAG 自动选 5 道题；本场只做评估，不直接改日常 Mastery。
+            </p>
+          </div>
+          <Link
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+            href="/interview"
+          >
+            开始模拟面试
+          </Link>
+        </div>
+      </section>
+
+      <KnowledgeAbilityMap
+        categories={knowledgeCategoryAbility}
+        topics={knowledgeTopicAbility}
+      />
+
+      <KnowledgeLearningPath items={learningPathItems} />
 
       <section className="grid gap-4 lg:grid-cols-2">
         <WeaknessCard title="Algorithm 薄弱点">
