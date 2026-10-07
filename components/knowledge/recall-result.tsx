@@ -14,10 +14,14 @@ export function RecallResult({ attempt }: { attempt: KnowledgeAttemptPayload }) 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-2xl border border-emerald-200 bg-card p-5 dark:border-emerald-900">
           <h2 className="font-semibold text-emerald-800 dark:text-emerald-400">你记住了 · {attempt.matchedPoints.length}</h2>
-          <ul className="mt-3 space-y-2 text-sm leading-6">
-            {attempt.matchedPoints.map((point) => <li key={point.index}>✓ {point.point}</li>)}
-            {attempt.matchedPoints.length === 0 ? <li className="text-muted-foreground">暂无匹配关键点</li> : null}
-          </ul>
+          {attempt.matchedPoints.length > 0 ? (
+            <details className="mt-3 text-sm">
+              <summary className="cursor-pointer text-emerald-800 dark:text-emerald-300">查看已覆盖关键点</summary>
+              <ul className="mt-2 space-y-2 leading-6">
+                {attempt.matchedPoints.map((point) => <li key={point.index}>✓ {point.point}</li>)}
+              </ul>
+            </details>
+          ) : <p className="mt-3 text-sm text-muted-foreground">暂无匹配关键点</p>}
         </div>
         <div className="rounded-2xl border border-amber-200 bg-card p-5 dark:border-amber-900">
           <h2 className="font-semibold text-amber-800 dark:text-amber-400">还遗漏 · {attempt.missingPoints.length}</h2>

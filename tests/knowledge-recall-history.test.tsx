@@ -111,5 +111,6 @@ describe("Knowledge Recall history and focused next review", () => {
     expect(html).toContain("equals 检查");
     expect(html).toContain("没有已保存的 AI 分析");
     expect(html).toContain("只有一次 Recall");
+    expect(html).not.toContain('open=""');
   });
 });

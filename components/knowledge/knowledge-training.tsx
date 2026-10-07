@@ -458,11 +458,7 @@ export function KnowledgeTraining({
                         <div>
                           <p className="font-semibold">AI 语义复核{supplementalAnalysis ? "（补做，未计分）" : currentAnalysis ? "（本次已保存）" : "（本次未能用于计分）"}</p>
                           <p className="mt-1 text-sm text-muted-foreground">
-                            {supplementalAnalysis
-                              ? "这是提交后的补做解释，没有写入历史 Attempt，也不改变本次分数、Mastery 或复习日期。"
-                              : currentAnalysis
-                                ? "提交时已同步复核，AI 结果已随本次 Attempt 保存并参与计分。"
-                                : "本次提交时复核不可用，已按确定性覆盖率计分；补救复核只补充解释，不改动已记录的分数。"}
+                            {supplementalAnalysis ? "补做说明，不改变本次分数。" : currentAnalysis ? "已参与本次计分。" : "未参与本次计分。"}
                           </p>
                         </div>
                         {currentAnalysis ? null : (
@@ -489,7 +485,7 @@ export function KnowledgeTraining({
                     </div>
                   </>
                 ) : null}
-                <AnswerPanel question={question} />
+                <AnswerPanel collapsed question={question} />
                 <div className="flex flex-wrap gap-3">
                   {nextTask ? (
                     <Link
@@ -518,7 +514,7 @@ export function KnowledgeTraining({
             ) : null}
 
             {recallHistory?.latest ? (
-              <RecallHistoryPanel history={recallHistory} timeZone={timeZone} expanded={Boolean(recallResult)} />
+              <RecallHistoryPanel history={recallHistory} timeZone={timeZone} />
             ) : null}
 
             {error ?? cloud.error ? <p aria-live="assertive" className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error ?? cloud.error}</p> : null}
@@ -567,9 +563,9 @@ export function KnowledgeTraining({
   );
 }
 
-function AnswerPanel({ question }: { question: KnowledgeTrainingQuestion }) {
-  return (
-    <div className="mt-5 space-y-4">
+function AnswerPanel({ question, collapsed = false }: { question: KnowledgeTrainingQuestion; collapsed?: boolean }) {
+  const content = (
+    <div className="space-y-4">
       <div className="rounded-xl bg-muted p-4">
         <p className="text-xs font-medium text-muted-foreground">一句话答案</p>
         <p className="mt-2 text-sm leading-7">{question.shortAnswer || "暂无简答"}</p>
@@ -591,6 +587,14 @@ function AnswerPanel({ question }: { question: KnowledgeTrainingQuestion }) {
         ) : <p className="mt-2 text-sm text-muted-foreground">本题暂无结构化关键点。</p>}
       </div>
     </div>
+  );
+
+  if (!collapsed) return <div className="mt-5">{content}</div>;
+  return (
+    <details className="mt-5 rounded-xl border p-4">
+      <summary className="cursor-pointer text-sm font-semibold">查看参考答案</summary>
+      <div className="mt-4">{content}</div>
+    </details>
   );
 }
 
@@ -616,52 +620,60 @@ function RecallAiPanel({
 }) {
   return (
     <div className="mt-4 space-y-4 border-t pt-4 text-sm">
-      {supplemental ? (
-        <p className="rounded-xl bg-muted p-4 leading-6">本次实际计分仍为 {effectiveCoverageScore ?? coverageScore ?? 0}%；补做 AI 语义覆盖率为 {analysis.semanticScore}%，仅供理解和自查，未改变历史分数。</p>
-      ) : (
-        <RecallScoreComparison
-          coverageScore={coverageScore}
-          effectiveCoverageScore={effectiveCoverageScore}
-          semanticScore={analysis.semanticScore}
-          verdictLabel={verdictLabels[analysis.verdict]}
-        />
-      )}
       <div className="rounded-xl bg-muted p-4">
         <p className="font-medium">复核结论</p>
         <p className="mt-1 leading-6 text-muted-foreground">{analysis.summary}</p>
       </div>
-      {analysis.coveredPoints.length > 0 ? (
-        <div>
-          <p className="font-medium text-emerald-700 dark:text-emerald-400">语义已覆盖</p>
-          <ul className="mt-2 space-y-2 leading-6">
-            {analysis.coveredPoints.map((point) => (
-              <li key={point.index}>✓ {question.keyPoints[point.index]} — <span className="text-muted-foreground">{point.evidence}</span></li>
-            ))}
-          </ul>
+      {supplemental ? (
+        <p className="text-xs text-muted-foreground">本次实际计分为 {effectiveCoverageScore ?? coverageScore ?? 0}%；补做 AI 语义覆盖率为 {analysis.semanticScore}%。</p>
+      ) : (
+        <p className="text-xs text-muted-foreground">AI 语义覆盖 {analysis.semanticScore}% · {verdictLabels[analysis.verdict]}</p>
+      )}
+      <details className="rounded-xl border p-4">
+        <summary className="cursor-pointer font-medium">查看详细复核</summary>
+        <div className="mt-4 space-y-4">
+          {!supplemental ? (
+            <RecallScoreComparison
+              coverageScore={coverageScore}
+              effectiveCoverageScore={effectiveCoverageScore}
+              semanticScore={analysis.semanticScore}
+              verdictLabel={verdictLabels[analysis.verdict]}
+            />
+          ) : null}
+          {analysis.coveredPoints.length > 0 ? (
+            <div>
+              <p className="font-medium text-emerald-700 dark:text-emerald-400">语义已覆盖</p>
+              <ul className="mt-2 space-y-2 leading-6">
+                {analysis.coveredPoints.map((point) => (
+                  <li key={point.index}>✓ {question.keyPoints[point.index]} — <span className="text-muted-foreground">{point.evidence}</span></li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {analysis.missingPoints.length > 0 ? (
+            <div>
+              <p className="font-medium text-amber-700 dark:text-amber-400">建议补充</p>
+              <ul className="mt-2 space-y-2 leading-6">
+                {analysis.missingPoints.map((point) => (
+                  <li key={point.index}>△ {question.keyPoints[point.index]} — <span className="text-muted-foreground">{point.guidance}</span></li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {analysis.misconceptions.length > 0 ? (
+            <div>
+              <p className="font-medium text-destructive">需要纠正</p>
+              <ul className="mt-2 space-y-1 text-muted-foreground">
+                {analysis.misconceptions.map((item) => <li key={item}>• {item}</li>)}
+              </ul>
+            </div>
+          ) : null}
+          <div>
+            <p className="font-medium">更完整的面试表达</p>
+            <p className="mt-2 whitespace-pre-wrap rounded-xl bg-muted p-4 leading-7">{analysis.improvedAnswer}</p>
+          </div>
         </div>
-      ) : null}
-      {analysis.missingPoints.length > 0 ? (
-        <div>
-          <p className="font-medium text-amber-700 dark:text-amber-400">建议补充</p>
-          <ul className="mt-2 space-y-2 leading-6">
-            {analysis.missingPoints.map((point) => (
-              <li key={point.index}>△ {question.keyPoints[point.index]} — <span className="text-muted-foreground">{point.guidance}</span></li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {analysis.misconceptions.length > 0 ? (
-        <div>
-          <p className="font-medium text-destructive">需要纠正</p>
-          <ul className="mt-2 space-y-1 text-muted-foreground">
-            {analysis.misconceptions.map((item) => <li key={item}>• {item}</li>)}
-          </ul>
-        </div>
-      ) : null}
-      <div>
-        <p className="font-medium">更完整的面试表达</p>
-        <p className="mt-2 whitespace-pre-wrap rounded-xl bg-muted p-4 leading-7">{analysis.improvedAnswer}</p>
-      </div>
+      </details>
     </div>
   );
 }

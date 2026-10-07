@@ -39,6 +39,20 @@ describe("Knowledge Recall result", () => {
 
     expect(html).toContain("本次选择：想不起来");
   });
+
+  it("collapses covered points behind a short result summary", () => {
+    const html = renderToStaticMarkup(
+      <RecallResult
+        attempt={{
+          ...recallAttempt("HashMap"),
+          matchedPoints: [{ index: 0, point: "哈希定位", weight: 5, matchedBy: "HashMap" }],
+        }}
+      />,
+    );
+
+    expect(html).toContain("你记住了 · 1");
+    expect(html).toContain("查看已覆盖关键点");
+  });
 });
 
 describe("Knowledge Recall score comparison", () => {

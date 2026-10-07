@@ -7,7 +7,7 @@
 - 最后更新：2026-10-08
 - 当前阶段：Phase 8 已完成；第二轮架构与性能优化（第一轮检查由用户反馈已完成，详细测试结果与生产迁移状态尚未在此连接中核验）。
 - 并行开发任务（本 Agent）：Sprint 3 `/interview` 已接入 AI 追问和 AI 报告解读，同时保持确定性评分冻结和零训练数据写入。修复 Demo 初载 lint、Vitest `@/` 路径解析和 ESM 配置、AI 总结等待期间的确定性 fallback 标识；便携 Node 24.19 下四项质量门全部通过（45 个测试文件、411 项测试、242 个页面）。真实账号验收、Sprint 2 的 Supabase Migration 和部署仍未执行。
-- 当前任务：语音识别稳定性源码与本地质量门已完成；下一步仅剩独立 FunASR 服务部署、短中文音频、故障回退和 Vercel 登录态验收。生产仍未配置 `ASR_SERVICE_URL`，当前线上行为保持百炼路径，不能把本地结果当作线上已部署。
+- 当前任务：优化 Knowledge Recall 提交结果的首屏信息密度：保留掌握结果、遗漏重点和一句 AI 结论，详细评分/覆盖证据/历史对比改为折叠；不改变计分、Attempt 或数据结构。语音识别源码与本地质量门已完成，FunASR 外部部署仍待后续验收。
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7、Phase 8
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase 与 Vercel 生产部署 READY；2026-09-14 生产验收覆盖匿名边界、真实登录/登出/重登、Dashboard、算法/八股训练、AI 分析及持久化（当时版本）。2026-09-18 已应用 AI 计分迁移，新增字段、迁移历史与题库精确计数均验证通过；`02722d0` 部署成功，稳定域名匿名 Smoke 全通过。新版本的认证态训练闭环仍待实际账号复测，不将旧版验收冒充新版验收。
@@ -147,6 +147,12 @@
 - [x] 修正 FunASR 原始音频请求使用 `Blob`，通过 Node 24.19 的 TypeScript 类型检查；FunASR 缺少共享令牌时默认拒绝，严格限制 16-bit/16 kHz/单声道 WAV。
 - [x] 运行便携 Node 24.19 的 lint/typecheck/test/build：全部通过；45 个测试文件、421 项测试、242 个页面；`python3 -m py_compile asr-service/app.py` 与 `git diff --check` 通过。
 - [ ] 单独部署 FunASR 后验证 `/healthz`、短中文 WAV、断开服务时百炼 fallback 和 Vercel 登录态语音输入；未完成前不得宣称生产启用。
+
+## 2026-10-08 Knowledge Recall 结果信息密度优化（本地完成）
+
+- [x] 首屏保留掌握结果、遗漏点和 AI 一句结论；详细评分、覆盖证据、改写答案和历史对比默认折叠。
+- [x] 使用原生 `<details>`，不新增组件或依赖，不改变 Attempt、Mastery、AI 计分和参考答案内容。
+- [x] 补充渲染回归并运行 lint、typecheck、test、build：目标 UI 回归 12 项通过；全量 45 个测试文件、422 项测试通过，lint/typecheck/build 通过并生成 242 个页面。
 
 ## 2026-09-20 暂停计划功能验收清单
 
@@ -713,3 +719,4 @@ npm run build
 | 2026-09-27 | Sprint 3 本地质量门通过（真实账号/数据库待验收） | `InterviewSimulator` Demo 初载改为 effect 异步调度；新增 `vitest.config.mts` 配置 `@` 根别名；AI 总结等待期间保持确定性结果可见并显示“生成中 · 确定性总结已显示”。 | 便携 Node 24.19 下 lint、typecheck、test、build 全部通过；45 个测试文件、411 项测试、242 个页面。真实账号回归、Sprint 2 Migration、部署尚未执行。 |
 | 2026-09-22 | Sprint 3 模拟面试核心 MVP 源码完成（待质量门） | 新增 `/interview`、确定性 5 题 Interview Planner、到期/薄弱/已解锁挑战/retention 优先级、Topic 去重、文本与语音回答、关键点覆盖评分、图谱回补建议、整场能力报告和 Dashboard 入口；模拟面试不写 Attempt/Mastery/Review。 | 新增 `interview-session.test.ts`、`interview-ui.test.tsx`；AI 面试官追问/总结与 Session 持久化尚未实现；本轮新增代码尚未运行 lint/typecheck/test/build。 |
 | 2026-10-08 | 语音识别稳定性改造（本地完成，外部验收待执行） | Vercel 转写路由优先调用独立 FunASR `paraformer-zh-streaming` 服务，15 秒超时后回退百炼；新增 FastAPI/Docker 服务、共享令牌、健康检查、请求契约、阶段耗时日志；浏览器录音上限收紧为 30 秒。 | 便携 Node 24.19 下 lint/typecheck/test/build 全通过；45 个测试文件、421 项测试、242 个页面；Python 入口语法编译通过。FunASR 尚未部署，生产仍未切换。 |
+| 2026-10-08 | Knowledge Recall 结果信息密度优化（本地完成） | 首屏只保留回答、记住/遗漏数量和 AI 一句复核结论；已覆盖关键点、两套分数、逐条证据、完整改写、参考答案和历史对比改为原生 `<details>` 折叠。未改 Attempt、Mastery、AI 计分或数据结构。 | 目标 UI 渲染回归 12 项通过；全量 45 个测试文件、422 项测试通过；lint/typecheck/build 通过，生成 242 个页面。 |
