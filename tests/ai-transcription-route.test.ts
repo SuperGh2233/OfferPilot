@@ -80,6 +80,34 @@ describe("POST /api/ai/transcribe in local demo mode", () => {
       error: "没有识别到语音内容，请靠近麦克风重试。",
     });
   });
+
+  it("uses FunASR first and falls back to Qwen when the service is down", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("ASR_SERVICE_URL", "https://asr.example.test");
+    vi.stubEnv("ASR_SERVICE_TOKEN", "asr-secret");
+    const fetchSpy = vi.fn(async (url: string) => {
+      if (url.endsWith("/transcribe")) return new Response(JSON.stringify({ error: "down" }), { status: 503 });
+      return Response.json({ choices: [{ message: { content: "qwen fallback" } }] });
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const response = await POST(payload({ audioBase64, mimeType: "audio/wav" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ text: "qwen fallback" });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[0]?.[0]).toBe("https://asr.example.test/transcribe");
+  });
+
+  it("does not blame the Qwen key when an invalid FunASR URL is configured", async () => {
+    vi.stubEnv("ASR_SERVICE_URL", "ftp://asr.example.test");
+    const response = await POST(payload({ audioBase64, mimeType: "audio/wav" }));
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "语音转写服务尚未配置或不可用，请检查服务器端语音配置。",
+    });
+  });
 });
 
 describe("POST /api/ai/transcribe anonymous boundary", () => {

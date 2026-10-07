@@ -17,13 +17,15 @@ import {
 
 const DEFAULT_MODEL = "qwen3-asr-flash";
 const DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
-/** 非实时识别通常在数秒内返回；留出余量但不超过常见 Serverless 时限。 */
+/** 百炼回退仍保留余量，但不让一次请求无限占住 Serverless。 */
 const DEFAULT_TIMEOUT_MS = 30_000;
+/** 独立 ASR 服务应在本地网络内快速返回；超时后交给百炼回退。 */
+const DEFAULT_FUNASR_TIMEOUT_MS = 15_000;
 /**
- * 上传上限。Vercel Serverless 请求体约 4.5MB，base64 会放大约 1/3，
- * 因此把上限压在 4,000,000 字符（原始音频约 3MB，16kHz 单声道约 95 秒）。
+ * 上传上限。浏览器统一上传 16kHz 单声道 WAV，30 秒约 960KB 原始音频；
+ * 2,000,000 个 base64 字符仍留有容器和请求头余量，同时避免长录音放大延迟。
  */
-export const MAX_AUDIO_BASE64_LENGTH = 4_000_000;
+export const MAX_AUDIO_BASE64_LENGTH = 2_000_000;
 export const MAX_TRANSCRIPT_LENGTH = 2_000;
 
 export const TRANSCRIPTION_MIME_TYPES = [
@@ -52,9 +54,20 @@ export type OpenAiTranscriptionEnv = {
   OPENAI_TRANSCRIBE_MODEL?: string;
 };
 
+export type TranscriptionEnv = OpenAiTranscriptionEnv & {
+  /** 服务端专用；不要改成 NEXT_PUBLIC_。 */
+  ASR_SERVICE_URL?: string;
+  ASR_SERVICE_TOKEN?: string;
+};
+
 export type TranscribeAudioResult = {
   /** 转写文本，已去除首尾空白；识别不到语音时为空字符串。 */
   text: string;
+};
+
+export type TranscriptionProviderResult = TranscribeAudioResult & {
+  provider: "funasr" | "qwen";
+  fallback: boolean;
 };
 
 export type TranscriptionFetch = (
@@ -67,10 +80,34 @@ export type TranscriptionFetch = (
   },
 ) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
 
+export type FunAsrFetch = (
+  url: string,
+  init: {
+    method: "POST";
+    headers: Record<string, string>;
+    body: Blob;
+    signal: AbortSignal;
+  },
+) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+
 export type TranscribeAudioOptions = {
   fetchImpl?: TranscriptionFetch;
   env?: OpenAiTranscriptionEnv;
   timeoutMs?: number;
+};
+
+export type FunAsrOptions = {
+  fetchImpl?: FunAsrFetch;
+  env?: TranscriptionEnv;
+  timeoutMs?: number;
+};
+
+export type TranscribeWithFallbackOptions = {
+  fetchImpl?: TranscriptionFetch;
+  funAsrFetchImpl?: FunAsrFetch;
+  env?: TranscriptionEnv;
+  timeoutMs?: number;
+  funAsrTimeoutMs?: number;
 };
 
 export function getOpenAiTranscriptionConfig(env: OpenAiTranscriptionEnv = {
@@ -88,6 +125,29 @@ export function getOpenAiTranscriptionConfig(env: OpenAiTranscriptionEnv = {
     apiKey,
     endpoint: `${baseURL.replace(/\/+$/, "")}/chat/completions`,
     model: env.OPENAI_TRANSCRIBE_MODEL?.trim() || DEFAULT_MODEL,
+  };
+}
+
+export function getFunAsrTranscriptionConfig(env: TranscriptionEnv = {
+  ASR_SERVICE_URL: process.env.ASR_SERVICE_URL,
+  ASR_SERVICE_TOKEN: process.env.ASR_SERVICE_TOKEN,
+}) {
+  const rawURL = env.ASR_SERVICE_URL?.trim();
+  if (!rawURL) return null;
+
+  let baseURL: URL;
+  try {
+    baseURL = new URL(rawURL);
+  } catch (error) {
+    throw new AiConfigurationError("ASR_SERVICE_URL is not a valid URL", { cause: error });
+  }
+  if (baseURL.protocol !== "http:" && baseURL.protocol !== "https:") {
+    throw new AiConfigurationError("ASR_SERVICE_URL must use http or https");
+  }
+
+  return {
+    endpoint: `${rawURL.replace(/\/+$/, "")}/transcribe`,
+    token: env.ASR_SERVICE_TOKEN?.trim() || "",
   };
 }
 
@@ -113,6 +173,14 @@ function validateInput(input: TranscribeAudioInput) {
   }
 
   return { mimeType, audioBase64 };
+}
+
+function decodeBase64(audioBase64: string) {
+  const bytes = Buffer.from(audioBase64, "base64");
+  if (bytes.length === 0) throw new RangeError("audioBase64 decoded to empty audio");
+  return new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)], {
+    type: "audio/wav",
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -157,6 +225,18 @@ export function extractTranscript(payload: unknown) {
     throw new AiInvalidResponseError("transcript is longer than the server limit");
   }
   return trimmed;
+}
+
+/** FunASR 服务的最小响应契约；额外字段由服务端忽略。 */
+export function extractFunAsrTranscript(payload: unknown) {
+  if (!isRecord(payload) || typeof payload.text !== "string") {
+    throw new AiInvalidResponseError("FunASR response has no text");
+  }
+  const text = payload.text.trim();
+  if (text.length > MAX_TRANSCRIPT_LENGTH) {
+    throw new AiInvalidResponseError("transcript is longer than the server limit");
+  }
+  return text;
 }
 
 export async function transcribeAudio(
@@ -222,5 +302,102 @@ export async function transcribeAudio(
     throw new AiGatewayError("transcription request failed", { cause: error });
   } finally {
     clearTimeout(timer);
+  }
+}
+
+export async function transcribeWithFunAsr(
+  input: TranscribeAudioInput,
+  options: FunAsrOptions = {},
+): Promise<TranscribeAudioResult> {
+  const { mimeType, audioBase64 } = validateInput(input);
+  if (mimeType !== "audio/wav" && mimeType !== "audio/x-wav") {
+    throw new RangeError("FunASR requires a WAV audio input");
+  }
+  const config = getFunAsrTranscriptionConfig(options.env);
+  if (!config) throw new AiConfigurationError("ASR_SERVICE_URL is not configured");
+  const fetchImpl: FunAsrFetch = options.fetchImpl ?? ((url, init) => fetch(url, init));
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    options.timeoutMs ?? DEFAULT_FUNASR_TIMEOUT_MS,
+  );
+
+  try {
+    const headers: Record<string, string> = { "Content-Type": "audio/wav" };
+    if (config.token) headers.Authorization = `Bearer ${config.token}`;
+    const response = await fetchImpl(config.endpoint, {
+      method: "POST",
+      headers,
+      body: decodeBase64(audioBase64),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new AiGatewayError(`FunASR request failed with status ${response.status}`);
+    }
+
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch (error) {
+      throw new AiInvalidResponseError("FunASR response is not valid JSON", { cause: error });
+    }
+    return { text: extractFunAsrTranscript(payload) };
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new AiTimeoutError("FunASR request timed out", { cause: error });
+    }
+    if (
+      error instanceof AiConfigurationError
+      || error instanceof AiInvalidResponseError
+      || error instanceof AiGatewayError
+    ) {
+      throw error;
+    }
+    throw new AiGatewayError("FunASR request failed", { cause: error });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** 优先使用独立 FunASR；它故障时才调用原有百炼接口。 */
+export async function transcribeAudioWithFallback(
+  input: TranscribeAudioInput,
+  options: TranscribeWithFallbackOptions = {},
+): Promise<TranscriptionProviderResult> {
+  validateInput(input);
+  const env: TranscriptionEnv = options.env ?? {
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    OPENAI_TRANSCRIBE_MODEL: process.env.OPENAI_TRANSCRIBE_MODEL,
+    ASR_SERVICE_URL: process.env.ASR_SERVICE_URL,
+    ASR_SERVICE_TOKEN: process.env.ASR_SERVICE_TOKEN,
+  };
+  const hasFunAsr = Boolean(env.ASR_SERVICE_URL?.trim());
+  let funAsrError: unknown = null;
+
+  if (hasFunAsr) {
+    try {
+      const result = await transcribeWithFunAsr(input, {
+        env,
+        fetchImpl: options.funAsrFetchImpl,
+        timeoutMs: options.funAsrTimeoutMs,
+      });
+      return { ...result, provider: "funasr", fallback: false };
+    } catch (error) {
+      funAsrError = error;
+    }
+  }
+
+  try {
+    const result = await transcribeAudio(input, {
+      env,
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs,
+    });
+    return { ...result, provider: "qwen", fallback: hasFunAsr && funAsrError !== null };
+  } catch (error) {
+    // ASR 单独部署时，避免用“缺少百炼 Key”掩盖真正的 ASR 故障。
+    if (funAsrError && error instanceof AiConfigurationError) throw funAsrError;
+    throw error;
   }
 }

@@ -4,10 +4,10 @@
 
 ## 当前状态
 
-- 最后更新：2026-09-27
+- 最后更新：2026-10-08
 - 当前阶段：Phase 8 已完成；第二轮架构与性能优化（第一轮检查由用户反馈已完成，详细测试结果与生产迁移状态尚未在此连接中核验）。
 - 并行开发任务（本 Agent）：Sprint 3 `/interview` 已接入 AI 追问和 AI 报告解读，同时保持确定性评分冻结和零训练数据写入。修复 Demo 初载 lint、Vitest `@/` 路径解析和 ESM 配置、AI 总结等待期间的确定性 fallback 标识；便携 Node 24.19 下四项质量门全部通过（45 个测试文件、411 项测试、242 个页面）。真实账号验收、Sprint 2 的 Supabase Migration 和部署仍未执行。
-- 当前任务：八股答案已完成 904 道 UUID 级直接审校投影与本地验收：保留原始 JSON/CSV，使用共享清洗函数及按 UUID 审校补丁；`knowledge:audit`/`knowledge:audit:report` 已核实 904/904 人工审校、0 未审、0 候选，`seed:check` 已核对 100 算法、165 主题、904 题、120 核心题和 904 条清洗详答，lint/typecheck/test/build 已在便携 Node 24.19 下通过（38 个测试文件、369 项测试、239 个生成页面）。下一步仅为测试库备份后的数据库 Seed、真实账号 Recall/刷新历史回归与部署验收；生产题库、学习历史和生产数据库尚未修改，不能宣称生产已更新。此前手动暂停／恢复功能的源码、测试用例、SQL Migration 与用户文档已写入：Settings 切换、Dashboard 状态、算法和八股 Planner、有效周期日/漏训/连续天数、浏览器 Demo/SQLite/Supabase 持久化、复习日期延后。暂停范围按用户当地 03:00 训练日记录为 [start,end)，恢复当日重新生成任务；旧 Attempt/Mastery/任务保留。云端通过单独的事务 RPC 防重复切换；本轮仅文件读写，未能运行数据库迁移或真实端到端验收，不能推送或宣布上线。上一批增量写入仍待其独立验收。
+- 当前任务：语音识别稳定性源码与本地质量门已完成；下一步仅剩独立 FunASR 服务部署、短中文音频、故障回退和 Vercel 登录态验收。生产仍未配置 `ASR_SERVICE_URL`，当前线上行为保持百炼路径，不能把本地结果当作线上已部署。
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7、Phase 8
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase 与 Vercel 生产部署 READY；2026-09-14 生产验收覆盖匿名边界、真实登录/登出/重登、Dashboard、算法/八股训练、AI 分析及持久化（当时版本）。2026-09-18 已应用 AI 计分迁移，新增字段、迁移历史与题库精确计数均验证通过；`02722d0` 部署成功，稳定域名匿名 Smoke 全通过。新版本的认证态训练闭环仍待实际账号复测，不将旧版验收冒充新版验收。
@@ -137,6 +137,16 @@
 - [x] 重新运行 Node 24 `npm run lint && npm run typecheck && npm run test && npm run build`：便携 Node 24.19 全部通过；45 个测试文件、411 项测试、242 个页面。Sprint 3 本地质量门通过。
 - [ ] 真实账号验收：AI 正常/无 key/超时/断网、主问题跳过、追问跳过、重复点击、重启面试时取消 stale 请求、刷新丢失当前内存 Session 的预期行为。
 - [ ] Sprint 3 源码验收后，再单独决定是否持久化 Interview Session；本轮不先加数据库表。
+
+## 2026-10-07 语音识别稳定性改造（本地完成，外部验收待执行）
+
+- [x] 文档先行：新增语音改造 REQ/PLAN、FunASR HTTP SPEC、架构 ADR 和部署/回滚 Runbook；明确 Vercel 不加载模型，FunASR 故障时回退百炼。
+- [x] 新增 `asr-service/` FastAPI + FunASR 容器入口：默认 `paraformer-zh-streaming`，提供 `/healthz` 和受共享令牌保护的 `POST /transcribe`；仅在内存解析 16 kHz 单声道 WAV，不持久化音频；匿名模式必须显式 opt-in。
+- [x] Vercel transcription provider 优先请求 `ASR_SERVICE_URL`，校验响应、15 秒独立超时和 FunASR→百炼 fallback；日志仅记录 provider/fallback/耗时/错误类型，不记录音频、base64 或令牌。
+- [x] 录音上限从 60 秒降为 30 秒，base64 服务端上限调整为 2,000,000 字符；补充 provider、fallback、超时、配置和路由回归测试。
+- [x] 修正 FunASR 原始音频请求使用 `Blob`，通过 Node 24.19 的 TypeScript 类型检查；FunASR 缺少共享令牌时默认拒绝，严格限制 16-bit/16 kHz/单声道 WAV。
+- [x] 运行便携 Node 24.19 的 lint/typecheck/test/build：全部通过；45 个测试文件、421 项测试、242 个页面；`python3 -m py_compile asr-service/app.py` 与 `git diff --check` 通过。
+- [ ] 单独部署 FunASR 后验证 `/healthz`、短中文 WAV、断开服务时百炼 fallback 和 Vercel 登录态语音输入；未完成前不得宣称生产启用。
 
 ## 2026-09-20 暂停计划功能验收清单
 
@@ -702,3 +712,4 @@ npm run build
 | 2026-09-27 | Sprint 3 UI fallback / Vitest ESM 修复（待重跑） | AI 总结请求期间仍显示 deterministic fallback 并明确状态；将测试 alias 配置改为 `vitest.config.mts` 以适配 Vite native loader。 | 修复后待重跑四项质量门；Sprint 2 Migration 与真实账号验收仍未进行。 |
 | 2026-09-27 | Sprint 3 本地质量门通过（真实账号/数据库待验收） | `InterviewSimulator` Demo 初载改为 effect 异步调度；新增 `vitest.config.mts` 配置 `@` 根别名；AI 总结等待期间保持确定性结果可见并显示“生成中 · 确定性总结已显示”。 | 便携 Node 24.19 下 lint、typecheck、test、build 全部通过；45 个测试文件、411 项测试、242 个页面。真实账号回归、Sprint 2 Migration、部署尚未执行。 |
 | 2026-09-22 | Sprint 3 模拟面试核心 MVP 源码完成（待质量门） | 新增 `/interview`、确定性 5 题 Interview Planner、到期/薄弱/已解锁挑战/retention 优先级、Topic 去重、文本与语音回答、关键点覆盖评分、图谱回补建议、整场能力报告和 Dashboard 入口；模拟面试不写 Attempt/Mastery/Review。 | 新增 `interview-session.test.ts`、`interview-ui.test.tsx`；AI 面试官追问/总结与 Session 持久化尚未实现；本轮新增代码尚未运行 lint/typecheck/test/build。 |
+| 2026-10-08 | 语音识别稳定性改造（本地完成，外部验收待执行） | Vercel 转写路由优先调用独立 FunASR `paraformer-zh-streaming` 服务，15 秒超时后回退百炼；新增 FastAPI/Docker 服务、共享令牌、健康检查、请求契约、阶段耗时日志；浏览器录音上限收紧为 30 秒。 | 便携 Node 24.19 下 lint/typecheck/test/build 全通过；45 个测试文件、421 项测试、242 个页面；Python 入口语法编译通过。FunASR 尚未部署，生产仍未切换。 |

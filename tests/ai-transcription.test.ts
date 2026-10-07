@@ -8,10 +8,15 @@ import {
 } from "../lib/ai/openai";
 import {
   extractTranscript,
+  extractFunAsrTranscript,
+  getFunAsrTranscriptionConfig,
   getOpenAiTranscriptionConfig,
   MAX_AUDIO_BASE64_LENGTH,
   normalizeTranscriptionMimeType,
   transcribeAudio,
+  transcribeAudioWithFallback,
+  transcribeWithFunAsr,
+  type FunAsrFetch,
   type TranscriptionFetch,
 } from "../lib/ai/transcription";
 
@@ -56,6 +61,24 @@ describe("getOpenAiTranscriptionConfig", () => {
   });
 });
 
+describe("getFunAsrTranscriptionConfig", () => {
+  it("returns a normalized internal endpoint and keeps the token server-side", () => {
+    expect(getFunAsrTranscriptionConfig({
+      ASR_SERVICE_URL: "https://asr.example.test///",
+      ASR_SERVICE_TOKEN: "secret",
+    })).toEqual({
+      endpoint: "https://asr.example.test/transcribe",
+      token: "secret",
+    });
+    expect(getFunAsrTranscriptionConfig({})).toBeNull();
+  });
+
+  it("rejects an invalid service URL", () => {
+    expect(() => getFunAsrTranscriptionConfig({ ASR_SERVICE_URL: "ftp://asr.example.test" }))
+      .toThrow(AiConfigurationError);
+  });
+});
+
 describe("normalizeTranscriptionMimeType", () => {
   it("accepts known audio types case-insensitively and rejects the rest", () => {
     expect(normalizeTranscriptionMimeType(" Audio/WAV ")).toBe("audio/wav");
@@ -85,6 +108,18 @@ describe("extractTranscript", () => {
     expect(() => extractTranscript(transcriptPayload([{ text: "ok" }, { wrong: "x" }])))
       .toThrow(AiInvalidResponseError);
     expect(() => extractTranscript(transcriptPayload("x".repeat(2_001)))).toThrow(AiInvalidResponseError);
+  });
+});
+
+describe("extractFunAsrTranscript", () => {
+  it("accepts trimmed text and permits an empty result", () => {
+    expect(extractFunAsrTranscript({ text: "  哈希定位桶 ", provider: "funasr" })).toBe("哈希定位桶");
+    expect(extractFunAsrTranscript({ text: "" })).toBe("");
+  });
+
+  it("rejects malformed or oversized service responses", () => {
+    expect(() => extractFunAsrTranscript({})).toThrow(AiInvalidResponseError);
+    expect(() => extractFunAsrTranscript({ text: "x".repeat(2_001) })).toThrow(AiInvalidResponseError);
   });
 });
 
@@ -173,5 +208,69 @@ describe("transcribeAudio", () => {
     await expect(
       transcribeAudio({ audioBase64, mimeType: "audio/wav" }, { env: { OPENAI_BASE_URL: env.OPENAI_BASE_URL } }),
     ).rejects.toBeInstanceOf(AiConfigurationError);
+  });
+});
+
+describe("transcribeWithFunAsr and fallback", () => {
+  const funAsrEnv = {
+    ...env,
+    ASR_SERVICE_URL: "https://asr.example.test",
+    ASR_SERVICE_TOKEN: "asr-secret",
+  };
+
+  it("posts raw WAV bytes with the internal bearer token", async () => {
+    const captured: { url?: string; init?: Parameters<FunAsrFetch>[1] } = {};
+    const fetchImpl: FunAsrFetch = async (url, init) => {
+      captured.url = url;
+      captured.init = init;
+      return jsonResponse({ text: "  FunASR  ", provider: "funasr" });
+    };
+
+    const result = await transcribeWithFunAsr(
+      { audioBase64, mimeType: "audio/wav" },
+      { env: funAsrEnv, fetchImpl },
+    );
+
+    expect(result).toEqual({ text: "FunASR" });
+    expect(captured.url).toBe("https://asr.example.test/transcribe");
+    expect(captured.init?.headers).toEqual({
+      Authorization: "Bearer asr-secret",
+      "Content-Type": "audio/wav",
+    });
+    expect(captured.init?.body).toBeInstanceOf(Blob);
+  });
+
+  it("falls back to Qwen when FunASR is unavailable", async () => {
+    const funAsrFetchImpl: FunAsrFetch = async () => jsonResponse({ error: "down" }, 503);
+    const fetchImpl: TranscriptionFetch = async () => jsonResponse(transcriptPayload("qwen fallback"));
+
+    await expect(transcribeAudioWithFallback(
+      { audioBase64, mimeType: "audio/wav" },
+      { env: funAsrEnv, funAsrFetchImpl, fetchImpl },
+    )).resolves.toEqual({ text: "qwen fallback", provider: "qwen", fallback: true });
+  });
+
+  it("uses Qwen directly when FunASR is not configured", async () => {
+    const fetchImpl: TranscriptionFetch = async () => jsonResponse(transcriptPayload("qwen only"));
+
+    await expect(transcribeAudioWithFallback(
+      { audioBase64, mimeType: "audio/wav" },
+      { env, fetchImpl },
+    )).resolves.toEqual({ text: "qwen only", provider: "qwen", fallback: false });
+  });
+
+  it("does not hide an ASR timeout when there is no Qwen key", async () => {
+    const funAsrFetchImpl: FunAsrFetch = (_url, init) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => reject(new Error("aborted")));
+    });
+
+    await expect(transcribeAudioWithFallback(
+      { audioBase64, mimeType: "audio/wav" },
+      {
+        env: { ASR_SERVICE_URL: funAsrEnv.ASR_SERVICE_URL },
+        funAsrFetchImpl,
+        funAsrTimeoutMs: 5,
+      },
+    )).rejects.toBeInstanceOf(AiTimeoutError);
   });
 });

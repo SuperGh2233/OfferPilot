@@ -7,15 +7,19 @@ import {
 import {
   MAX_AUDIO_BASE64_LENGTH,
   normalizeTranscriptionMimeType,
-  transcribeAudio,
+  transcribeAudioWithFallback,
 } from "../../../../lib/ai/transcription";
 import { isLocalDemoMode } from "../../../../lib/supabase/env";
+
+/** FunASR 失败后还可能执行百炼回退，给两个有界请求留出总时限。 */
+export const maxDuration = 60;
 
 function jsonError(error: string, status: number) {
   return Response.json({ error }, { status });
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
   if (!isLocalDemoMode()) {
     try {
       const { createClient } = await import("../../../../lib/supabase/server");
@@ -23,7 +27,7 @@ export async function POST(request: Request) {
       const { data } = await supabase.auth.getClaims();
       if (!data?.claims) return jsonError("请先登录后再使用语音输入。", 401);
     } catch (error) {
-      console.error("AI authentication failed", error);
+      console.error("AI authentication failed", { errorType: error instanceof Error ? error.name : "unknown" });
       return jsonError("身份验证服务暂时不可用，请稍后重试。", 503);
     }
   }
@@ -43,23 +47,35 @@ export async function POST(request: Request) {
     return jsonError("没有收到录音数据，请重新录制。", 400);
   }
   if (audioBase64.length > MAX_AUDIO_BASE64_LENGTH) {
-    return jsonError("录音太长了，请控制在 60 秒以内。", 400);
+    return jsonError("录音太长了，请控制在 30 秒以内。", 400);
   }
   if (!normalizeTranscriptionMimeType(mimeType)) {
     return jsonError("录音格式不受支持，请重新录制。", 400);
   }
 
   try {
-    const result = await transcribeAudio({ audioBase64, mimeType: mimeType as string });
+    const result = await transcribeAudioWithFallback({ audioBase64, mimeType: mimeType as string });
+    console.info("AI transcription completed", {
+      provider: result.provider,
+      fallback: result.fallback,
+      durationMs: Date.now() - startedAt,
+    });
     if (!result.text) {
       return jsonError("没有识别到语音内容，请靠近麦克风重试。", 422);
     }
     return Response.json({ text: result.text });
   } catch (error) {
+    console.warn("AI transcription failed", {
+      errorType: error instanceof Error ? error.name : "unknown",
+      durationMs: Date.now() - startedAt,
+    });
     if (error instanceof RangeError) {
       return jsonError("录音数据无效，请重新录制。", 400);
     }
     if (error instanceof AiConfigurationError) {
+      if (process.env.ASR_SERVICE_URL?.trim()) {
+        return jsonError("语音转写服务尚未配置或不可用，请检查服务器端语音配置。", 503);
+      }
       return jsonError("语音输入尚未配置，请先设置服务器端 OPENAI_API_KEY。", 503);
     }
     if (error instanceof AiTimeoutError) {

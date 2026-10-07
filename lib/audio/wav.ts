@@ -11,7 +11,7 @@
 export const WAV_HEADER_BYTES = 44;
 export const WAV_BITS_PER_SAMPLE = 16;
 export const WAV_CHANNEL_COUNT = 1;
-/** 语音识别常用采样率；16kHz 单声道每秒约 32KB，60 秒约 1.9MB。 */
+/** 语音识别常用采样率；16kHz 单声道每秒约 32KB。 */
 export const WAV_TARGET_SAMPLE_RATE = 16_000;
 
 const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

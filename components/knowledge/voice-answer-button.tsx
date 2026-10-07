@@ -10,8 +10,8 @@ import {
   WAV_TARGET_SAMPLE_RATE,
 } from "@/lib/audio/wav";
 
-/** 与 /api/ai/transcribe 的上限保持一致：16kHz 单声道 60 秒约 1.9MB，留足余量。 */
-const MAX_RECORDING_MS = 60_000;
+/** 与 /api/ai/transcribe 的上限保持一致：短录音可减少上传和识别等待。 */
+const MAX_RECORDING_MS = 30_000;
 const PREFERRED_MIME_TYPES = [
   "audio/webm;codecs=opus",
   "audio/webm",
@@ -201,7 +201,7 @@ export function VoiceAnswerButton({
           {recording ? "停止并转写" : busy ? "转写中…" : "语音输入"}
         </Button>
         <span className="text-xs text-muted-foreground">
-          {recording ? "正在录音，最长 60 秒" : "录音只用于转写，本站不保存音频"}
+          {recording ? "正在录音，最长 30 秒" : "录音只用于转写，本站不保存音频"}
         </span>
       </div>
       <p

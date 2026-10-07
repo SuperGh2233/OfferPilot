@@ -71,6 +71,9 @@ npm run dev
 | `OPENAI_API_KEY` | 可选 AI 代码复盘与八股回忆复核 | 服务器 |
 | `OPENAI_BASE_URL` | OpenAI 兼容网关地址 | 服务器 |
 | `OPENAI_MODEL` | AI 模型名称 | 服务器 |
+| `OPENAI_TRANSCRIBE_MODEL` | 百炼语音模型名称，默认 `qwen3-asr-flash` | 服务器 |
+| `ASR_SERVICE_URL` | 独立 FunASR 服务地址；配置后优先使用，失败自动回退百炼 | 服务器 |
+| `ASR_SERVICE_TOKEN` | FunASR 服务共享令牌 | 服务器 |
 
 没有 `OPENAI_API_KEY` 时，“AI 分析代码”和“AI 分析回答”会显示配置错误；训练反馈、得分和 mastery 仍可保存。八股 Recall 采用 `effectiveCoverageScore = max(确定性关键词覆盖率, 提交时的 AI 语义分)` 参与 TypeScript mastery 与复习计算；原始关键词分仍独立保存。AI 不可用时退化为确定性分，提交后补做的 AI 分析不改历史得分。当前 V1 信任用户维护自己的分数：训练接口对客户端提供的 AI JSON 仅做结构校验，普通用户也有本人数据的 RLS 写权限，因此不提供不可篡改成绩的安全保证。
 
@@ -176,9 +179,15 @@ NEXT_PUBLIC_SITE_URL=https://你的域名
 OPENAI_API_KEY=...              # 可选
 OPENAI_BASE_URL=https://your-workspace-id.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
 OPENAI_MODEL=qwen3.7-flash
+OPENAI_TRANSCRIBE_MODEL=qwen3-asr-flash
+# Optional: independent FunASR service; see docs/operations/RUN-20261007-funasr.md
+ASR_SERVICE_URL=https://asr.example.com
+ASR_SERVICE_TOKEN=...
 ```
 
 不要把 `SUPABASE_SERVICE_ROLE_KEY` 配置到前端运行环境；Seed 应在可信本地终端执行。部署完成后，将最终域名补进 Supabase Auth 的 Site URL 与 Redirect URLs。
+
+语音转写的 FunASR 服务不运行在 Vercel 中。进入 `asr-service/` 后按 [`docs/operations/RUN-20261007-funasr.md`](docs/operations/RUN-20261007-funasr.md) 构建并部署容器，先通过 `/healthz`，再在 Vercel 配置两个 `ASR_SERVICE_*` 变量。服务只在内存中处理 16 kHz 单声道 WAV；删除这两个变量即可回退到百炼。
 
 未登录 Smoke Test：
 
