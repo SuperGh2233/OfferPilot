@@ -1,5 +1,7 @@
 # Runbook: FunASR 服务
 
+> archived，2026-10-08：用户改用系统听写，内置录音/转写接口、FunASR 服务和专属测试已移除。下文仅保留历史契约与部署记录，不再作为当前操作指引。当前方案见 [移除计划](../plans/active/PLAN-20261007-speech-stability.md)。
+
 ## Preconditions and access
 
 - 一台能运行 Docker 的独立主机或容器平台；CPU 可运行但首次加载较慢，GPU 可降低延迟。

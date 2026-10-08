@@ -2,7 +2,7 @@
 
 ## Status
 
-accepted for implementation; production deployment pending
+superseded on 2026-10-08 by the user-requested removal of built-in speech. See [the current plan](../plans/active/PLAN-20261007-speech-stability.md). The original decision below is retained as history.
 
 ## Context
 

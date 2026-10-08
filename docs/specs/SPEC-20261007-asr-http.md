@@ -1,5 +1,7 @@
 # SPEC: FunASR HTTP 转写接口
 
+> archived，2026-10-08：用户改用系统听写，内置录音/转写接口、FunASR 服务和专属测试已移除。下文仅保留历史契约与部署记录，不再作为当前操作指引。当前方案见 [移除计划](../plans/active/PLAN-20261007-speech-stability.md)。
+
 ## Purpose
 
 定义 Vercel 与独立 FunASR 服务之间的内部转写契约，避免模型升级时改变浏览器 API。

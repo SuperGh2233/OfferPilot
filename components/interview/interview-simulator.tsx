@@ -8,7 +8,6 @@ import {
   type InterviewFollowUpNote,
 } from "@/components/interview/ai-follow-up-panel";
 import { AiInterviewSummaryCard } from "@/components/interview/ai-summary-card";
-import { VoiceAnswerButton } from "@/components/knowledge/voice-answer-button";
 import { Button } from "@/components/ui/button";
 import {
   buildInterviewPlan,
@@ -53,7 +52,6 @@ export function InterviewSimulator({
   const [pendingResponse, setPendingResponse] = useState<InterviewResponse | null>(null);
   const [followUpNotes, setFollowUpNotes] = useState<InterviewFollowUpNote[]>([]);
   const [finished, setFinished] = useState(false);
-  const [voiceBusy, setVoiceBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submitLockRef = useRef(false);
 
@@ -341,7 +339,7 @@ export function InterviewSimulator({
         <section className="rounded-2xl border bg-card p-6">
           <h2 className="font-semibold">本场规则</h2>
           <div className="mt-4 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
-            <p>• 支持文本和现有语音转写。</p>
+            <p>• 支持文本输入，可使用系统听写。</p>
             <p>• 不展示参考答案，直到整场结束。</p>
             <p>• 评分复用现有关键点匹配，AI 不决定 Mastery。</p>
             <p>• 本场不会完成日常任务，也不会改变复习日期。</p>
@@ -428,28 +426,19 @@ export function InterviewSimulator({
 
         <textarea
           className="mt-6 min-h-48 w-full resize-y rounded-xl border bg-background p-4 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-ring"
-          disabled={voiceBusy}
           maxLength={5000}
           onChange={(event) => setAnswer(event.target.value)}
-          placeholder="输入你的回答，或使用下方语音输入…"
+          placeholder="输入你的回答…"
           value={answer}
         />
-
-        <div className="mt-3">
-          <VoiceAnswerButton
-            disabled={false}
-            onBusyChange={setVoiceBusy}
-            onTranscript={(text) => setAnswer((current) => current ? `${current}\n${text}` : text)}
-          />
-        </div>
 
         {error ? <p className="mt-3 text-sm text-rose-600 dark:text-rose-400">{error}</p> : null}
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <Button disabled={voiceBusy} onClick={() => submitCurrent(false)} type="button">
+          <Button onClick={() => submitCurrent(false)} type="button">
             提交，进入追问
           </Button>
-          <Button disabled={voiceBusy} onClick={() => submitCurrent(true)} type="button" variant="outline">
+          <Button onClick={() => submitCurrent(true)} type="button" variant="outline">
             跳过本题
           </Button>
         </div>

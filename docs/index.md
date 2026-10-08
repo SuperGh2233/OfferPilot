@@ -7,25 +7,25 @@
 | `README.md` | active | Setting up the Next.js application and existing Supabase/Vercel workflow. |
 | `AGENTS.md` | active | Changing code or running the repository quality gates. |
 
-## Active requirements and plans
+## Requirements and plans
 
 | Path | Status | Read when |
 | --- | --- | --- |
-| [`docs/plans/active/PLAN-20261007-speech-stability.md`](plans/active/PLAN-20261007-speech-stability.md) | active | Implementing or accepting the FunASR-backed transcription path. |
+| [`docs/plans/active/PLAN-20261007-speech-stability.md`](plans/active/PLAN-20261007-speech-stability.md) | completed | Reviewing the verified removal of built-in recording/transcription and the system dictation workflow. |
 | [`docs/plans/active/PLAN-20261008-knowledge-understanding-coach.md`](plans/active/PLAN-20261008-knowledge-understanding-coach.md) | active | Implementing the on-demand explanation flow for Knowledge answers the user still does not understand. |
 
 ## Architecture and specifications
 
 | Path | Status | Read when |
 | --- | --- | --- |
-| [`docs/architecture/ADR-20261007-asr-service-boundary.md`](architecture/ADR-20261007-asr-service-boundary.md) | active | Reconsidering where speech inference runs or how fallback works. |
-| [`docs/specs/SPEC-20261007-asr-http.md`](specs/SPEC-20261007-asr-http.md) | active | Implementing or integrating the ASR HTTP contract. |
+| [`docs/architecture/ADR-20261007-asr-service-boundary.md`](architecture/ADR-20261007-asr-service-boundary.md) | legacy | Historical ASR decision, superseded on 2026-10-08 by system dictation. |
+| [`docs/specs/SPEC-20261007-asr-http.md`](specs/SPEC-20261007-asr-http.md) | archived | Retired ASR HTTP contract; the transcription route and service were removed. |
 
 ## Operations
 
 | Path | Status | Read when |
 | --- | --- | --- |
-| [`docs/operations/RUN-20261007-funasr.md`](operations/RUN-20261007-funasr.md) | active | Deploying, checking, rolling back, or diagnosing the FunASR service. |
+| [`docs/operations/RUN-20261007-funasr.md`](operations/RUN-20261007-funasr.md) | archived | Historical FunASR runbook; this service is no longer required or shipped. |
 
 ## Document discipline
 

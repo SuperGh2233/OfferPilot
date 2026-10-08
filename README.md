@@ -71,9 +71,6 @@ npm run dev
 | `OPENAI_API_KEY` | 可选 AI 代码复盘与八股回忆复核 | 服务器 |
 | `OPENAI_BASE_URL` | OpenAI 兼容网关地址 | 服务器 |
 | `OPENAI_MODEL` | AI 模型名称 | 服务器 |
-| `OPENAI_TRANSCRIBE_MODEL` | 百炼语音模型名称，默认 `qwen3-asr-flash` | 服务器 |
-| `ASR_SERVICE_URL` | 独立 FunASR 服务地址；配置后优先使用，失败自动回退百炼 | 服务器 |
-| `ASR_SERVICE_TOKEN` | FunASR 服务共享令牌 | 服务器 |
 
 没有 `OPENAI_API_KEY` 时，“AI 分析代码”和“AI 分析回答”会显示配置错误；训练反馈、得分和 mastery 仍可保存。八股 Recall 采用 `effectiveCoverageScore = max(确定性关键词覆盖率, 提交时的 AI 语义分)` 参与 TypeScript mastery 与复习计算；原始关键词分仍独立保存。AI 不可用时退化为确定性分，提交后补做的 AI 分析不改历史得分。当前 V1 信任用户维护自己的分数：训练接口对客户端提供的 AI JSON 仅做结构校验，普通用户也有本人数据的 RLS 写权限，因此不提供不可篡改成绩的安全保证。
 
@@ -117,7 +114,7 @@ Sprint 2 已在便携 Node 24.19 下通过 lint/typecheck/test/build（40 个测
 
 `/interview` 提供第一版图谱驱动模拟面试。开始面试时会基于当前 KnowledgeState 与 prerequisite DAG 冻结本场 5 道题，选题优先级为：已经到期的已学题 → Mastery 较低的薄弱已学题 → 前置知识已满足但尚未学习的核心挑战题 → 普通保持熟练题；同一 Topic 默认只抽一题，不足 5 题时才允许同 Topic 补位。这样模拟面试既覆盖真实薄弱点，也不会完全退化成日常复习列表。
 
-每题支持文本回答和已有语音转写。模拟面试不会调用日常 Learn/Recall 写入链路，不创建 Attempt，不改变 Mastery、复习日期或 daily task；它首先是一个评估模式。确定性评分直接复用现有 `matchKnowledgeKeyPoints`，整场结束后生成总分、领域分、Topic 强弱、遗漏关键点和图谱回补建议。对于低分 Topic，如果其 prerequisite 目前仍未满足，报告会优先建议回补前置节点；否则直接建议复习当前 Topic。
+每题支持文本回答，也可使用系统听写。模拟面试不会调用日常 Learn/Recall 写入链路，不创建 Attempt，不改变 Mastery、复习日期或 daily task；它首先是一个评估模式。确定性评分直接复用现有 `matchKnowledgeKeyPoints`，整场结束后生成总分、领域分、Topic 强弱、遗漏关键点和图谱回补建议。对于低分 Topic，如果其 prerequisite 目前仍未满足，报告会优先建议回补前置节点；否则直接建议复习当前 Topic。
 
 Dashboard 已增加「图谱驱动模拟面试」入口。Sprint 3 现在也接入了可选 AI 面试官增强层：主问题提交后会先冻结原有确定性分数，再生成**一条**追问；模型优先围绕确定性匹配确认的遗漏关键点追问，关键点已覆盖时才追问项目场景和适用边界。AI 配置缺失、超时、网络失败或返回无效结构时自动使用本地确定性追问，因此不会卡住整场面试。追问回答只保存在当前页面内存，不重新计算主问题分数，也不会写 Attempt、Mastery、复习日期或 daily task。
 
@@ -185,15 +182,11 @@ NEXT_PUBLIC_SITE_URL=https://你的域名
 OPENAI_API_KEY=...              # 可选
 OPENAI_BASE_URL=https://your-workspace-id.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
 OPENAI_MODEL=qwen3.7-flash
-OPENAI_TRANSCRIBE_MODEL=qwen3-asr-flash
-# Optional: independent FunASR service; see docs/operations/RUN-20261007-funasr.md
-ASR_SERVICE_URL=https://asr.example.com
-ASR_SERVICE_TOKEN=...
 ```
 
 不要把 `SUPABASE_SERVICE_ROLE_KEY` 配置到前端运行环境；Seed 应在可信本地终端执行。部署完成后，将最终域名补进 Supabase Auth 的 Site URL 与 Redirect URLs。
 
-语音转写的 FunASR 服务不运行在 Vercel 中。进入 `asr-service/` 后按 [`docs/operations/RUN-20261007-funasr.md`](docs/operations/RUN-20261007-funasr.md) 构建并部署容器，先通过 `/healthz`，再在 Vercel 配置两个 `ASR_SERVICE_*` 变量。服务只在内存中处理 16 kHz 单声道 WAV；删除这两个变量即可回退到百炼。
+八股 Recall 和模拟面试使用普通文本框，可直接使用 macOS 等系统听写输入。OfferPilot 已移除内置录音和转写服务，不需要配置语音模型或部署 FunASR。
 
 未登录 Smoke Test：
 

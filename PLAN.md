@@ -7,11 +7,19 @@
 - 最后更新：2026-10-08
 - 当前阶段：Phase 8 已完成；第二轮架构与性能优化（第一轮检查由用户反馈已完成，详细测试结果与生产迁移状态尚未在此连接中核验）。
 - 并行开发任务（本 Agent）：Sprint 3 `/interview` 已接入 AI 追问和 AI 报告解读，同时保持确定性评分冻结和零训练数据写入。修复 Demo 初载 lint、Vitest `@/` 路径解析和 ESM 配置、AI 总结等待期间的确定性 fallback 标识；便携 Node 24.19 下四项质量门全部通过（45 个测试文件、411 项测试、242 个页面）。真实账号验收、Sprint 2 的 Supabase Migration 和部署仍未执行。
-- 当前任务：新增 Knowledge 理解教练：用户看完八股面试回答仍不懂时，可按需请求白话解释、前置知识、分步过程、例子和自测；不改变计分、Attempt、Mastery 或数据结构。详细范围见 `docs/plans/active/PLAN-20261008-knowledge-understanding-coach.md`。语音识别源码与本地质量门已完成，FunASR 外部部署仍待后续验收。
+- 当前任务：2026-10-08 用户要求的内置语音移除已在本地完成：Recall/Interview 仅保留文本框，删除转写 API、WAV 工具与 FunASR 服务；可直接使用 macOS 听写。详细证据见 `docs/plans/active/PLAN-20261007-speech-stability.md`。下一步是已有迁移与真实账号发布验收，生产部署尚未执行；原语音外部部署任务取消。
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7、Phase 8
 - 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
 - 云端状态：Supabase 与 Vercel 生产部署 READY；2026-09-14 生产验收覆盖匿名边界、真实登录/登出/重登、Dashboard、算法/八股训练、AI 分析及持久化（当时版本）。2026-09-18 已应用 AI 计分迁移，新增字段、迁移历史与题库精确计数均验证通过；`02722d0` 部署成功，稳定域名匿名 Smoke 全通过。新版本的认证态训练闭环仍待实际账号复测，不将旧版验收冒充新版验收。
-- 最近**已验证的质量门**：2026-09-21 便携 Node 24.19 下 `lint`、`typecheck`、`test`、`build` 全部通过；38 个测试文件、369 项测试、239 个生成页面。`npm` 通过 Node 24 调用同一运行时的 npm CLI，未使用本机旧 Node。
+- 最近**已验证的质量门**：2026-10-08 本机 Node 26.10.0（满足 >=22.13.0）下 `lint`、`typecheck`、`test`、`build` 全部通过；移除语音专属测试后为 44 个测试文件、394 项测试、242 个生成页面。旧开发路由缓存已由 `next dev` 重新生成，`git diff --check` 通过；本地 Demo 的文本 Recall/刷新、面试主回答/追问/下一题与转写 API 404 已实际验证。
+
+## 2026-10-08 移除内置语音（本地完成，未部署）
+
+- [x] 已核对三处录音调用、转写 API、WAV 工具、FunASR 服务和 Smoke/配置文档；更新已有语音 REQ/PLAN。
+- [x] 已删除 Recall、模拟面试主问题/追问三处录音入口及 voiceBusy；删除转写 API/provider、WAV 工具、FunASR 服务与 3 个专属测试文件，Smoke 保留其余匿名 API 检查；README/环境示例已同步。原 ASR 架构已标记 superseded，接口/运维文档已归档，原外部部署待办取消。
+- [x] 本机 Node 26.10 下 lint/typecheck/test/build 全部通过（44 个测试文件、394 项测试、242 个页面），`git diff --check` 通过。首轮旧 `.next/dev/types` 引用已删除路由，由本地 `next dev` 重建后类型检查通过。
+- [x] 本地隔离浏览器 Demo（3001、AI key 禁用）验证：Learn 自评保存 → 文本 Recall 提交 → AI 未配置的确定性 fallback → 刷新保留 Learn/Recall/掌握度；面试文本主回答 → fallback 追问文本提交 → 下一题，进入 Knowledge 后学习计数仍为 0，未被 Interview 改写。`POST /api/ai/transcribe` 返回 404，构建清单与可执行源码均不含录音/ASR 路径。
+- [ ] 生产发布另行处理；不将本地移除当作线上已移除。
 
 ## 2026-09-20 八股答案审校与清洗
 
@@ -138,7 +146,7 @@
 - [ ] 真实账号验收：AI 正常/无 key/超时/断网、主问题跳过、追问跳过、重复点击、重启面试时取消 stale 请求、刷新丢失当前内存 Session 的预期行为。
 - [ ] Sprint 3 源码验收后，再单独决定是否持久化 Interview Session；本轮不先加数据库表。
 
-## 2026-10-07 语音识别稳定性改造（本地完成，外部验收待执行）
+## 2026-10-07 语音识别稳定性改造（历史记录；2026-10-08 用户取消并移除）
 
 - [x] 文档先行：新增语音改造 REQ/PLAN、FunASR HTTP SPEC、架构 ADR 和部署/回滚 Runbook；明确 Vercel 不加载模型，FunASR 故障时回退百炼。
 - [x] 新增 `asr-service/` FastAPI + FunASR 容器入口：默认 `paraformer-zh-streaming`，提供 `/healthz` 和受共享令牌保护的 `POST /transcribe`；仅在内存解析 16 kHz 单声道 WAV，不持久化音频；匿名模式必须显式 opt-in。
@@ -146,7 +154,7 @@
 - [x] 录音上限从 60 秒降为 30 秒，base64 服务端上限调整为 2,000,000 字符；补充 provider、fallback、超时、配置和路由回归测试。
 - [x] 修正 FunASR 原始音频请求使用 `Blob`，通过 Node 24.19 的 TypeScript 类型检查；FunASR 缺少共享令牌时默认拒绝，严格限制 16-bit/16 kHz/单声道 WAV。
 - [x] 运行便携 Node 24.19 的 lint/typecheck/test/build：全部通过；45 个测试文件、421 项测试、242 个页面；`python3 -m py_compile asr-service/app.py` 与 `git diff --check` 通过。
-- [ ] 单独部署 FunASR 后验证 `/healthz`、短中文 WAV、断开服务时百炼 fallback 和 Vercel 登录态语音输入；未完成前不得宣称生产启用。
+- 原外部部署/验收任务已取消：2026-10-08 用户明确要求移除内置语音，改用 macOS 听写；上述勾选仅记录删除前版本。
 
 ## 2026-10-08 Knowledge Recall 结果信息密度优化（本地完成）
 
@@ -249,8 +257,8 @@ npm run build
 - 漏训日若从未生成任务，下一次加载时按当前计划配额、当前已学状态及教学顺序为该日期**补排**具体新学题，并在界面明确标记为补排；不可伪称它们曾在当天生成。原有任务和历史 Attempt 不改写，逾期复习仍按真实到期时刻单独统计；已学或已分配的题不可重复补排。
 - 补排任务的 `date` 是原计划日期，`completedAt` 是实际完成时刻；漏训日与连续训练按实际完成的训练日计算，不因事后补题而伪造过去的签到。所有待补题完成后，单独保留的历史漏训天数不再让 Dashboard 继续显示“待补齐”警示。
 - 外部已完成算法题允许按题号、`[题号]题名` 或 LeetCode 链接批量导入；导入题以 60% 保守掌握度进入学习状态、3 天后复习，不伪造训练 Attempt，也不覆盖已有 OfferPilot 记录。
-- 2026-09-17 起八股 Recall 支持语音输入：录音在浏览器本地完成，转写走服务端百炼 `qwen3-asr-flash`（OpenAI 兼容 `/chat/completions` + `input_audio` Data URL），复用现有 `OPENAI_API_KEY` / `OPENAI_BASE_URL`，不注入浏览器；前端统一把录音转成 16kHz 单声道 WAV 再上传，原始音频不落盘、不入库，只保存用户确认后的文本。个人用量在百炼 10 小时/月免费额度内，成本约等于 0。
-- 语音输入只做八股 Recall 一处；算法训练不新增语音与笔记字段，避免扩大改动面。
+- 2026-10-08 用户决定使用 macOS 听写：Recall 和模拟面试仅接收普通文本输入，内置录音、音频上传与转写服务已移除；已有文本历史保持原样。
+- 不新增应用内语音输入、录音权限或语音服务；系统听写生成的文字沿用现有文本流程。
 - 当前先运行本地 Demo，后续再连接 Supabase；前端目标部署平台仍为 Vercel。
 - 2026-09-11 起本地阶段改用 Node 24 内置 SQLite 持久化单用户训练状态；复用同一领域规则与训练 API，后续部署时切换到 Supabase，不新增 ORM 或第二套 mastery/planner 逻辑。
 
@@ -464,7 +472,7 @@ npm run build
 - [x] Dashboard 欠账准确性：计划起点后的未打开日期也能识别漏训；分开展示逾期复习、累计新学进度缺口和漏训天数，且重设起点后不继承起点前欠账。
 - [x] 欠账入口正确性：算法复习按钮直达待复习筛选，八股复习按钮直达全部到期题（不受今日配额限制），列表与 Dashboard 的到期数量一致；新学缺口可直达未学题。（2026-09-16 完成，质量门全绿）
 - [x] 正确性阻塞：漏训日补排具体新学题，欠账入口直达按原日期列出的待补题；完成后消账，重复加载无重复分配，本地 Demo/SQLite/Supabase 均持久化；不篡改已生成任务、Attempt 或独立的逾期复习。便携 Node 24 下 lint/typecheck/test/build 全通过（34 文件、328 测试、239 页面）。
-- [x] 八股 Recall 语音输入：录音、服务端转写、结果追加进回答框，复用服务端密钥边界与有界超时，不改变提交语义与 Attempt 结构。（2026-09-17 完成，真实转写验证通过）
+- 历史功能：八股 Recall 内置语音于 2026-09-17 实现，2026-10-08 按用户要求移除；文本输入与训练提交继续可用。
 - [x] 八股 Recall 计分改为 AI 主导 + 确定性下界：`effectiveCoverageScore = max(确定性加权覆盖率, AI 语义覆盖)`，mastery/下次复习据此更新；Attempt 分列记录确定性覆盖、语义覆盖与实际计分覆盖率；历史 Attempt 不回填。配套迁移 `202609170001_knowledge_ai_scoring.sql`（两个可空列 + RPC 追加带默认值的参数）。（实现完成、质量门通过；**待应用迁移后部署**）
 - [x] 算法训练页 Java 编辑器 Tab 缩进：Tab/Shift+Tab 在编辑区内缩进与反缩进，不再把焦点移出输入框；Ctrl/Alt/Meta+Tab 与"Esc 后 Tab"仍可正常离开编辑器。（2026-09-17 完成）
 - [x] 八股 Recall 两个分数口径显式化：并列展示「加权覆盖率（确定性匹配，已计入 Mastery 与下次复习）」与「语义覆盖（AI 复核，仅供参考，不改变 Mastery）」，并说明两者差异原因，消除“AI 复核后分数没生效”的误判；计分语义与 Attempt 结构保持不变。（2026-09-17 完成）
@@ -475,7 +483,7 @@ npm run build
 
 - 岗位抓取、投递管理、面试管理。
 - BOSS、智联、51Job、Chrome/IDEA 插件、LeetCode 自动同步。
-- 语音口试（发音评分、对话式口试）、社交、排行榜、金币等游戏化功能。2026-09-17 起例外：八股 Recall 允许“语音转文字”输入，仅做转写填入回答框，不做发音评价、不做语音对话。
+- 应用内录音/转写、语音口试（发音评分、对话式口试）、社交、排行榜、金币等游戏化功能。系统听写属于操作系统输入能力，不由 OfferPilot 提供。
 - Agent 工作流、LangChain、LangGraph、RAG。
 - 微服务、Kafka、Redis。
 - 剑指 Offer、CodeTop、公司专项题或额外算法题库。
@@ -728,3 +736,4 @@ npm run build
 | 2026-10-08 | 语音识别稳定性改造（本地完成，外部验收待执行） | Vercel 转写路由优先调用独立 FunASR `paraformer-zh-streaming` 服务，15 秒超时后回退百炼；新增 FastAPI/Docker 服务、共享令牌、健康检查、请求契约、阶段耗时日志；浏览器录音上限收紧为 30 秒。 | 便携 Node 24.19 下 lint/typecheck/test/build 全通过；45 个测试文件、421 项测试、242 个页面；Python 入口语法编译通过。FunASR 尚未部署，生产仍未切换。 |
 | 2026-10-08 | Knowledge Recall 结果信息密度优化（本地完成） | 首屏只保留回答、记住/遗漏数量和 AI 一句复核结论；已覆盖关键点、两套分数、逐条证据、完整改写、参考答案和历史对比改为原生 `<details>` 折叠。未改 Attempt、Mastery、AI 计分或数据结构。 | 目标 UI 渲染回归 12 项通过；全量 45 个测试文件、422 项测试通过；lint/typecheck/build 通过，生成 242 个页面。 |
 | 2026-10-08 | Knowledge 理解教练（本地完成，生产验收待执行） | Learn 首次学习新增按需入口；用户可填写卡点，AI 按核心意思、前置词、直觉类比、分步过程、小例子和折叠自测重新解释。结果只存在页面内存，不写 Attempt、Mastery、daily task 或复习日期；新增严格 schema、输入长度和未声明字段校验。 | Node 24.19 下 lint、typecheck、test、build 全部通过：47 个测试文件、429 项测试、243 个页面；`git diff --check` 通过。生产真实账号和 AI 网关故障回退验收未运行。 |
+| 2026-10-08 | 移除内置语音（本地完成，未部署） | 删除 Recall/Interview 三处录音 UI、voiceBusy、转写 API/provider、WAV 工具、FunASR 服务及专属测试；环境示例/Smoke/README/AGENTS 同步，旧 ASR 契约和运维文档归档，保留文本训练与系统听写。 | Node 26.10 下 lint/typecheck/test/build 全部通过：44 个测试文件、394 项测试、242 个页面；diff 检查通过。本地文本 Recall/刷新、Interview 主回答/追问/下一题通过，已移除 API 返回 404；生产未部署。 |

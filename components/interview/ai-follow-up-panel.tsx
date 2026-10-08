@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { VoiceAnswerButton } from "@/components/knowledge/voice-answer-button";
 import { Button } from "@/components/ui/button";
 import {
   fallbackInterviewFollowUp,
@@ -34,7 +33,6 @@ export function AiInterviewFollowUpPanel({
   const [followUp, setFollowUp] = useState<InterviewFollowUp | null>(null);
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(true);
-  const [voiceBusy, setVoiceBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const completedRef = useRef(false);
 
@@ -110,27 +108,19 @@ export function AiInterviewFollowUpPanel({
           <p className="mt-2 text-xs text-muted-foreground">{followUp.rationale}</p>
           <textarea
             className="mt-5 min-h-36 w-full resize-y rounded-xl border bg-background p-4 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-ring"
-            disabled={voiceBusy}
             maxLength={3_000}
             onChange={(event) => setAnswer(event.target.value)}
             placeholder="回答这条追问；追问内容只用于本场面试，不会改变主问题得分。"
             value={answer}
           />
-          <div className="mt-3">
-            <VoiceAnswerButton
-              disabled={false}
-              onBusyChange={setVoiceBusy}
-              onTranscript={(text) => setAnswer((current) => current ? `${current}\n${text}` : text)}
-            />
-          </div>
           {error ? (
             <p className="mt-3 text-sm text-rose-600 dark:text-rose-400">{error}</p>
           ) : null}
           <div className="mt-5 flex flex-wrap gap-3">
-            <Button disabled={voiceBusy} onClick={() => finish(false)} type="button">
+            <Button onClick={() => finish(false)} type="button">
               提交追问，下一题
             </Button>
-            <Button disabled={voiceBusy} onClick={() => finish(true)} type="button" variant="outline">
+            <Button onClick={() => finish(true)} type="button" variant="outline">
               跳过追问
             </Button>
           </div>
