@@ -140,10 +140,11 @@ export type BacklogReviewState = {
   nextReviewAt: string | null;
 };
 
-export function isReviewDue(state: BacklogReviewState, now: number) {
+export function isReviewDue(state: BacklogReviewState, now: number, pauseStartedAt: number | null = null) {
   return state.attemptCount > 0
     && state.nextReviewAt !== null
-    && new Date(state.nextReviewAt).getTime() <= now;
+    && new Date(state.nextReviewAt).getTime() <= now
+    && (pauseStartedAt === null || new Date(state.nextReviewAt).getTime() < pauseStartedAt);
 }
 
 export type TrainingBacklog = {

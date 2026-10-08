@@ -82,7 +82,8 @@ describe("Knowledge Recall score comparison", () => {
     );
 
     expect(html).toContain("以确定性加权覆盖率为准");
-    expect(html).toContain("不会把错误答案判成高分");
+    expect(html).toContain("关键词命中不等于答案正确");
+    expect(html).toContain("系统听写");
   });
 
   it("treats a missing effective score as the deterministic score", () => {

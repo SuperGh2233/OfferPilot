@@ -35,8 +35,10 @@ export function selectNextTrainingTask({
   catalog,
   pauseStartedAt = null,
   preferredTaskType = null,
+  preferInProgress = false,
+  planStartDate = null,
 }: {
-  currentId: string;
+  currentId: string | null;
   todayKey: string;
   now: number;
   tasks: readonly NextTrainingQueueTask[];
@@ -44,8 +46,10 @@ export function selectNextTrainingTask({
   catalog: readonly NextTrainingCatalogItem[];
   pauseStartedAt?: number | null;
   preferredTaskType?: string | null;
+  preferInProgress?: boolean;
+  planStartDate?: string | null;
 }): NextTrainingTask | null {
-  if (!currentId.trim()) throw new RangeError("currentId must be non-empty");
+  if (currentId !== null && !currentId.trim()) throw new RangeError("currentId must be non-empty");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(todayKey)) throw new RangeError("todayKey must use YYYY-MM-DD");
   if (!Number.isFinite(now)) throw new RangeError("now must be finite");
   if (pauseStartedAt !== null && !Number.isFinite(pauseStartedAt)) {
@@ -58,6 +62,7 @@ export function selectNextTrainingTask({
       task.id !== currentId
       && task.status !== "completed"
       && task.date <= todayKey
+      && (planStartDate === null || task.date >= planStartDate)
       && catalogOrder.has(task.id),
     )
     .sort((left, right) => {
@@ -65,6 +70,9 @@ export function selectNextTrainingTask({
       const rightRank = right.date === todayKey ? 0 : 1;
       if (leftRank !== rightRank) return leftRank - rightRank;
       if (leftRank === 1 && left.date !== right.date) return left.date.localeCompare(right.date);
+      if (preferInProgress && left.status !== right.status) {
+        return Number(right.status === "in_progress") - Number(left.status === "in_progress");
+      }
       if (preferredTaskType !== null) {
         const typeRank = Number(right.taskType === preferredTaskType) - Number(left.taskType === preferredTaskType);
         if (typeRank !== 0) return typeRank;

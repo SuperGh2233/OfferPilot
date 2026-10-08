@@ -5,13 +5,23 @@
 ## 当前状态
 
 - 最后更新：2026-10-08
-- 当前阶段：Phase 8 已完成；第二轮架构与性能优化（第一轮检查由用户反馈已完成，详细测试结果与生产迁移状态尚未在此连接中核验）。
+- 当前阶段：Phase 8 已完成；第二轮优化的本地正确性回归与训练体验优化已验证，生产迁移与真实账号验收仍待核实。
 - 并行开发任务（本 Agent）：Sprint 3 `/interview` 已接入 AI 追问和 AI 报告解读，同时保持确定性评分冻结和零训练数据写入。修复 Demo 初载 lint、Vitest `@/` 路径解析和 ESM 配置、AI 总结等待期间的确定性 fallback 标识；便携 Node 24.19 下四项质量门全部通过（45 个测试文件、411 项测试、242 个页面）。真实账号验收、Sprint 2 的 Supabase Migration 和部署仍未执行。
-- 当前任务：2026-10-08 用户要求的内置语音移除已在本地完成：Recall/Interview 仅保留文本框，删除转写 API、WAV 工具与 FunASR 服务；可直接使用 macOS 听写。详细证据见 `docs/plans/active/PLAN-20261007-speech-stability.md`。下一步是已有迁移与真实账号发布验收，生产部署尚未执行；原语音外部部署任务取消。
+- 当前任务：用户授权的本轮优化方案已完成本地实现与验收，见 `docs/plans/completed/PLAN-20261008-training-experience.md`：Dashboard 直接继续/参考用时/结束总结、Knowledge 检索与答案代码展示、任务日期边界及评分说明。优先级 2 的 120 核心题改动继续等待迁移验收；生产发布条件不变。内置语音已移除，保留系统听写。
 - 已完成：Phase 0、Phase 1 本地版本、Phase 2、Phase 3、Phase 4、Phase 5、Phase 6、Phase 7、Phase 8
-- 本地运行：`http://localhost:3000`；已切换真实 Supabase 模式，本地 SQLite 文件保留
+- 本地运行：本轮使用 `http://127.0.0.1:3001` 浏览器 Demo 验收；当前进程无 Supabase 配置，本地 SQLite 文件保留。
 - 云端状态：Supabase 与 Vercel 生产部署 READY；2026-09-14 生产验收覆盖匿名边界、真实登录/登出/重登、Dashboard、算法/八股训练、AI 分析及持久化（当时版本）。2026-09-18 已应用 AI 计分迁移，新增字段、迁移历史与题库精确计数均验证通过；`02722d0` 部署成功，稳定域名匿名 Smoke 全通过。新版本的认证态训练闭环仍待实际账号复测，不将旧版验收冒充新版验收。
-- 最近**已验证的质量门**：2026-10-08 本机 Node 26.10.0（满足 >=22.13.0）下 `lint`、`typecheck`、`test`、`build` 全部通过；移除语音专属测试后为 44 个测试文件、394 项测试、242 个生成页面。旧开发路由缓存已由 `next dev` 重新生成，`git diff --check` 通过；本地 Demo 的文本 Recall/刷新、面试主回答/追问/下一题与转写 API 404 已实际验证。
+- 最近**已验证的质量门**：2026-10-08 本机 Node 26.10.0（满足 >=22.13.0）下 `lint`、`typecheck`、`test`、`build` 全部通过：45 个测试文件、408 项测试、242 个生成页面；`git diff --check` 通过。Dashboard 直接继续/进行中恢复、题库筛选/返回/分页/窄屏、代码展示与文本 Learn/Recall/刷新均已实际验证；没有执行云端迁移、Seed 或生产部署。
+
+## 2026-10-08 训练效率与题库阅读优化（本地完成，未部署）
+
+- [x] 已读取现有路线与实现，建立 combined REQ/PLAN 并登记文档索引；确认 Node 26.10 满足要求，本机无 Supabase 连接配置。
+- [x] 已有时区/并发/暂停/增量写入/历史恢复目标回归通过（7 文件、70 测试）；Dashboard 复用 next-task 完成直接继续、今日参考用时与结束总结。
+- [x] Knowledge 关键词/核心/状态/URL 分页及返回上下文、安全代码块呈现与评分提示校正；检索沿用现有 State，原始题库/评分算法/历史不变。补上知识列表的暂停前到期边界，以及 shared next-task 的计划起点下界。
+- [x] 最终四项质量门全通过（45 文件、408 测试、242 页面）和 diff 检查；audit/seed:check 通过（904/120，904 UUID 审校记录）。新增展示/选择/检索/安全回归 14 项。
+- [x] 浏览器验证 Dashboard 具体题/进行中恢复、CHM 13 题→核心 3 题、返回/刷新保留条件、空结果/清除/第 2 页、快速组合筛选、薄弱状态、375 CSS px 窄屏无整页溢出及 JOL 代码框滚动。Learn→文本 Recall→AI 未配置 fallback→刷新保留 Learn 1/Recall 1/Mastery 33/复习日期。
+- [x] 评分诊断记录实际运行时口径：Java 改述样例 0/4，31 核心题无别名，71 核心题含长度 >30 的点；不作为准确率评估或生产证明。
+- 下一任务：按已有发布条件核实迁移和真实账号/RLS/并发/重登验收；之后恢复 120 核心题评分容错。当前进程无 Supabase 配置，不把本地完成标为生产完成。
 
 ## 2026-10-08 移除内置语音（本地完成，未部署）
 
@@ -84,7 +94,7 @@
 - [x] `components/knowledge/recall-history-panel.tsx` 展示连续遗漏、新遗漏、补齐点和一条聚焦提示；历史 AI 复核从已保存 Attempt 恢复，使用记录中的原始关键点文本，无法对应当前版本的不误报为新遗忘。至少一条历史缺少可用 AI 时，两次统一使用确定性口径。
 - [x] 训练页接入：最新一次提交和页面刷新均能从持久化 Attempt 构建历史；区分提交时已保存/计分的 AI 与提交后临时补做的 AI，后者不冒充已落库结果。
 - [x] 新增 `knowledge-recall-history.test.tsx`、浏览器 Demo 持久化及 Supabase Snapshot 重载测试用例，覆盖补题/漏题差异、重复 ID、题库关键点改名、AI 降级和刷新展示；仅写入文件，尚未执行。
-- [ ] 执行 `npm run lint && npm run typecheck && npm run test && npm run build` 并修复失败；当前 mac-host 连接仅有文件接口，无法执行终端命令。
+- [x] 2026-10-08 本机 Node 26.10 运行 lint/typecheck/test/build 全通过（45 文件、408 测试、242 页面），历史对比目标回归也通过；真实账号验收仍未执行。
 - [ ] 真实账号验证同题至少两次 Recall → 提交后对比 → 浏览器刷新、退出重登、切换题目、Demo/SQLite/Supabase 三模式一致性；核实其他 Agent 的题库修订导致关键点变化时显示“不可比较”而不误报。
 - [ ] 既有暂停计划迁移与增量写入回归通过后再部署；此项不需要新的 SQL Migration，不把编写测试视为测试通过。
 
@@ -96,7 +106,7 @@
 - [x] 暂停兼容：组件同步 profile pausePeriods；暂停时允许已有任务/历史 backlog 继续下一题，到期兜底只接受暂停开始前已经逾期的 state，不把休息期间新到期复习提前拉进来。
 - [x] 动态 `/knowledge/[id]` 与 `/algorithm/[id]` 给训练组件加 item ID `key`，避免客户端切下一题时复用上一题 submission/completion/timer/AI 临时状态。
 - [x] 新增 `tests/next-training-task.test.ts`，覆盖今日队列排序、Learn 优先新学、最早欠账、到期兜底、暂停边界和不重复当前题；首轮运行已通过 39 个测试文件、378 项测试，lint 发现并修复组件中直接调用 `Date.now()` 的 purity 规则问题，改为组件时钟定时更新。
-- [ ] 优化路线第 4 项其余内容仍待完成：Dashboard 一键继续、今日预计工作量、日终总结。
+- [x] 2026-10-08 完成 Dashboard 一键继续、今日剩余参考工作量、日终总结，本地四项门与浏览器验收通过；生产验收单独进行，详见训练体验计划。
 - [x] 重跑 `npm run lint && npm run typecheck && npm run test && npm run build`：便携 Node 24.19 下全部通过，39 个测试文件、378 项测试、239 个页面；真实账号验证 Learn → 下一题、Recall → 下一题、Algorithm → 下一题、暂停欠账 → 下一题和浏览器前进/后退状态仍待进行。
 
 ## 2026-09-21 Knowledge Graph Sprint 1（本地质量门通过，真实环境待验收）
@@ -737,3 +747,4 @@ npm run build
 | 2026-10-08 | Knowledge Recall 结果信息密度优化（本地完成） | 首屏只保留回答、记住/遗漏数量和 AI 一句复核结论；已覆盖关键点、两套分数、逐条证据、完整改写、参考答案和历史对比改为原生 `<details>` 折叠。未改 Attempt、Mastery、AI 计分或数据结构。 | 目标 UI 渲染回归 12 项通过；全量 45 个测试文件、422 项测试通过；lint/typecheck/build 通过，生成 242 个页面。 |
 | 2026-10-08 | Knowledge 理解教练（本地完成，生产验收待执行） | Learn 首次学习新增按需入口；用户可填写卡点，AI 按核心意思、前置词、直觉类比、分步过程、小例子和折叠自测重新解释。结果只存在页面内存，不写 Attempt、Mastery、daily task 或复习日期；新增严格 schema、输入长度和未声明字段校验。 | Node 24.19 下 lint、typecheck、test、build 全部通过：47 个测试文件、429 项测试、243 个页面；`git diff --check` 通过。生产真实账号和 AI 网关故障回退验收未运行。 |
 | 2026-10-08 | 移除内置语音（本地完成，未部署） | 删除 Recall/Interview 三处录音 UI、voiceBusy、转写 API/provider、WAV 工具、FunASR 服务及专属测试；环境示例/Smoke/README/AGENTS 同步，旧 ASR 契约和运维文档归档，保留文本训练与系统听写。 | Node 26.10 下 lint/typecheck/test/build 全部通过：44 个测试文件、394 项测试、242 个页面；diff 检查通过。本地文本 Recall/刷新、Interview 主回答/追问/下一题通过，已移除 API 返回 404；生产未部署。 |
+| 2026-10-08 | 训练效率与题库阅读优化（本地完成，未部署） | 完成 Dashboard 直接继续、今日剩余参考用时与结束总结；知识题库关键词/技术缩写/核心/状态筛选、20 题分页、URL 条件恢复及安全代码块展示。修复快速筛选条件竞态、旧计划任务边界和跨时区到期排序；校正关键词评分说明，记录改述漏计诊断，保持评分、题库和历史不变。 | Node 26.10 下 lint/typecheck/test/build 全通过：45 文件、408 测试、242 页面；audit/seed:check 和 diff 检查通过。桌面/窄屏、Dashboard 继续、搜索返回/分页、代码阅读和 Demo 文本 Learn/Recall/刷新已验收。计划见 completed/PLAN-20261008-training-experience.md；下一步核实三项既有迁移并进行真实账号/RLS/并发回归，随后再处理核心题评分。未执行 Seed、迁移或生产部署。 |

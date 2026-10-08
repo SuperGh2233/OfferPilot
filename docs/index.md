@@ -11,6 +11,7 @@
 
 | Path | Status | Read when |
 | --- | --- | --- |
+| [`docs/plans/completed/PLAN-20261008-training-experience.md`](plans/completed/PLAN-20261008-training-experience.md) | completed | Reviewing local acceptance of Dashboard continuation, Knowledge search and readable code answers; production acceptance remains separate. |
 | [`docs/plans/active/PLAN-20261007-speech-stability.md`](plans/active/PLAN-20261007-speech-stability.md) | completed | Reviewing the verified removal of built-in recording/transcription and the system dictation workflow. |
 | [`docs/plans/active/PLAN-20261008-knowledge-understanding-coach.md`](plans/active/PLAN-20261008-knowledge-understanding-coach.md) | active | Implementing the on-demand explanation flow for Knowledge answers the user still does not understand. |
 
@@ -26,6 +27,12 @@
 | Path | Status | Read when |
 | --- | --- | --- |
 | [`docs/operations/RUN-20261007-funasr.md`](operations/RUN-20261007-funasr.md) | archived | Historical FunASR runbook; this service is no longer required or shipped. |
+
+## Evaluations
+
+| Path | Status | Read when |
+| --- | --- | --- |
+| [`docs/evals/EVAL-20261008-recall-baseline.md`](evals/EVAL-20261008-recall-baseline.md) | completed | Reviewing actual-runtime paraphrase matching evidence and the gated core-question improvement criteria. |
 
 ## Document discipline
 

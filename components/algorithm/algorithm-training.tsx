@@ -648,6 +648,7 @@ export function AlgorithmTraining({
     : null;
   const nextTask = completion && data ? selectNextTrainingTask({
     currentId: problem.id,
+    planStartDate: data.planStartDate,
     todayKey: getAlgorithmTrainingDateKey(new Date(), timeZone),
     now: Date.now(),
     pauseStartedAt,

@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { KnowledgeCatalogBrowser } from "./knowledge-catalog-browser";
 
 import {
   ALGORITHM_DEMO_TIME_ZONE,
   calculateAlgorithmCurrentWeek,
   getAlgorithmTrainingDateKey,
+  getTrainingDayStart,
 } from "@/lib/algorithm/demo-store";
 import type { KnowledgeCatalogTopic } from "@/lib/knowledge/catalog";
 import {
@@ -25,6 +27,7 @@ import {
   PROFILE_DEMO_CHANGED_EVENT,
 } from "@/lib/profile/demo-store";
 import { useCloudTrainingSnapshot } from "@/lib/supabase/use-cloud-training";
+import { isPlanPaused } from "@/lib/profile/pause";
 
 export type KnowledgeOverviewQuestion = {
   id: string;
@@ -42,30 +45,33 @@ type Snapshot = {
   date: string;
   now: number;
   timeZone: string;
+  pauseStartedAt: number | null;
 };
 
 const CATEGORY_ORDER = ["Java基础", "Java集合", "Java并发", "JVM", "Spring", "MySQL", "Redis"];
 
-function isDue(data: Pick<KnowledgeDemoData, "states"> | null, questionId: string, now: number) {
+function isDue(data: Pick<KnowledgeDemoData, "states"> | null, questionId: string, now: number, pauseStartedAt: number | null = null) {
   const state = data?.states[questionId];
-  return state !== undefined && isReviewDue(state, now);
+  return state !== undefined && isReviewDue(state, now, pauseStartedAt);
 }
 
 function getDueKnowledgeQuestions(
   questions: readonly KnowledgeOverviewQuestion[],
   data: Pick<KnowledgeDemoData, "states"> | null,
   now: number,
+  pauseStartedAt: number | null,
 ) {
   if (!data) return [];
-  return questions.filter((question) => isDue(data, question.id, now)).sort((left, right) =>
+  return questions.filter((question) => isDue(data, question.id, now, pauseStartedAt)).sort((left, right) =>
     new Date(data.states[left.id].nextReviewAt).getTime()
     - new Date(data.states[right.id].nextReviewAt).getTime(),
   );
 }
 
-function formatReview(value: string | undefined, now: number, timeZone: string) {
+function formatReview(value: string | undefined, now: number, timeZone: string, pauseStartedAt: number | null) {
   if (!value) return "尚未学习";
   const date = new Date(value);
+  if (date.getTime() <= now && pauseStartedAt !== null && date.getTime() >= pauseStartedAt) return "恢复后复习";
   if (date.getTime() <= now) return "已到期";
   return new Intl.DateTimeFormat("zh-CN", {
     day: "numeric",
@@ -117,6 +123,7 @@ export function KnowledgeOverview({
       date: ensured.date,
       now: now.getTime(),
       timeZone: profile.timeZone,
+      pauseStartedAt: isPlanPaused(profile.pausePeriods) ? Date.parse(getTrainingDayStart(profile.pausePeriods.at(-1)!.start, profile.timeZone)) : null,
     });
   }, [demoMode, plannerQuestions]);
 
@@ -155,6 +162,7 @@ export function KnowledgeOverview({
       date,
       now: now.getTime(),
       timeZone: cloud.snapshot.profile.timeZone,
+      pauseStartedAt: isPlanPaused(cloud.snapshot.profile.pausePeriods) ? Date.parse(getTrainingDayStart(cloud.snapshot.profile.pausePeriods.at(-1)!.start, cloud.snapshot.profile.timeZone)) : null,
     };
   }, [cloud.snapshot]);
   const snapshot = demoMode ? demoSnapshot : cloudSnapshot;
@@ -183,7 +191,8 @@ export function KnowledgeOverview({
   const masteredCount = Object.values(data?.states ?? {}).filter(
     (state) => state.status === "mastered",
   ).length;
-  const dueQuestions = getDueKnowledgeQuestions(questions, data, now);
+  const pauseStartedAt = snapshot?.pauseStartedAt ?? null;
+  const dueQuestions = getDueKnowledgeQuestions(questions, data, now, pauseStartedAt);
   const dueCount = dueQuestions.length;
   const backlogTasks = Object.values(data?.dailyTasks ?? {}).flat().filter((task) =>
     task.date >= (data?.planStartDate ?? "")
@@ -203,7 +212,7 @@ export function KnowledgeOverview({
             </Link>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">八股主动回忆</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              先学习关键结论，再用自己的话回忆；系统只做稳定、可解释的关键词覆盖检测。
+              先学习关键结论，再用自己的话回忆；关键词覆盖与可选 AI 复核分别保存，改述可能被关键词检测漏计。
             </p>
           </div>
           <span className="w-fit rounded-full bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-900 dark:bg-amber-950/60 dark:text-amber-300">
@@ -294,7 +303,13 @@ export function KnowledgeOverview({
           </div>
         </section>
 
-        <section>
+        <Suspense fallback={<p className="text-sm text-muted-foreground">正在加载题库检索…</p>}>
+          <KnowledgeCatalogBrowser questions={questions} topics={topics} data={data} now={now} pauseStartedAt={pauseStartedAt} />
+        </Suspense>
+
+        <details className="rounded-2xl border bg-card p-5">
+          <summary className="cursor-pointer font-semibold">按主题查看学习进度</summary>
+        <section className="mt-4">
           <div className="flex flex-wrap gap-2" aria-label="八股分类">
             {["全部", ...categories].map((item) => (
               <button
@@ -316,6 +331,7 @@ export function KnowledgeOverview({
                   data={data}
                   key={topic.id}
                   now={now}
+                  pauseStartedAt={pauseStartedAt}
                   questions={topicQuestions}
                   timeZone={snapshot?.timeZone ?? ALGORITHM_DEMO_TIME_ZONE}
                   topic={topic}
@@ -324,6 +340,7 @@ export function KnowledgeOverview({
             })}
           </div>
         </section>
+        </details>
       </div>
     </main>
   );
@@ -342,19 +359,21 @@ function Stat({ label, value, detail }: { label: string; value: number; detail: 
 function TopicCard({
   data,
   now,
+  pauseStartedAt,
   questions,
   timeZone,
   topic,
 }: {
   data: KnowledgeDemoData | null;
   now: number;
+  pauseStartedAt: number | null;
   questions: readonly KnowledgeOverviewQuestion[];
   timeZone: string;
   topic: KnowledgeCatalogTopic;
 }) {
   const mainQuestions = questions.filter(({ questionType }) => questionType === "main");
   const learned = mainQuestions.filter((question) => data?.states[question.id]).length;
-  const due = questions.filter((question) => isDue(data, question.id, now)).length;
+  const due = questions.filter((question) => isDue(data, question.id, now, pauseStartedAt)).length;
   const mastery = calculateKnowledgeTopicMastery(questions.map((question) => ({
     mastery: data?.states[question.id]?.mastery ?? null,
     importance: question.importance,
@@ -393,6 +412,7 @@ function TopicCard({
                 data?.states[question.id]?.nextReviewAt,
                 now,
                 timeZone,
+                pauseStartedAt,
               )}
             </span>
           </Link>

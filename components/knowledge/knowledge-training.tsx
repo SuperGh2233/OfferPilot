@@ -8,6 +8,8 @@ import { RecallResult } from "@/components/knowledge/recall-result";
 import { RecallHistoryPanel } from "@/components/knowledge/recall-history-panel";
 import { RecallScoreComparison } from "@/components/knowledge/recall-score-comparison";
 import { UnderstandingCoach } from "@/components/knowledge/understanding-coach";
+import { AnswerContent } from "@/components/knowledge/answer-content";
+import { KnowledgeCatalogReturnLink } from "@/components/knowledge/knowledge-catalog-return-link";
 import {
   parseKnowledgeRecallAnalysis,
   type KnowledgeRecallAnalysis,
@@ -341,6 +343,7 @@ export function KnowledgeTraining({
     : null;
   const nextTask = submission && data ? selectNextTrainingTask({
     currentId: question.id,
+    planStartDate: data.planStartDate,
     todayKey: getAlgorithmTrainingDateKey(new Date(clock), timeZone),
     now: clock,
     pauseStartedAt,
@@ -367,9 +370,9 @@ export function KnowledgeTraining({
     <main className="min-h-screen bg-muted/30">
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
         <header className="flex items-center justify-between gap-4 border-b pb-5">
-          <Link className="text-sm font-medium text-muted-foreground hover:text-foreground" href="/knowledge">
+          <KnowledgeCatalogReturnLink className="text-sm font-medium text-muted-foreground hover:text-foreground">
             ← 返回八股训练
-          </Link>
+          </KnowledgeCatalogReturnLink>
           <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900 dark:bg-amber-950/60 dark:text-amber-300">
             {demoMode ? "浏览器演示模式" : "持久数据库"}
           </span>
@@ -496,9 +499,9 @@ export function KnowledgeTraining({
                   }} type="button" variant="outline">
                     {submission.attempt.mode === "learn" ? "进入 Recall 模式" : "再回忆一次"}
                   </Button>
-                  <Link className="inline-flex h-9 items-center justify-center rounded-lg border px-4 text-sm font-medium text-muted-foreground hover:bg-muted" href="/knowledge">
+                  <KnowledgeCatalogReturnLink className="inline-flex h-9 items-center justify-center rounded-lg border px-4 text-sm font-medium text-muted-foreground hover:bg-muted">
                     返回题库
-                  </Link>
+                  </KnowledgeCatalogReturnLink>
                 </div>
               </section>
             ) : null}
@@ -566,11 +569,11 @@ function AnswerPanel({ question, collapsed = false, showUnderstandingCoach = fal
       </div>
       <div>
         <h2 className="text-sm font-semibold">面试回答</h2>
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-foreground/80">{question.interviewAnswer || "暂无面试答案"}</p>
+        <div className="mt-2"><AnswerContent text={question.interviewAnswer || "暂无面试答案"} /></div>
       </div>
       <details className="rounded-xl border p-4">
         <summary className="cursor-pointer text-sm font-semibold">展开完整答案</summary>
-        <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-foreground/80">{question.fullAnswer || "暂无完整答案"}</p>
+        <div className="mt-3"><AnswerContent text={question.fullAnswer || "暂无完整答案"} /></div>
       </details>
       <div>
         <h2 className="text-sm font-semibold">关键点</h2>

@@ -7,6 +7,7 @@ import {
   ALGORITHM_DEMO_CHANGED_EVENT,
   ensureTodayAlgorithmTasks,
   getAlgorithmTrainingDateKey,
+  getTrainingDayStart,
   loadAlgorithmDemoData,
   saveAlgorithmDemoData,
   type AlgorithmDemoData,
@@ -21,6 +22,8 @@ import {
   type LocalKnowledgeTask,
 } from "@/lib/knowledge/demo-store";
 import { KnowledgeAbilityMap } from "@/components/dashboard/knowledge-ability-map";
+import { DailyTrainingFocus } from "@/components/dashboard/daily-training-focus";
+import { getDailyTrainingFocus } from "@/lib/progress/daily-focus";
 import {
   KnowledgeLearningPath,
   type KnowledgeLearningPathItem,
@@ -205,8 +208,8 @@ export function DashboardOverview({
   }
 
   const paused = isPlanPaused(snapshot.profile.pausePeriods ?? []);
-  const algorithmCounts = taskCounts(snapshot.algorithmTasks, "new");
-  const knowledgeCounts = taskCounts(snapshot.knowledgeTasks, "new");
+  const algorithmCounts = taskCounts(snapshot.algorithmTasks.filter((task) => task.date >= snapshot.profile.planStartDate), "new");
+  const knowledgeCounts = taskCounts(snapshot.knowledgeTasks.filter((task) => task.date >= snapshot.profile.planStartDate), "new");
   const algorithmStates = Object.values(snapshot.algorithmData.states);
   const algorithmMastery = algorithmStates.length === 0
     ? null
@@ -286,6 +289,22 @@ export function DashboardOverview({
     knowledgeCatalogSize: coreKnowledgeQuestions.length,
   });
   const todayKey = getAlgorithmTrainingDateKey(snapshot.now, snapshot.profile.timeZone);
+  const focus = getDailyTrainingFocus({
+    todayKey,
+    planStartDate: snapshot.profile.planStartDate,
+    now: snapshot.now.getTime(),
+    pauseStartedAt: paused ? Date.parse(getTrainingDayStart(snapshot.profile.pausePeriods.at(-1)!.start, snapshot.profile.timeZone)) : null,
+    algorithm: {
+      tasks: Object.values(snapshot.algorithmData.dailyTasks).flat().map((task) => ({ ...task, id: task.problemId })),
+      states: Object.values(snapshot.algorithmData.states).map((state) => ({ ...state, id: state.problemId })),
+      catalog: algorithmProblems.map((problem) => ({ id: problem.id, order: problem.orderIndex })),
+    },
+    knowledge: {
+      tasks: Object.values(snapshot.knowledgeData.dailyTasks).flat().map((task) => ({ ...task, id: task.questionId })),
+      states: Object.values(snapshot.knowledgeData.states).map((state) => ({ ...state, id: state.questionId })),
+      catalog: knowledgeQuestions.map((question) => ({ id: question.id, order: question.sourceOrder })),
+    },
+  });
   const algorithmNewOwed = flattenDailyTasks(snapshot.algorithmData.dailyTasks).filter((task) =>
     task.date >= snapshot.profile.planStartDate && task.date < todayKey
     && task.taskType !== "review" && task.status !== "completed",
@@ -385,6 +404,8 @@ export function DashboardOverview({
           第一周期进度 {cycle.progress}% · 本周已完成 {weekly.completed}/{weekly.total} 个已生成任务{paused ? " · 计划暂停中" : ""}
         </p>
       </section>
+
+      <DailyTrainingFocus focus={focus} paused={paused} />
 
       {hasBacklog ? (
         <section
