@@ -12,6 +12,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 Before changing implementation code, read `PLAN.md` and work only inside its current roadmap priority. After every code change, update `PLAN.md` in the same turn with checklist progress, validation results, the next task, and the change log. A roadmap item is complete only after its acceptance criteria and all four quality commands pass. The project requires Node.js `>=22.13.0`; verify `node --version` before quality commands and use the installed portable Node 24 runtime when the system PATH still resolves to Node 20.
 
+## Git push and update notes
+
+- User standing preference: a request to "push" includes integrating the authorized changes into `main` and pushing `origin/main`. Pushing only a development branch does not complete that request. Do not ask again for merge permission when the user has requested a push.
+- For each update to remote `main`, normally create an annotated tag using `release-YYYYMMDD.N` (Asia/Shanghai date, increment N for that date). Tag the exact `main` commit, include the changes and verification results, and push that tag explicitly. Never overwrite an existing tag or force-push `main`.
+- Record user-visible updates in `CHANGELOG.md` when publishing the tagged main revision, and report the main commit, tag, update summary and observed deployment status to the user. An unverified deployment must remain labeled unverified.
+- Preserve applicable quality, migration and real-account acceptance requirements. If a required check blocks a main push, identify the concrete missing evidence and leave the push request incomplete instead of silently substituting a branch-only push.
+- Read [the Git update runbook](docs/operations/RUN-20261009-git-updates.md) for the merge, tag, verification and recovery procedure.
+
 ## Current product baseline
 
 - Phase 8 baseline acceptance was completed on 2026-09-14. The 2026-09-18 AI-scoring release passed anonymous Smoke; its authenticated training flow was listed for retest. User reports first-round checks completed on 2026-09-20, but no independent test artifacts, migration status or deployment result are available through this file connector. Do not assume any unverified production state.

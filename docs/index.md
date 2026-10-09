@@ -26,6 +26,7 @@
 
 | Path | Status | Read when |
 | --- | --- | --- |
+| [`docs/operations/RUN-20261009-git-updates.md`](operations/RUN-20261009-git-updates.md) | active | Pushing authorized changes through main with an annotated tag, update notes and verified remote state. |
 | [`docs/operations/RUN-20261007-funasr.md`](operations/RUN-20261007-funasr.md) | archived | Historical FunASR runbook; this service is no longer required or shipped. |
 
 ## Evaluations
