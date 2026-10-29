@@ -44,6 +44,7 @@ if (demoMode) {
     ["/api/ai/analyze-code", "POST"],
     ["/api/ai/analyze-recall", "POST"],
     ["/api/ai/settings", "GET"],
+    ["/api/ai/test-connection", "POST"],
     ["/api/training/snapshot", "GET"],
     ["/api/training/algorithm", "POST"],
     ["/api/training/knowledge", "POST"],
