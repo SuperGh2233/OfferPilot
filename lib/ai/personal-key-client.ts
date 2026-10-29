@@ -1,4 +1,7 @@
+import { PERSONAL_AI_PROVIDER, isPersonalAiProvider, type PersonalAiProvider } from "./personal-ai-provider";
+
 const PREFIX = "offerpilot:ai-key:";
+const PROVIDER_PREFIX = "offerpilot:ai-provider:";
 
 export type AiSettingsInfo = { scope: string; model: string; defaultConfigured: boolean };
 
@@ -17,11 +20,23 @@ export function personalKeyStorageName(scope: string) {
   return `${PREFIX}${scope}`;
 }
 
+export function personalProviderStorageName(scope: string) {
+  return `${PROVIDER_PREFIX}${scope}`;
+}
+
+export function getPersonalAiProvider(scope: string): PersonalAiProvider {
+  if (typeof window === "undefined") return PERSONAL_AI_PROVIDER.server;
+  const stored = window.localStorage.getItem(personalProviderStorageName(scope));
+  return isPersonalAiProvider(stored) ? stored : PERSONAL_AI_PROVIDER.server;
+}
+
 export async function aiRequestHeaders(): Promise<Record<string, string>> {
   if (typeof window === "undefined") return { "Content-Type": "application/json" };
   const { scope } = await loadAiSettings();
   const key = window.localStorage.getItem(personalKeyStorageName(scope));
-  return key
-    ? { "Content-Type": "application/json", "X-OfferPilot-AI-Key": key, "X-OfferPilot-AI-User": scope }
-    : { "Content-Type": "application/json" };
+  if (!key) return { "Content-Type": "application/json" };
+  const headers: Record<string, string> = { "Content-Type": "application/json", "X-OfferPilot-AI-Key": key, "X-OfferPilot-AI-User": scope };
+  const provider = getPersonalAiProvider(scope);
+  if (provider !== PERSONAL_AI_PROVIDER.server) headers["X-OfferPilot-AI-Provider"] = provider;
+  return headers;
 }

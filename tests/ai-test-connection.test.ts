@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../app/api/ai/test-connection/route";
 
-function request(key?: string, scope = "demo") {
+function request(key?: string, scope = "demo", provider?: string) {
   return new Request("http://localhost/api/ai/test-connection", {
-    method: "POST", headers: { "Content-Type": "application/json", ...(key ? { "X-OfferPilot-AI-Key": key, "X-OfferPilot-AI-User": scope } : {}) }, body: "{}",
+    method: "POST", headers: { "Content-Type": "application/json", ...(key ? { "X-OfferPilot-AI-Key": key, "X-OfferPilot-AI-User": scope } : {}), ...(provider ? { "X-OfferPilot-AI-Provider": provider } : {}) }, body: "{}",
   });
 }
 
@@ -39,6 +39,18 @@ describe("AI connection test", () => {
     vi.stubGlobal("fetch", gateway);
     expect((await POST(request())).status).toBe(200);
     expect((await POST(request("personal-test-key", "other-user"))).status).toBe(403);
+    expect(gateway).toHaveBeenCalledTimes(1);
+  });
+
+  it("tests the selected personal provider at its fixed endpoint while keeping the configured model", async () => {
+    const gateway = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(_input)).toBe("https://cn-beijing.maas.qianwenaiapi.com/compatible-mode/v1/chat/completions");
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer personal-test-key");
+      expect(JSON.parse(String(init?.body))).toMatchObject({ model: "test-model", enable_thinking: false });
+      return Response.json({ choices: [{ message: { content: "OK" } }] });
+    });
+    vi.stubGlobal("fetch", gateway);
+    expect((await POST(request("personal-test-key", "demo", "qwen-payg"))).status).toBe(200);
     expect(gateway).toHaveBeenCalledTimes(1);
   });
 

@@ -8,8 +8,30 @@
 
 - [x] 实现带超时、无重试和重复点击保护的连接测试及未保存输入提示。
 - [x] 以模拟网关验证成功、默认/个人 Key、账号不匹配、错误状态、超时和密钥脱敏；浏览器实际验证成功与 401，未自动保存输入。Node 26.10 下 lint/typecheck、47 文件 421 测试与 webpack 构建（244 页）通过。
-- [ ] 默认 Turbopack 构建在本机内部绑定端口时仍报 EPERM，需在可用环境重跑；成功响应只证明短文本调用可用，不证明所有结构化输出功能可用。
-- [ ] 真实账号与网关及线上发布独立验收；用户未要求本次推送。
+- [x] 将标准 build 命令改为 Next.js 官方支持的 Webpack 选项，规避本机 Turbopack 子进程端口 `EPERM`；成功响应只证明短文本调用可用，不证明所有结构化输出功能可用。
+- [ ] 真实账号与网关及线上发布独立验收；用户已要求本次推送，部署与真实 Key 验收待推送后核实。
+
+## 2026-10-29 个人 Key 网关匹配
+
+用户提供的千问AI平台控制台截图显示 Key 为启用状态，且控制台示例使用北京 OpenAI 兼容 Base URL `https://cn-beijing.maas.qianwenaiapi.com/compatible-mode/v1`、模型 `qwen3.7-flash`。当前代码对个人 Key 仅替换 `OPENAI_API_KEY`，继续使用服务端 `OPENAI_BASE_URL`；仓库环境示例仍是 `*.maas.aliyuncs.com`。实际 Vercel 环境值不可读取，因此只能确认存在配置不匹配的可能，不能宣称已经证实线上网关值。
+
+- [x] 设置页增加个人 Key 的服务入口选项：服务器当前网关（兼容旧行为）或千问AI平台按量付费（北京）；选择按用户作用域保存在浏览器。原有个人 Key 默认继续使用服务器网关。
+- [x] 服务端通过已验证用户作用域后，才接受 `X-OfferPilot-AI-Provider: qwen-payg`，并把它映射到固定北京端点；不接受任意 URL。无该 Header 的个人 Key、默认 Key均保持旧配置；模型继续使用服务器 `OPENAI_MODEL`。
+- [x] 所有五种 AI 路由和连接测试复用相同的网关解析；保留现有非流式结构化输出、超时、脱敏和 fallback 语义。用户示例的 `stream=True`/`enable_thinking=True` 用于显式获取思考流，不纳入结构化评分/解释调用。
+- [x] 回归覆盖 Key/provider 映射、非法 provider、旧版 Header 兼容、默认网关不变、所选端点和模型、按账号隔离及连接测试行为；质量门全部通过。
+- [x] Node 26.10.0 下 lint、typecheck、48 个测试文件/425 项测试、Webpack 构建（244 页）和 `git diff --check` 通过。
+- [x] 将 `npm run build` 固定到官方支持的 Webpack 选项；直接 Turbopack 在本机仍有端口绑定 `EPERM`，但不再用于标准发布门禁。
+
+## 2026-10-29 构建门禁恢复
+
+Next.js 16.3.4 本机默认 Turbopack 构建在 PostCSS 子进程绑定端口时报 `EPERM`；同一源码此前已通过官方 `next build --webpack`。将 npm 的标准 `build` 脚本固定到官方 Webpack 选项，使发布门禁可以执行，同时保持 Next.js 优化生产构建。验收：Node 版本符合项目要求，`npm run lint`、`npm run typecheck`、`npm run test`、`npm run build` 全部通过，并检查差异无空白错误；无运行时或数据库变更。
+
+- [x] `package.json` 的 `build` 脚本已固定使用 Next.js 文档支持的 Webpack 构建选项。
+- [x] Node 26.10 下 lint、typecheck、48 个测试文件/425 项测试、标准 build（Webpack，244 页）及差异检查通过。
+
+实施记录（2026-10-29）：设置页和服务端 provider 选择已写入；服务器默认 API Key/网关路径保持原样，千问端点只用于用户明确选择的个人 Key。测试已覆盖五条 AI 路由、连通性测试、账户作用域、任意 provider 拒绝和 UI 选项；Node 26.10.0 下 lint/typecheck、48 个测试文件/425 项测试及 webpack 构建（244 页）通过，默认 Turbopack 构建仍因本机端口绑定 `EPERM` 失败，`git diff --check` 通过。未访问真实 Key 或 Vercel 环境；未推送/部署。部署后需在设置页选择“千问AI平台 · 按量付费（北京）”再用真实 Key 测试。
+
+当前状态更新（2026-10-29）：已将标准 build 脚本改为官方 Webpack 选项，Node 26.10 下四项质量门和 `git diff --check` 全部通过；用户已要求推送 `main`，本次无数据库迁移。推送后仍需核实可观察的部署状态，并使用个人 Key 实测所选网关。
 
 ## 范围与约束
 
@@ -23,7 +45,8 @@
 - [x] 设置页可保存、替换、显示/隐藏及删除个人 Key；浏览器 Demo 模拟密钥保存、刷新、显示/隐藏、删除通过，服务器默认 Key 不显示；按账号范围读取由单元测试验证。
 - [x] 五种 AI 调用个人 Key、原环境回退及非匹配账号拒绝由模拟网关回归验证；真实云端账号/网关尚未验收。
 - [x] 个人 Key 格式校验与存储/身份失败提示已实现；测试使用模拟密钥，无真实密钥进入仓库。
-- [ ] Node 26.10；lint/typecheck、全量 46 文件 413 测试和 webpack 构建（243 页）通过。默认 `npm run build` 的 Turbopack 因本机端口 EPERM 失败，需在允许其监听端口的环境重跑；真实账号与实际 AI 网关验收待完成。
+- [x] Node 26.10；lint/typecheck、48 个测试文件/425 项测试和标准 `npm run build`（Webpack，244 页）通过；`git diff --check` 通过。
+- [ ] 真实账号与实际 AI 网关验收待完成。
 
 ## 实施与回滚
 
@@ -31,4 +54,4 @@
 
 ## 验证记录与下一步
 
-2026-10-29：使用临时 Demo 模型和模拟 Key 验证设置页；五个接口的身份隔离、个人配置优先及默认配置回退通过自动测试。环境中默认构建在沙箱内外均因 Turbopack 内部绑定端口受限报 EPERM；`npm run build -- --webpack` 成功。下一步在可运行默认构建的环境重跑，并以真实账号检查网关和不同账号隔离后按现有发布条件处理。未查看或修改现有真实 Key 的值，未执行迁移或部署。
+2026-10-29：使用临时 Demo 模型和模拟 Key 验证设置页；五个接口的身份隔离、个人配置优先及默认配置回退通过自动测试。为避开本机 Turbopack 内部端口绑定 `EPERM`，标准 build 脚本改用官方 Webpack 选项；Node 26.10 下 lint/typecheck、48 文件/425 测试及 `npm run build`（244 页）全部通过。真实 Key 尚未读取或请求；无数据库迁移，部署状态待推送后核实。
