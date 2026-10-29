@@ -1,7 +1,8 @@
-import { PERSONAL_AI_PROVIDER, isPersonalAiProvider, type PersonalAiProvider } from "./personal-ai-provider";
+import { PERSONAL_AI_PROVIDER, isPersonalAiProvider, isValidPersonalAiModel, type PersonalAiProvider } from "./personal-ai-provider";
 
 const PREFIX = "offerpilot:ai-key:";
 const PROVIDER_PREFIX = "offerpilot:ai-provider:";
+const MODEL_PREFIX = "offerpilot:ai-model:";
 
 export type AiSettingsInfo = { scope: string; model: string; defaultConfigured: boolean };
 
@@ -24,10 +25,20 @@ export function personalProviderStorageName(scope: string) {
   return `${PROVIDER_PREFIX}${scope}`;
 }
 
+export function personalModelStorageName(scope: string) {
+  return `${MODEL_PREFIX}${scope}`;
+}
+
 export function getPersonalAiProvider(scope: string): PersonalAiProvider {
   if (typeof window === "undefined") return PERSONAL_AI_PROVIDER.server;
   const stored = window.localStorage.getItem(personalProviderStorageName(scope));
   return isPersonalAiProvider(stored) ? stored : PERSONAL_AI_PROVIDER.server;
+}
+
+export function getPersonalAiModel(scope: string): string | null {
+  if (typeof window === "undefined") return null;
+  const stored = window.localStorage.getItem(personalModelStorageName(scope));
+  return isValidPersonalAiModel(stored) ? stored : null;
 }
 
 export async function aiRequestHeaders(): Promise<Record<string, string>> {
@@ -38,5 +49,7 @@ export async function aiRequestHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { "Content-Type": "application/json", "X-OfferPilot-AI-Key": key, "X-OfferPilot-AI-User": scope };
   const provider = getPersonalAiProvider(scope);
   if (provider !== PERSONAL_AI_PROVIDER.server) headers["X-OfferPilot-AI-Provider"] = provider;
+  const model = getPersonalAiModel(scope);
+  if (model) headers["X-OfferPilot-AI-Model"] = model;
   return headers;
 }

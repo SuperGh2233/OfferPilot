@@ -24,10 +24,10 @@ export function PersonalAiProviderSelect({
       </select>
       {value === PERSONAL_AI_PROVIDER.qwenPayg ? (
         <p className="text-xs leading-5 text-muted-foreground">
-          仅个人 Key 使用：{QWEN_PAYG_BEIJING_BASE_URL} · 模型沿用当前设置。服务器默认 Key 与网关不变。
+          仅个人 Key 使用：{QWEN_PAYG_BEIJING_BASE_URL} · 模型可在下方单独设置。服务器默认 Key 与网关不变。
         </p>
       ) : (
-        <p className="text-xs leading-5 text-muted-foreground">个人 Key 沿用服务器当前网关；服务器默认配置不变。</p>
+        <p className="text-xs leading-5 text-muted-foreground">个人 Key 沿用服务器当前网关；模型可在下方单独设置，服务器默认配置不变。</p>
       )}
     </div>
   );
