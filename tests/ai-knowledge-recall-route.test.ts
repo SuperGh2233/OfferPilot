@@ -31,7 +31,7 @@ describe("POST /api/ai/analyze-recall in local demo mode", () => {
     const response = await POST(request(JSON.stringify({ questionId, answerText: "我的回答" })));
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({
-      error: "AI 复核尚未配置，请先设置服务器端 OPENAI_API_KEY。",
+      error: "AI 复核尚未配置，请在设置中填写个人 API Key，或配置服务器默认密钥。",
     });
   });
 });

@@ -30,7 +30,7 @@ describe("POST /api/ai/analyze-code in local demo mode", () => {
     const response = await POST(request(JSON.stringify({ problemId: "1", code: "class Solution {}" })));
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({
-      error: "AI 分析尚未配置，请先设置服务器端 OPENAI_API_KEY。",
+      error: "AI 分析尚未配置，请在设置中填写个人 API Key，或配置服务器默认密钥。",
     });
   });
 

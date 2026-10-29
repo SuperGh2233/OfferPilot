@@ -7,6 +7,7 @@ import { createInterviewCoachCompletion } from "../../../../lib/interview/ai-coa
 import { getKnowledgeQuestion } from "../../../../lib/knowledge/catalog";
 import { matchKnowledgeKeyPoints } from "../../../../lib/knowledge/match";
 import { isLocalDemoMode } from "../../../../lib/supabase/env";
+import { personalAiEnv } from "../../../../lib/ai/request-settings";
 
 function jsonError(error: string, status: number) {
   return Response.json({ error }, { status });
@@ -17,12 +18,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export async function POST(request: Request) {
+  let scope = "demo";
   if (!isLocalDemoMode()) {
     try {
       const { createClient } = await import("../../../../lib/supabase/server");
       const supabase = await createClient();
       const { data } = await supabase.auth.getClaims();
       if (!data?.claims) return jsonError("请先登录后使用模拟面试追问。", 401);
+      if (typeof data.claims.sub !== "string") return jsonError("身份验证暂不可用。", 503);
+      scope = data.claims.sub;
     } catch {
       return jsonError("身份验证暂不可用。", 503);
     }
@@ -76,10 +80,12 @@ export async function POST(request: Request) {
     priorFollowUps: (priorFollowUps ?? []) as string[],
   };
 
+  const personal = personalAiEnv(request, scope);
+  if (personal.error) return personal.error;
   try {
     const followUp = await generateInterviewFollowUp(
       input,
-      createInterviewCoachCompletion("interview_follow_up"),
+      createInterviewCoachCompletion("interview_follow_up", personal.env),
     );
     return Response.json({ followUp });
   } catch {

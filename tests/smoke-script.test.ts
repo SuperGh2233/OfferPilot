@@ -54,6 +54,7 @@ describe("production smoke script", () => {
       "GET /dashboard",
       "POST /api/ai/analyze-code",
       "POST /api/ai/analyze-recall",
+      "GET /api/ai/settings",
       "GET /api/training/snapshot",
       "POST /api/training/algorithm",
       "POST /api/training/knowledge",

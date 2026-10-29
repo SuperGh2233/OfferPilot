@@ -32,7 +32,7 @@ describe("POST /api/ai/explain-knowledge in local demo mode", () => {
     const response = await POST(request(JSON.stringify({ questionId, confusionText: "我不懂" })));
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({
-      error: "理解教练尚未配置，请先设置服务器端 OPENAI_API_KEY。",
+      error: "理解教练尚未配置，请在设置中填写个人 API Key，或配置服务器默认密钥。",
     });
   });
 });

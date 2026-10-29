@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { SettingsForm } from "@/components/settings/settings-form";
+import { AiSettings } from "@/components/settings/ai-settings";
 import { isBrowserDemoMode, isLocalDemoMode } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -32,6 +33,7 @@ export default async function SettingsPage() {
           </span>
         </header>
         <SettingsForm demoMode={demoMode} />
+        <AiSettings />
       </div>
     </main>
   );

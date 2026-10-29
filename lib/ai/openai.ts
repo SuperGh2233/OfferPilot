@@ -6,7 +6,7 @@ import {
   type AlgorithmCodeAnalysis,
 } from "./code-analysis";
 
-const DEFAULT_MODEL = "gpt-5.5";
+export const DEFAULT_MODEL = "gpt-5.5";
 const DEFAULT_TIMEOUT_MS = 20_000;
 
 export class AiConfigurationError extends Error {}

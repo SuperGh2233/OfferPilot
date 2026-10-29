@@ -4,6 +4,7 @@
 
 | Path | Status | Read when |
 | --- | --- | --- |
+| [`docs/plans/active/PLAN-20261029-personal-ai-key.md`](plans/active/PLAN-20261029-personal-ai-key.md) | active | Implementing and validating personal AI key settings. |
 | `README.md` | active | Setting up the Next.js application and existing Supabase/Vercel workflow. |
 | `AGENTS.md` | active | Changing code or running the repository quality gates. |
 
@@ -19,6 +20,7 @@
 
 | Path | Status | Read when |
 | --- | --- | --- |
+| [`docs/specs/SPEC-20261029-personal-ai-key.md`](specs/SPEC-20261029-personal-ai-key.md) | active | Reviewing the personal key scope, request headers and storage boundary. |
 | [`docs/architecture/ADR-20261007-asr-service-boundary.md`](architecture/ADR-20261007-asr-service-boundary.md) | legacy | Historical ASR decision, superseded on 2026-10-08 by system dictation. |
 | [`docs/specs/SPEC-20261007-asr-http.md`](specs/SPEC-20261007-asr-http.md) | archived | Retired ASR HTTP contract; the transcription route and service were removed. |
 

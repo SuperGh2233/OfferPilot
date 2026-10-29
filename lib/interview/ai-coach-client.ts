@@ -6,12 +6,13 @@ import {
   type InterviewSummary,
   type InterviewSummaryInput,
 } from "./ai-coach";
+import { aiRequestHeaders } from "../ai/personal-key-client";
 
 export type FetchLike = (
   input: string,
   init: {
     method: "POST";
-    headers: { "Content-Type": "application/json" };
+    headers: Record<string, string>;
     body: string;
     signal?: AbortSignal;
   },
@@ -73,7 +74,7 @@ export async function requestInterviewFollowUp(
   try {
     const response = await fetchImpl("/api/ai/interview-followup", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await aiRequestHeaders(),
       body: JSON.stringify({
         questionId: request.questionId,
         answerText: request.answerText,
@@ -106,7 +107,7 @@ export async function requestInterviewSummary(
   try {
     const response = await fetchImpl("/api/ai/interview-summary", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await aiRequestHeaders(),
       body: JSON.stringify(input),
       signal,
     });

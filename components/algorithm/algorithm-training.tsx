@@ -1,5 +1,7 @@
 "use client";
 
+import { aiRequestHeaders } from "@/lib/ai/personal-key-client";
+
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
@@ -525,7 +527,7 @@ export function AlgorithmTraining({
     try {
       const response = await fetch("/api/ai/analyze-code", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await aiRequestHeaders(),
         body: JSON.stringify({ problemId: problem.id, code: savedCode }),
       });
       const payload: unknown = await response.json();

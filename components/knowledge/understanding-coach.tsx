@@ -1,5 +1,7 @@
 "use client";
 
+import { aiRequestHeaders } from "@/lib/ai/personal-key-client";
+
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -24,7 +26,7 @@ export function UnderstandingCoach({
     try {
       const response = await fetch("/api/ai/explain-knowledge", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await aiRequestHeaders(),
         body: JSON.stringify({ questionId, confusionText }),
       });
       const payload: unknown = await response.json();

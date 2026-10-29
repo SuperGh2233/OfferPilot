@@ -1,12 +1,13 @@
 import OpenAI from "openai";
 
-import { getOpenAiCodeAnalysisConfig } from "../ai/openai";
+import { getOpenAiCodeAnalysisConfig, type OpenAiCodeAnalysisEnv } from "../ai/openai";
 import type { CoachCompletion } from "./ai-coach";
 
 export function createInterviewCoachCompletion(
   name: "interview_follow_up" | "interview_summary",
+  env?: OpenAiCodeAnalysisEnv,
 ): CoachCompletion {
-  const config = getOpenAiCodeAnalysisConfig();
+  const config = getOpenAiCodeAnalysisConfig(env);
   const client = new OpenAI(config);
   return async (prompt, signal) => {
     const body = {

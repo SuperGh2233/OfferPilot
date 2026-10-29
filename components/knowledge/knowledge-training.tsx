@@ -1,5 +1,7 @@
 "use client";
 
+import { aiRequestHeaders } from "@/lib/ai/personal-key-client";
+
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
@@ -293,7 +295,7 @@ export function KnowledgeTraining({
     try {
       const response = await fetch("/api/ai/analyze-recall", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await aiRequestHeaders(),
         body: JSON.stringify({ questionId: question.id, answerText }),
       });
       const payload: unknown = await response.json();
