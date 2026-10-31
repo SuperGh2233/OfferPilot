@@ -152,7 +152,6 @@ npm run build
 - [变更记录](CHANGELOG.md)
 - [文档索引](docs/index.md)
 - [数据库迁移](supabase/migrations/)
-- [部署配置](vercel.json)
 
 ## 当前状态与限制
 
@@ -161,6 +160,6 @@ npm run build
 - Supabase Migration、RLS、Seed 和生产部署状态以最新实施计划和实际环境核验为准，不将历史版本的验收结果视为当前版本已验收。
 - AI 追问和报告解读属于辅助信息，不应取代用户对知识掌握情况的判断。
 
-## License
+## 使用与再分发
 
-请以仓库中的 LICENSE 文件为准。
+当前仓库根目录未提供独立的 LICENSE 文件。使用或再分发前，请先确认代码来源与授权范围。
