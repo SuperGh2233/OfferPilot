@@ -9,54 +9,6 @@ permissions:
   contents: read
 
 jobs:
-  dependency-remediation:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/chore/portfolio-ci-2026-11-25' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      contents: write
-    env:
-      NEXT_TELEMETRY_DISABLED: "1"
-      NEXT_PUBLIC_SUPABASE_URL: https://ci-project.supabase.co
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
-      SUPABASE_SERVICE_ROLE_KEY: sb_secret_ci_placeholder
-      NEXT_PUBLIC_SITE_URL: http://localhost:3000
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22.13.0
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Upgrade Next.js security fixes
-        run: npm install --save-exact next@16.4.6 eslint-config-next@16.4.6
-      - name: Keep the shadcn CLI in development dependencies
-        run: npm install --save-dev shadcn@^4.21.0
-      - name: Apply non-breaking npm security updates
-        run: npm audit fix || true
-      - name: Require a clean production dependency tree
-        run: npm audit --omit=dev
-      - name: Require no high or critical advisories in the full tree
-        run: npm audit --audit-level=high
-      - name: Verify lint, types, tests and production build
-        run: |
-          npm run lint
-          npm run typecheck
-          npm run test
-          npm run build
-      - name: Commit verified dependency updates to this draft branch
-        run: |
-          if git diff --quiet -- package.json package-lock.json; then
-            echo "No dependency changes to commit."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package.json package-lock.json
-            git commit -m "security: update vulnerable npm dependencies"
-            git push origin HEAD:${GITHUB_REF_NAME}
-          fi
-
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 30
