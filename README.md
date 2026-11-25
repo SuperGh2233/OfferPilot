@@ -12,6 +12,8 @@
   <img alt="Tests" src="https://img.shields.io/badge/Tests-Vitest-6E9F18?logo=vitest&logoColor=white">
 </p>
 
+[![CI](https://github.com/SuperGh2233/OfferPilot/actions/workflows/ci.yml/badge.svg)](https://github.com/SuperGh2233/OfferPilot/actions/workflows/ci.yml)
+
 OfferPilot 将算法训练、Java 后端知识学习和模拟面试整合为一个持续运行的个人训练工作台。它不把 42 天当作进度清零点，而是围绕每日计划、练习记录、掌握度和间隔复习形成长期学习闭环。
 
 线上演示：<https://offerpilot-dun.vercel.app>
@@ -127,7 +129,7 @@ npm run test
 npm run build
 ```
 
-截至 2026-10-29，最近一次本地 Node 26.10 质量门记录为：ESLint、TypeScript、48 个测试文件 / 425 项测试和 Webpack 生产构建通过。该记录是本地验证，不代表最新代码已完成真实账号、真实模型网关或生产部署验收。
+2026-11-25 GitHub Actions（Node 22.13.0）验证：ESLint、Next.js `typegen` + TypeScript、**48 个测试文件 / 427 项测试**和 Webpack 生产构建通过（244 个静态页面）。构建使用占位 Supabase 配置，不代表真实账号、真实模型网关或生产部署验收。\n\n安全整改：Next.js / `eslint-config-next` 已升级到 **16.4.6**；`shadcn` CLI 已移入开发依赖。`npm audit --omit=dev` 为 **0 vulnerabilities**；完整依赖树仅剩 4 项 Moderate 开发工具链公告，无 High / Critical。
 
 ## 项目结构
 
