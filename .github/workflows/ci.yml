@@ -31,6 +31,8 @@ jobs:
         run: npm ci
       - name: Upgrade Next.js security fixes
         run: npm install --save-exact next@16.4.6 eslint-config-next@16.4.6
+      - name: Keep the shadcn CLI in development dependencies
+        run: npm install --save-dev shadcn@^4.21.0
       - name: Apply non-breaking npm security updates
         run: npm audit fix || true
       - name: Require a clean production dependency tree
