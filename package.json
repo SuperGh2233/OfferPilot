@@ -7,7 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "seed": "node --env-file-if-exists=.env.local scripts/seed.mjs",
     "seed:check": "node scripts/seed.mjs --dry-run",
